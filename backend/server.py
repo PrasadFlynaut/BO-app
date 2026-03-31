@@ -760,12 +760,16 @@ async def startup():
     await db.posts.create_index("created_at")
     await db.chat_messages.create_index([("user_id", 1), ("created_at", 1)])
     await seed_data()
+    await seed_sprint2()
     logger.info("BO Wellness App started")
 
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
 
+from sprint2 import sprint2_router, seed_sprint2
+
+app.include_router(sprint2_router, prefix="/api")
 app.include_router(api_router)
 
 app.add_middleware(

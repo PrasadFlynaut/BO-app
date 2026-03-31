@@ -1,238 +1,286 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  TextInput, FlatList, ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, FadeInDown, FadeInRight } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
 
-const { width } = Dimensions.get('window');
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-function ProgressRing({ progress, size, strokeWidth, color, bgColor }: { progress: number; size: number; strokeWidth: number; color: string; bgColor: string }) {
-  const r = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * r;
-  const strokeDashoffset = circumference * (1 - Math.min(progress, 1));
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Circle cx={size / 2} cy={size / 2} r={r} stroke={bgColor} strokeWidth={strokeWidth} fill="none" />
-      <Circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={strokeWidth} fill="none" strokeDasharray={`${circumference}`} strokeDashoffset={strokeDashoffset} strokeLinecap="round" rotation="-90" origin={`${size / 2}, ${size / 2}`} />
-    </Svg>
-  );
-}
-
-const QUOTES = [
-  { text: "The food you eat can be either the safest and most powerful form of medicine or the slowest form of poison.", author: "Ann Wigmore" },
-  { text: "Let food be thy medicine and medicine be thy food.", author: "Hippocrates" },
-  { text: "Take care of your body. It's the only place you have to live.", author: "Jim Rohn" },
-];
+const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const [dashboard, setDashboard] = useState<any>(null);
+  const router = useRouter();
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [quote] = useState(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  const load = async () => {
-    try { const { data } = await api.get('/dashboard'); setDashboard(data); } catch (e) { console.error(e); }
-  };
-  useFocusEffect(useCallback(() => { load(); }, []));
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
-  const quickAdd = async (type: string, amount: number) => {
+  useFocusEffect(useCallback(() => { loadData(); }, []));
+
+  const loadData = async () => {
+    setLoading(true);
     try {
-      if (type === 'water') await api.post('/water/log', { amount_ml: amount });
-      else await api.post('/nutrition/log', { meal_type: type, food_name: `Quick ${type}`, calories: amount, protein_g: amount * 0.1, carbs_g: amount * 0.15, fat_g: amount * 0.05 });
-      await load();
+      const [progRes, restRes] = await Promise.all([
+        api.get('/wellness-programs'),
+        api.get('/restaurants?limit=10&sort=rating'),
+      ]);
+      setPrograms(progRes.data.programs || []);
+      setRestaurants(restRes.data.data || []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+
+  const handleSearch = async (q: string) => {
+    setSearch(q);
+    if (!q.trim()) { loadData(); return; }
+    try {
+      const { data } = await api.get(`/restaurants/search?q=${encodeURIComponent(q)}`);
+      setRestaurants(data.data || []);
     } catch (e) { console.error(e); }
   };
 
-  const greeting = () => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 17) return 'Good Afternoon'; return 'Good Evening'; };
-  const waterPct = dashboard ? Math.min(dashboard.water_ml / dashboard.water_goal_ml, 1) : 0;
-  const calPct = dashboard ? Math.min(dashboard.calories / dashboard.calorie_goal, 1) : 0;
+  const handleFilter = async (filter: string) => {
+    setActiveFilter(filter);
+    let params = '';
+    if (filter === 'Top Rated') params = '?min_rating=4&sort=rating';
+    else if (filter === 'BO Verified') params = '?bo_verified=true';
+    else if (filter === 'BO Partner') params = '?bo_partner=true';
+    else params = '?sort=rating';
+    try {
+      const endpoint = filter === 'Nearby' ? '/restaurants/search' : '/restaurants/search';
+      const { data } = await api.get(`${endpoint}${params}`);
+      setRestaurants(data.data || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const QUICK_ADDS = [
+    { icon: 'sunny-outline', label: 'Breakfast', color: '#FFB74D' },
+    { icon: 'restaurant-outline', label: 'Lunch', color: Colors.green },
+    { icon: 'moon-outline', label: 'Dinner', color: Colors.waterBlue },
+    { icon: 'cafe-outline', label: 'Snack', color: Colors.fitnessPurple },
+    { icon: 'water-outline', label: 'Water', color: Colors.waterBlue },
+    { icon: 'barbell-outline', label: 'Exercise', color: Colors.nutritionOrange },
+  ];
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />} showsVerticalScrollIndicator={false}>
-
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
+    <SafeAreaView style={s.safe}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />}
+      >
+        {/* Greeting + Profile */}
+        <View style={s.greetRow}>
           <View>
-            <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_78422c49-5348-441f-bc53-d90eaaac0909/artifacts/9yt4dytf_BO_Logo_Color.png' }} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.tagline}>for your health on the go</Text>
+            <Text style={s.greeting}>{greeting}, {firstName}!</Text>
+            <Text style={s.greetSub}>Let us find your healthiest meal today</Text>
           </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity testID="notifications-btn" style={styles.iconBtn}><Ionicons name="notifications" size={22} color={Colors.green} /></TouchableOpacity>
-            <TouchableOpacity testID="favorites-btn" style={styles.iconBtn}><Ionicons name="heart" size={22} color={Colors.nutritionOrange} /></TouchableOpacity>
-          </View>
-        </Animated.View>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
+            <Ionicons name="person" size={20} color={Colors.green} />
+          </TouchableOpacity>
+        </View>
 
-        {/* Greeting Hero */}
-        <Animated.View entering={FadeInDown.delay(100).duration(600)}>
-          <LinearGradient colors={['#26B50F', '#1E8F0C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-            <View style={styles.heroTop}>
-              <View>
-                <Text style={styles.heroGreeting}>{greeting()}</Text>
-                <Text style={styles.heroName}>{user?.name || 'User'}</Text>
-              </View>
-              <View style={styles.streakBadge}>
-                <Ionicons name="flame" size={16} color="#FF9F1C" />
-                <Text style={styles.streakText}>7 day streak</Text>
-              </View>
-            </View>
-            <Text style={styles.heroQuote}>"{quote.text}"</Text>
-            <Text style={styles.heroAuthor}>— {quote.author}</Text>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* Progress Rings Row */}
-        <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.ringsRow}>
-          <View style={[styles.ringCard, { backgroundColor: Colors.waterSurface }]}>
-            <ProgressRing progress={waterPct} size={72} strokeWidth={7} color={Colors.waterBlue} bgColor="rgba(58,134,255,0.15)" />
-            <View style={styles.ringCenter}>
-              <Text style={[styles.ringValue, { color: Colors.waterBlue }]}>{dashboard?.water_ml || 0}</Text>
-              <Text style={styles.ringUnit}>ml</Text>
-            </View>
-            <Text style={styles.ringLabel}>Water</Text>
-            <Text style={styles.ringGoal}>{dashboard?.water_goal_ml || 2500}ml goal</Text>
+        {/* Wellness Programs */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Wellness Programs</Text>
+            <TouchableOpacity><Text style={s.seeAll}>See All</Text></TouchableOpacity>
           </View>
-          <View style={[styles.ringCard, { backgroundColor: Colors.nutritionSurface }]}>
-            <ProgressRing progress={calPct} size={72} strokeWidth={7} color={Colors.nutritionOrange} bgColor="rgba(255,159,28,0.15)" />
-            <View style={styles.ringCenter}>
-              <Text style={[styles.ringValue, { color: Colors.nutritionOrange }]}>{Math.round(dashboard?.calories || 0)}</Text>
-              <Text style={styles.ringUnit}>cal</Text>
-            </View>
-            <Text style={styles.ringLabel}>Calories</Text>
-            <Text style={styles.ringGoal}>{dashboard?.calorie_goal || 2000} goal</Text>
-          </View>
-          <View style={[styles.ringCard, { backgroundColor: Colors.greenLight }]}>
-            <View style={styles.mealCountCircle}>
-              <Text style={styles.mealCountNum}>{dashboard?.meals_logged || 0}</Text>
-            </View>
-            <Text style={styles.ringLabel}>Meals</Text>
-            <Text style={styles.ringGoal}>logged today</Text>
-          </View>
-        </Animated.View>
-
-        {/* Macros */}
-        <Animated.View entering={FadeInDown.delay(300).duration(600)} style={[styles.macroCard, Shadow.md]}>
-          <Text style={styles.sectionTitle}>Today's Macros</Text>
-          <View style={styles.macroRow}>
-            {[
-              { label: 'Protein', value: dashboard?.protein_g || 0, color: '#FF5252', bg: '#FFF0F0' },
-              { label: 'Carbs', value: dashboard?.carbs_g || 0, color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
-              { label: 'Fat', value: dashboard?.fat_g || 0, color: Colors.green, bg: Colors.greenLight },
-            ].map((m, i) => (
-              <View key={m.label} style={[styles.macroItem, { backgroundColor: m.bg }]}>
-                <Text style={[styles.macroValue, { color: m.color }]}>{Math.round(m.value)}g</Text>
-                <Text style={styles.macroLabel}>{m.label}</Text>
-              </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.progScroll}>
+            {programs.map((p, i) => (
+              <TouchableOpacity key={p.id || i} style={s.progCard} activeOpacity={0.85}>
+                <Image source={{ uri: p.image_url }} style={s.progImg} />
+                <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={s.progOverlay}>
+                  <View style={s.durationBadge}>
+                    <Text style={s.durationText}>{p.duration_days} Days</Text>
+                  </View>
+                  <Text style={s.progTitle}>{p.name}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </Animated.View>
 
         {/* Quick Add */}
-        <Animated.View entering={FadeInDown.delay(400).duration(600)}>
-          <Text style={styles.sectionTitle}>Quick Add</Text>
-          <Text style={styles.sectionSub}>Track your nutrition in seconds</Text>
-          <View style={styles.quickGrid}>
-            {[
-              { testId: 'quick-add-water', icon: 'water', label: 'Water', sub: '+250ml', color: Colors.waterBlue, bg: Colors.waterSurface, type: 'water', amount: 250 },
-              { testId: 'quick-add-breakfast', icon: 'sunny', label: 'Breakfast', sub: '~350cal', color: Colors.nutritionOrange, bg: Colors.nutritionSurface, type: 'breakfast', amount: 350 },
-              { testId: 'quick-add-lunch', icon: 'restaurant', label: 'Lunch', sub: '~500cal', color: Colors.green, bg: Colors.greenLight, type: 'lunch', amount: 500 },
-              { testId: 'quick-add-dinner', icon: 'moon', label: 'Dinner', sub: '~600cal', color: Colors.fitnessPurple, bg: Colors.fitnessSurface, type: 'dinner', amount: 600 },
-            ].map((q) => (
-              <TouchableOpacity key={q.testId} testID={q.testId} style={[styles.quickBtn, { backgroundColor: q.bg }, Shadow.sm]} onPress={() => quickAdd(q.type, q.amount)} activeOpacity={0.7}>
-                <View style={[styles.quickIconWrap, { backgroundColor: q.color + '20' }]}>
-                  <Ionicons name={q.icon as any} size={22} color={q.color} />
-                </View>
-                <Text style={styles.quickLabel}>{q.label}</Text>
-                <Text style={[styles.quickSub, { color: q.color }]}>{q.sub}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <TouchableOpacity style={[s.quickAddBtn, Shadow.md]} onPress={() => setShowQuickAdd(!showQuickAdd)} activeOpacity={0.8}>
+            <LinearGradient colors={[Colors.green, Colors.greenDark]} style={s.quickAddGrad}>
+              <Ionicons name={showQuickAdd ? 'close' : 'add'} size={24} color="#FFF" />
+              <Text style={s.quickAddText}>Quick Add</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          {showQuickAdd && (
+            <View style={s.quickAddGrid}>
+              {QUICK_ADDS.map((qa, i) => (
+                <TouchableOpacity key={i} style={s.qaItem} activeOpacity={0.7}>
+                  <View style={[s.qaIcon, { backgroundColor: qa.color + '15' }]}>
+                    <Ionicons name={qa.icon as any} size={22} color={qa.color} />
+                  </View>
+                  <Text style={s.qaLabel}>{qa.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </Animated.View>
 
-        {/* Weight Progress */}
-        {dashboard?.weight_kg && (
-          <Animated.View entering={FadeInDown.delay(500).duration(600)} style={[styles.weightCard, Shadow.sm]}>
-            <LinearGradient colors={[Colors.fitnessSurface, '#FFFFFF']} style={styles.weightGradient}>
-              <View style={styles.weightHeader}>
-                <Ionicons name="trending-down" size={20} color={Colors.fitnessPurple} />
-                <Text style={styles.sectionTitle}>Weight Progress</Text>
-              </View>
-              <View style={styles.weightRow}>
-                <View style={styles.weightItem}>
-                  <Text style={styles.weightVal}>{dashboard.weight_kg}kg</Text>
-                  <Text style={styles.weightLbl}>Current</Text>
-                </View>
-                <View style={styles.weightArrow}><Ionicons name="arrow-forward" size={20} color={Colors.fitnessPurple} /></View>
-                <View style={styles.weightItem}>
-                  <Text style={[styles.weightVal, { color: Colors.green }]}>{dashboard.target_weight_kg || '?'}kg</Text>
-                  <Text style={styles.weightLbl}>Target</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-        )}
+        {/* Location + Search */}
+        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+          <View style={s.locationRow}>
+            <Ionicons name="location" size={16} color={Colors.green} />
+            <Text style={s.locationText}>New York, NY</Text>
+          </View>
 
+          <Text style={s.findTitle}>Find your healthiest meal today</Text>
+
+          <View style={s.searchRow}>
+            <Ionicons name="search" size={18} color={Colors.textTertiary} />
+            <TextInput
+              style={s.searchInput}
+              placeholder="Search restaurants, cuisines..."
+              placeholderTextColor={Colors.textTertiary}
+              value={search}
+              onChangeText={handleSearch}
+            />
+            <TouchableOpacity><Ionicons name="options-outline" size={18} color={Colors.textTertiary} /></TouchableOpacity>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
+            {FILTERS.map(f => (
+              <TouchableOpacity key={f} style={[s.filterChip, activeFilter === f && s.filterActive]} onPress={() => handleFilter(f)} activeOpacity={0.7}>
+                <Text style={[s.filterText, activeFilter === f && s.filterTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+
+        {/* Restaurant List */}
+        {loading ? (
+          <View style={s.loadingWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
+        ) : restaurants.length === 0 ? (
+          <View style={s.emptyWrap}>
+            <Ionicons name="restaurant-outline" size={48} color={Colors.textTertiary} />
+            <Text style={s.emptyText}>No restaurants found nearby</Text>
+            <Text style={s.emptySubtext}>Try expanding your search</Text>
+          </View>
+        ) : (
+          restaurants.map((r, i) => (
+            <Animated.View key={r.id || i} entering={FadeInDown.delay(400 + i * 60).duration(400)}>
+              <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
+                <Image source={{ uri: r.image_url }} style={s.restImg} />
+                {r.bo_verified && (
+                  <View style={s.verifiedBadge}>
+                    <Ionicons name="shield-checkmark" size={12} color="#FFF" />
+                    <Text style={s.verifiedText}>BO Verified</Text>
+                  </View>
+                )}
+                {r.bo_partner && !r.bo_verified && (
+                  <View style={[s.verifiedBadge, { backgroundColor: Colors.nutritionOrange }]}>
+                    <Ionicons name="handshake-outline" size={12} color="#FFF" />
+                    <Text style={s.verifiedText}>BO Partner</Text>
+                  </View>
+                )}
+                <View style={s.restBody}>
+                  <Text style={s.restName}>{r.name}</Text>
+                  <Text style={s.restCuisine}>{(r.cuisines || []).join(', ')}</Text>
+                  <View style={s.restMeta}>
+                    <View style={s.ratingRow}>
+                      <Ionicons name="star" size={14} color="#FFD700" />
+                      <Text style={s.ratingText}>{r.average_rating || '0.0'}</Text>
+                      <Text style={s.ratingCount}>({r.total_ratings || 0})</Text>
+                    </View>
+                    {r.distance_miles && (
+                      <View style={s.distRow}>
+                        <Ionicons name="location-outline" size={14} color={Colors.textTertiary} />
+                        <Text style={s.distText}>{r.distance_miles} mi</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
-  scroll: { padding: Spacing.md, paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
-  logo: { width: 56, height: 56 },
-  tagline: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '500', marginTop: -2 },
-  headerIcons: { flexDirection: 'row', gap: Spacing.sm, marginTop: 8 },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flex: 1 },
+  content: { paddingBottom: 100 },
 
-  heroCard: { borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-  heroGreeting: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.small },
-  heroName: { color: '#FFF', fontSize: FontSize.h2, fontWeight: '800' },
-  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.pill, paddingVertical: 6, paddingHorizontal: 12 },
-  streakText: { color: '#FFF', fontSize: FontSize.caption, fontWeight: '600' },
-  heroQuote: { color: 'rgba(255,255,255,0.9)', fontSize: FontSize.small, fontStyle: 'italic', lineHeight: 22 },
-  heroAuthor: { color: 'rgba(255,255,255,0.6)', fontSize: FontSize.caption, textAlign: 'right', marginTop: Spacing.sm },
+  greetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: 24 },
+  greeting: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
+  greetSub: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
 
-  ringsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
-  ringCard: { flex: 1, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center', ...Shadow.sm },
-  ringCenter: { position: 'absolute', top: Spacing.md, width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
-  ringValue: { fontSize: FontSize.body, fontWeight: '800' },
-  ringUnit: { fontSize: 10, color: Colors.textTertiary },
-  ringLabel: { color: Colors.textPrimary, fontSize: FontSize.caption, fontWeight: '600', marginTop: Spacing.sm },
-  ringGoal: { color: Colors.textTertiary, fontSize: 10 },
-  mealCountCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(38,181,15,0.15)', alignItems: 'center', justifyContent: 'center' },
-  mealCountNum: { fontSize: FontSize.h2, fontWeight: '800', color: Colors.green },
+  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, marginTop: Spacing.lg, marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  seeAll: { fontSize: FontSize.small, color: Colors.green, fontWeight: '600' },
 
-  macroCard: { backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.borderLight },
-  sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.h4, fontWeight: '700', marginBottom: Spacing.sm },
-  sectionSub: { color: Colors.textTertiary, fontSize: FontSize.small, marginBottom: Spacing.md, marginTop: -4 },
-  macroRow: { flexDirection: 'row', gap: Spacing.sm },
-  macroItem: { flex: 1, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  macroValue: { fontSize: FontSize.h3, fontWeight: '800' },
-  macroLabel: { color: Colors.textSecondary, fontSize: FontSize.caption, marginTop: 2 },
+  progScroll: { paddingLeft: Spacing.lg, gap: 12 },
+  progCard: { width: 280, height: 160, borderRadius: Radius.lg, overflow: 'hidden' },
+  progImg: { width: '100%', height: '100%' },
+  progOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%', justifyContent: 'flex-end', padding: 16 },
+  durationBadge: { position: 'absolute', top: 12, right: 12, backgroundColor: Colors.green, borderRadius: Radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
+  durationText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  progTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
 
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  quickBtn: { width: (width - 48 - 8) / 2, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center' },
-  quickIconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  quickLabel: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '600' },
-  quickSub: { fontSize: FontSize.caption, fontWeight: '700', marginTop: 2 },
+  quickAddBtn: { marginHorizontal: Spacing.lg, marginTop: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden' },
+  quickAddGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  quickAddText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
+  quickAddGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.lg, marginTop: Spacing.sm, gap: Spacing.sm },
+  qaItem: { width: '30%' as any, alignItems: 'center', padding: 12, backgroundColor: Colors.bgBase, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.borderLight },
+  qaIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  qaLabel: { fontSize: FontSize.caption, fontWeight: '600', color: Colors.textPrimary },
 
-  weightCard: { borderRadius: Radius.lg, overflow: 'hidden', marginTop: Spacing.lg },
-  weightGradient: { padding: Spacing.md },
-  weightHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  weightRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  weightItem: { alignItems: 'center' },
-  weightVal: { color: Colors.textPrimary, fontSize: FontSize.h2, fontWeight: '800' },
-  weightLbl: { color: Colors.textTertiary, fontSize: FontSize.caption, marginTop: 2 },
-  weightArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.fitnessSurface, alignItems: 'center', justifyContent: 'center' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.lg, marginTop: Spacing.lg },
+  locationText: { fontSize: FontSize.small, color: Colors.textSecondary, fontWeight: '500' },
+  findTitle: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.lg, marginTop: Spacing.sm },
+
+  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.greenLight, borderRadius: Radius.lg, marginHorizontal: Spacing.lg, marginTop: Spacing.md, paddingHorizontal: 14, height: 48, gap: 8 },
+  searchInput: { flex: 1, fontSize: FontSize.body, color: Colors.textPrimary, outlineStyle: 'none' as any },
+
+  filterScroll: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: 8 },
+  filterChip: { borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1.5, borderColor: Colors.borderLight, backgroundColor: Colors.bgBase },
+  filterActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
+  filterText: { fontSize: FontSize.small, color: Colors.textSecondary, fontWeight: '500' },
+  filterTextActive: { color: Colors.green, fontWeight: '700' },
+
+  loadingWrap: { paddingVertical: 60, alignItems: 'center' },
+  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  emptyText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textSecondary },
+  emptySubtext: { fontSize: FontSize.small, color: Colors.textTertiary },
+
+  restCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.borderLight },
+  restImg: { width: '100%', height: 180 },
+  verifiedBadge: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.green, borderRadius: Radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
+  verifiedText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  restBody: { padding: 14 },
+  restName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  restCuisine: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
+  restMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingText: { fontSize: FontSize.small, fontWeight: '700', color: Colors.textPrimary },
+  ratingCount: { fontSize: FontSize.caption, color: Colors.textTertiary },
+  distRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  distText: { fontSize: FontSize.small, color: Colors.textSecondary },
 });

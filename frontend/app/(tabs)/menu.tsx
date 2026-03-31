@@ -1,298 +1,154 @@
-import React, { useState, useCallback, useRef } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Image, ActivityIndicator, ScrollView, Animated,
-  LayoutAnimation, Platform, UIManager,
-} from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import { useAuth } from '@/src/auth';
 import api from '@/src/api';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const PLAN_STYLES: Record<string, { gradient: [string, string]; surface: string; icon: string }> = {
-  keto:            { gradient: ['#FF6B35', '#FF9F1C'], surface: '#FFF7ED', icon: 'flame' },
-  mediterranean:   { gradient: ['#06D6A0', '#26B50F'], surface: '#E6FFF7', icon: 'heart' },
-  vegan:           { gradient: ['#26B50F', '#DBFF02'], surface: '#F0FDF4', icon: 'leaf' },
-  'clean-eating':  { gradient: ['#3A86FF', '#06D6A0'], surface: '#F0F8FF', icon: 'sparkles' },
-  'high-protein':  { gradient: ['#8338EC', '#FF5252'], surface: '#FDF4FF', icon: 'barbell' },
-  balanced:        { gradient: ['#DBFF02', '#26B50F'], surface: '#F0FDF4', icon: 'scale' },
-};
-
-const TIPS = [
-  { icon: 'water-outline', title: 'Stay Hydrated', desc: 'Drink 8 glasses of water daily', color: Colors.waterBlue, bg: Colors.waterSurface },
-  { icon: 'moon-outline', title: 'Sleep Well', desc: 'Quality sleep supports healthy eating', color: Colors.fitnessPurple, bg: Colors.fitnessSurface },
-  { icon: 'timer-outline', title: 'Meal Timing', desc: 'Eat at consistent times each day', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
-  { icon: 'leaf-outline', title: 'Eat Whole Foods', desc: 'Prioritize nutrient-dense foods', color: Colors.green, bg: Colors.greenLight },
+const MEAL_SLOTS = [
+  { slot: 'Breakfast', icon: 'sunny-outline' as const, time: '7:00 - 9:00 AM', gradient: ['#FFB74D', '#FF9800'] as [string, string] },
+  { slot: 'Lunch', icon: 'restaurant-outline' as const, time: '12:00 - 2:00 PM', gradient: ['#26B50F', '#1E8F0C'] as [string, string] },
+  { slot: 'Dinner', icon: 'moon-outline' as const, time: '6:00 - 8:00 PM', gradient: ['#3A86FF', '#1A56CC'] as [string, string] },
 ];
 
-export default function MenuScreen() {
-  const [plans, setPlans] = useState<any[]>([]);
-  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
-  const [mealsMap, setMealsMap] = useState<Record<string, any[]>>({});
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+export default function CulinaryBlueprintScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [categories, setCategories] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const userPrefs = user?.meal_preferences || user?.dietary_preferences || [];
 
-  useFocusEffect(useCallback(() => { loadPlans(); }, []));
+  useFocusEffect(useCallback(() => { loadData(); }, []));
 
-  const loadPlans = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const { data } = await api.get('/diet-plans');
-      setPlans(data.plans);
+      const [catRes, featRes] = await Promise.all([
+        api.get('/meal-categories'),
+        api.get('/meal-featured'),
+      ]);
+      setCategories(catRes.data.categories || []);
+      setFeatured(featRes.data.meal || null);
     } catch (e) { console.error(e); }
+    setLoading(false);
   };
 
-  const togglePlan = async (id: string) => {
-    if (Platform.OS !== 'web') {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }
+  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
-    if (expandedPlan === id) {
-      setExpandedPlan(null);
-      return;
-    }
-
-    setExpandedPlan(id);
-
-    if (!mealsMap[id]) {
-      setLoadingPlan(id);
-      try {
-        const { data } = await api.get(`/diet-plans/${id}`);
-        setMealsMap(prev => ({ ...prev, [id]: data.meals }));
-      } catch (e) { console.error(e); }
-      setLoadingPlan(null);
-    }
-  };
-
-  const addMeal = async (meal: any) => {
-    try {
-      await api.post('/nutrition/log', {
-        meal_type: meal.category,
-        food_name: meal.name,
-        calories: meal.calories,
-        protein_g: meal.protein_g,
-        carbs_g: meal.carbs_g,
-        fat_g: meal.fat_g,
-      });
-    } catch (e) { console.error(e); }
-  };
-
-  const isExpanded = (id: string) => expandedPlan === id;
-  const planMeals = (id: string) => mealsMap[id] || [];
+  const isPreferred = (name: string) => userPrefs.some((p: string) => p.toLowerCase() === name.toLowerCase());
 
   return (
-    <ScrollView style={st.container} contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
-      {/* Hero */}
-      <LinearGradient colors={[Colors.green, Colors.greenDark]} style={st.hero}>
-        <Text style={st.heroTitle}>Smart Menu</Text>
-        <Text style={st.heroSub}>Curated plans for every lifestyle</Text>
-      </LinearGradient>
+    <SafeAreaView style={s.safe}>
+      <ScrollView
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />}
+      >
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={s.title}>Culinary Blueprint</Text>
+          <Text style={s.subtitle}>Browse to select your preferred meal plan</Text>
+        </View>
 
-      {/* Section Title */}
-      <View style={st.sectionHeader}>
-        <Text style={st.sectionTitle}>Diet Plans</Text>
-        <Text style={st.sectionSubtitle}>Tap to explore meals</Text>
-      </View>
+        {/* Category Grid */}
+        {loading ? (
+          <View style={s.loadWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
+        ) : (
+          <Animated.View entering={FadeInDown.duration(500)} style={s.grid}>
+            {categories.map((cat, i) => {
+              const preferred = isPreferred(cat.name);
+              return (
+                <TouchableOpacity key={cat.id || i} style={[s.catCard, preferred && s.catPreferred]} activeOpacity={0.8}>
+                  <Image source={{ uri: cat.image_url }} style={s.catImg} />
+                  {preferred && (
+                    <View style={s.catCheck}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.green} />
+                    </View>
+                  )}
+                  <Text style={s.catName}>{cat.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </Animated.View>
+        )}
 
-      {/* Accordion Plans */}
-      {plans.map((plan) => {
-        const ps = PLAN_STYLES[plan.id] || PLAN_STYLES.balanced;
-        const expanded = isExpanded(plan.id);
-        const meals = planMeals(plan.id);
-        const isLoading = loadingPlan === plan.id;
+        {/* Plan Your Meal */}
+        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Plan Your Meal</Text>
+          </View>
+          {MEAL_SLOTS.map((m, i) => (
+            <TouchableOpacity key={m.slot} style={[s.mealSlot, Shadow.sm]} activeOpacity={0.8}>
+              <LinearGradient colors={m.gradient} style={s.mealSlotIcon}>
+                <Ionicons name={m.icon} size={22} color="#FFF" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={s.mealSlotName}>{m.slot}</Text>
+                <Text style={s.mealSlotTime}>{m.time}</Text>
+                <Text style={s.mealSlotEmpty}>No meal planned yet. Tap + to add.</Text>
+              </View>
+              <TouchableOpacity style={s.mealSlotAdd}>
+                <Ionicons name="add" size={20} color={Colors.green} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
 
-        return (
-          <View key={plan.id} style={st.accordionWrapper}>
-            {/* Plan Header - Tappable */}
-            <TouchableOpacity
-              testID={`plan-${plan.id}`}
-              onPress={() => togglePlan(plan.id)}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={expanded ? ps.gradient : [Colors.bgBase, Colors.bgBase]}
-                style={[st.accordionHead, !expanded && st.accordionBorder, expanded && Shadow.md]}
-              >
-                <View style={[st.planIconCircle, { backgroundColor: expanded ? 'rgba(255,255,255,0.25)' : ps.surface }]}>
-                  <Ionicons name={ps.icon as any} size={20} color={expanded ? '#FFF' : ps.gradient[0]} />
-                </View>
-                <View style={st.planInfo}>
-                  <Text style={[st.planName, expanded && st.planNameActive]}>{plan.name}</Text>
-                  <Text style={[st.planMeta, expanded && st.planMetaActive]}>
-                    {plan.duration_days} days · {plan.difficulty} · {plan.calories_range} cal
-                  </Text>
-                </View>
-                <View style={[st.chevronCircle, { backgroundColor: expanded ? 'rgba(255,255,255,0.25)' : ps.surface }]}>
-                  <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={expanded ? '#FFF' : ps.gradient[0]}
-                  />
+        {/* Meal of the Moment */}
+        {featured && (
+          <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+            <View style={s.sectionHead}>
+              <Text style={s.sectionTitle}>Meal of the Moment</Text>
+            </View>
+            <TouchableOpacity style={[s.featuredCard, Shadow.md]} activeOpacity={0.85}>
+              <Image source={{ uri: featured.image_url }} style={s.featuredImg} />
+              <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={s.featuredOverlay}>
+                <Text style={s.featuredTitle}>{featured.title}</Text>
+                <Text style={s.featuredSub}>{featured.about || featured.description}</Text>
+                <View style={s.featuredBtn}>
+                  <Text style={s.featuredBtnText}>View Recipe</Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-
-            {/* Expanded Content */}
-            {expanded && (
-              <View style={[st.accordionBody, { borderColor: ps.gradient[0] + '20' }]}>
-                {/* Plan Description */}
-                <View style={[st.descRow, { backgroundColor: ps.surface }]}>
-                  <Ionicons name="information-circle" size={16} color={ps.gradient[0]} />
-                  <Text style={st.descText}>{plan.description}</Text>
-                </View>
-
-                {/* Loading State */}
-                {isLoading && (
-                  <View style={st.loadWrap}>
-                    <ActivityIndicator size="small" color={ps.gradient[0]} />
-                    <Text style={st.loadText}>Loading meals...</Text>
-                  </View>
-                )}
-
-                {/* Meals */}
-                {!isLoading && meals.length > 0 && (
-                  <View style={st.mealsContainer}>
-                    {meals.map((m: any) => (
-                      <View key={m.id} style={[st.mealCard, Shadow.sm]}>
-                        <Image source={{ uri: m.image_url }} style={st.mealImg} />
-                        <LinearGradient
-                          colors={['transparent', 'rgba(0,0,0,0.7)']}
-                          style={st.mealOverlay}
-                        >
-                          <View style={st.catBadge}>
-                            <Text style={[st.catText, { color: ps.gradient[0] }]}>{m.category}</Text>
-                          </View>
-                          <Text style={st.mealTitle}>{m.name}</Text>
-                        </LinearGradient>
-                        <View style={st.mealBody}>
-                          <View style={st.macros}>
-                            {[
-                              { l: `${m.calories} cal`, c: Colors.nutritionOrange, b: Colors.nutritionSurface },
-                              { l: `P ${m.protein_g}g`, c: '#FF5252', b: '#FFF0F0' },
-                              { l: `C ${m.carbs_g}g`, c: Colors.waterBlue, b: Colors.waterSurface },
-                              { l: `F ${m.fat_g}g`, c: Colors.green, b: Colors.greenLight },
-                            ].map((n, i) => (
-                              <View key={i} style={[st.pill, { backgroundColor: n.b }]}>
-                                <Text style={[st.pillT, { color: n.c }]}>{n.l}</Text>
-                              </View>
-                            ))}
-                          </View>
-                          <View style={st.mealFoot}>
-                            <View style={st.prepRow}>
-                              <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
-                              <Text style={st.prepText}>{m.prep_time} min</Text>
-                            </View>
-                            <TouchableOpacity testID={`add-meal-${m.id}`} onPress={() => addMeal(m)} activeOpacity={0.7}>
-                              <LinearGradient colors={ps.gradient} style={st.logBtn}>
-                                <Ionicons name="add" size={14} color="#FFF" />
-                                <Text style={st.logText}>Log Meal</Text>
-                              </LinearGradient>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {!isLoading && meals.length === 0 && !loadingPlan && (
-                  <View style={st.noMeals}>
-                    <Ionicons name="restaurant-outline" size={24} color={Colors.textTertiary} />
-                    <Text style={st.noMealsText}>No meals available</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-        );
-      })}
-
-      {/* Nutrition Tips */}
-      <View style={st.tipsSection}>
-        <Text style={st.sectionTitle}>Nutrition Tips</Text>
-        {TIPS.map((t, i) => (
-          <View key={i} style={[st.tipCard, { backgroundColor: t.bg }]}>
-            <View style={[st.tipIcon, { backgroundColor: t.color + '20' }]}>
-              <Ionicons name={t.icon as any} size={20} color={t.color} />
-            </View>
-            <View style={st.tipContent}>
-              <Text style={st.tipTitle}>{t.title}</Text>
-              <Text style={st.tipDesc}>{t.desc}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+          </Animated.View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgBase },
-  content:   { paddingBottom: 120 },
-
-  // Hero
-  hero:      { paddingTop: 56, paddingBottom: 24, paddingHorizontal: Spacing.md, borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl },
-  heroTitle: { fontSize: FontSize.h1, fontWeight: '800', color: '#FFF' },
-  heroSub:   { fontSize: FontSize.small, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-
-  // Section
-  sectionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: Spacing.md, marginTop: Spacing.lg, marginBottom: Spacing.sm },
-  sectionTitle:   { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary },
-  sectionSubtitle:{ fontSize: FontSize.small, color: Colors.textTertiary },
-
-  // Accordion
-  accordionWrapper: { marginHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  accordionHead:    { flexDirection: 'row', alignItems: 'center', borderRadius: Radius.lg, padding: 14, gap: 12 },
-  accordionBorder:  { borderWidth: 1.5, borderColor: Colors.borderLight },
-  accordionBody:    { borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg, paddingBottom: Spacing.sm, backgroundColor: Colors.bgBase },
-
-  // Plan card elements
-  planIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  planInfo:       { flex: 1 },
-  planName:       { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
-  planNameActive: { color: '#FFF' },
-  planMeta:       { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 2 },
-  planMetaActive: { color: 'rgba(255,255,255,0.8)' },
-  chevronCircle:  { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-
-  // Description row
-  descRow:  { flexDirection: 'row', gap: 8, alignItems: 'flex-start', padding: 12, marginHorizontal: 12, marginTop: 12, borderRadius: Radius.md },
-  descText: { flex: 1, fontSize: FontSize.small, color: Colors.textSecondary, lineHeight: 20 },
-
-  // Loading
-  loadWrap:  { alignItems: 'center', paddingVertical: Spacing.lg, gap: 8 },
-  loadText:  { fontSize: FontSize.small, color: Colors.textTertiary },
-
-  // Meals inside accordion
-  mealsContainer: { paddingHorizontal: 12, paddingTop: 12 },
-  mealCard:       { backgroundColor: '#FFF', borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.borderLight },
-  mealImg:        { width: '100%', height: 150 },
-  mealOverlay:    { position: 'absolute', top: 0, left: 0, right: 0, height: 150, justifyContent: 'flex-end', padding: 12 },
-  catBadge:       { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: Radius.pill, paddingVertical: 3, paddingHorizontal: 10 },
-  catText:        { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  mealTitle:      { fontSize: FontSize.h4, fontWeight: '800', color: '#FFF' },
-  mealBody:       { padding: 12 },
-  macros:         { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  pill:           { borderRadius: Radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  pillT:          { fontSize: 11, fontWeight: '700' },
-  mealFoot:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  prepRow:        { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  prepText:       { fontSize: FontSize.caption, color: Colors.textTertiary },
-  logBtn:         { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 14 },
-  logText:        { fontSize: FontSize.caption, fontWeight: '700', color: '#FFF' },
-
-  // No meals
-  noMeals:     { alignItems: 'center', paddingVertical: Spacing.lg, gap: 8 },
-  noMealsText: { fontSize: FontSize.small, color: Colors.textTertiary },
-
-  // Tips
-  tipsSection: { padding: Spacing.md, marginTop: Spacing.sm },
-  tipCard:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm },
-  tipIcon:     { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  tipContent:  { flex: 1 },
-  tipTitle:    { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
-  tipDesc:     { fontSize: FontSize.small, color: Colors.textSecondary, lineHeight: 18, marginTop: 2 },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.bgBase },
+  content: { paddingBottom: 120 },
+  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
+  subtitle: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
+  loadWrap: { paddingVertical: 60, alignItems: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.lg, marginTop: Spacing.lg, gap: Spacing.md },
+  catCard: { width: '29%' as any, alignItems: 'center', borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.bgBase, borderWidth: 1.5, borderColor: Colors.borderLight },
+  catPreferred: { borderColor: Colors.green, borderWidth: 2 },
+  catImg: { width: '100%', aspectRatio: 1, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg },
+  catCheck: { position: 'absolute', top: 6, right: 6 },
+  catName: { fontSize: FontSize.caption, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', paddingVertical: 8 },
+  sectionHead: { paddingHorizontal: Spacing.lg, marginTop: Spacing.xl, marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  mealSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginHorizontal: Spacing.lg, marginBottom: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.borderLight },
+  mealSlotIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  mealSlotName: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  mealSlotTime: { fontSize: FontSize.caption, color: Colors.textSecondary, marginTop: 2 },
+  mealSlotEmpty: { fontSize: FontSize.caption, color: Colors.textTertiary, fontStyle: 'italic', marginTop: 4 },
+  mealSlotAdd: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center' },
+  featuredCard: { marginHorizontal: Spacing.lg, borderRadius: Radius.lg, overflow: 'hidden', marginBottom: Spacing.lg },
+  featuredImg: { width: '100%', height: 200 },
+  featuredOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%', justifyContent: 'flex-end', padding: 16 },
+  featuredTitle: { color: '#FFF', fontSize: 20, fontWeight: '800' },
+  featuredSub: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.small, marginTop: 4 },
+  featuredBtn: { alignSelf: 'flex-start', backgroundColor: Colors.green, borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 16, marginTop: 10 },
+  featuredBtnText: { color: '#FFF', fontSize: FontSize.small, fontWeight: '700' },
 });

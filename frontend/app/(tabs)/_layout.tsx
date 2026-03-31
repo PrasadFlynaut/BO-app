@@ -30,7 +30,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="menu" options={{ title: 'Menu', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={24} color={color} /></View> }} />
+      <Tabs.Screen name="menu" options={{ title: 'Culinary', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={24} color={color} /></View> }} />
       <Tabs.Screen name="feed" options={{ title: 'Feed', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'people' : 'people-outline'} size={24} color={color} /></View> }} />
       <Tabs.Screen name="chat" options={{ title: 'Coach', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'sparkles' : 'sparkles-outline'} size={24} color={color} /></View> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} /></View> }} />
