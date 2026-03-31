@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, RefreshControl, Modal, TextInput,
   KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
+  Share, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -116,6 +117,9 @@ export default function GoalsScreen() {
   const [showEditGoals, setShowEditGoals] = useState(false);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [report, setReport] = useState<any>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   useFocusEffect(useCallback(() => { loadGoals(); }, []));
 
@@ -166,6 +170,26 @@ export default function GoalsScreen() {
       setShowEditGoals(false);
       refreshUser();
       loadGoals();
+    } catch (e) { console.error(e); }
+  };
+
+  const generateReport = async () => {
+    setGeneratingReport(true);
+    try {
+      const { data } = await api.post('/v1/reports/generate');
+      setReport(data.report);
+      setShowReportModal(true);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to generate report');
+    }
+    setGeneratingReport(false);
+  };
+
+  const shareReport = async () => {
+    if (!report) return;
+    const text = `BO Wellness Progress Report\n\nPeriod: ${report.period?.start} to ${report.period?.end}\n\nMeals: ${report.meals?.total_logged} logged (${report.meals?.total_calories} cal)\nWater: ${report.water?.total_glasses} glasses (avg ${report.water?.avg_daily}/day)\nSleep: avg ${report.sleep?.avg_duration_hrs}h, quality ${report.sleep?.avg_quality}/5\nWalking: ${report.walking?.total_steps?.toLocaleString()} steps (avg ${report.walking?.avg_daily_steps?.toLocaleString()}/day)\nActivity: ${report.activity?.total_met_minutes} MET-min (${report.activity?.sessions} sessions)\nHappiness: ${report.happiness?.average}/5 avg\n\nGenerated: ${new Date(report.generated_at).toLocaleDateString()}`;
+    try {
+      await Share.share({ message: text, title: 'BO Wellness Report' });
     } catch (e) { console.error(e); }
   };
 
@@ -298,6 +322,19 @@ export default function GoalsScreen() {
                 {renderQField('Nutritionist', questionnaire.under_nutritionist ? 'Yes' : 'No', 'medkit')}
               </View>
             </Animated.View>
+            {/* Download Report Button */}
+            <Animated.View entering={FadeInDown.delay(700).springify()}>
+              <TouchableOpacity onPress={generateReport} style={[s.reportBtn, Shadow.sm]} activeOpacity={0.8} disabled={generatingReport}>
+                {generatingReport ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="document-text" size={20} color="#FFF" />
+                    <Text style={s.reportBtnText}>Download Progress Report</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
           </>
         )}
       </ScrollView>
@@ -381,6 +418,31 @@ export default function GoalsScreen() {
           <Text style={s.modalSaveBtnText}>Close</Text>
         </TouchableOpacity>
       </BottomSheet>
+
+      {/* Report Modal */}
+      <BottomSheet visible={showReportModal} onClose={() => setShowReportModal(false)}>
+        <Text style={s.modalTitle}>30-Day Progress Report</Text>
+        {report && (
+          <>
+            <Text style={s.reportPeriod}>{report.period?.start} to {report.period?.end}</Text>
+            <View style={s.reportGrid}>
+              {renderReportItem('Meals', `${report.meals?.total_logged || 0} logged`, `${(report.meals?.total_calories || 0).toLocaleString()} cal`, 'restaurant', Colors.nutritionOrange)}
+              {renderReportItem('Water', `${report.water?.total_glasses || 0} glasses`, `avg ${report.water?.avg_daily || 0}/day`, 'water', Colors.waterBlue)}
+              {renderReportItem('Sleep', `avg ${report.sleep?.avg_duration_hrs || 0}h`, `quality ${report.sleep?.avg_quality || 0}/5`, 'moon', Colors.fitnessPurple)}
+              {renderReportItem('Walking', `${(report.walking?.total_steps || 0).toLocaleString()} steps`, `avg ${(report.walking?.avg_daily_steps || 0).toLocaleString()}/day`, 'walk', Colors.socialTeal)}
+              {renderReportItem('Activity', `${report.activity?.total_met_minutes || 0} MET-min`, `${report.activity?.sessions || 0} sessions`, 'barbell', Colors.danger)}
+              {renderReportItem('Happiness', `${report.happiness?.average || 0}/5`, `${report.happiness?.entries || 0} entries`, 'happy', Colors.green)}
+            </View>
+            <TouchableOpacity onPress={shareReport} style={s.shareBtn} activeOpacity={0.8}>
+              <Ionicons name="share-outline" size={18} color={Colors.green} />
+              <Text style={s.shareBtnText}>Share Report</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        <TouchableOpacity onPress={() => setShowReportModal(false)} style={s.modalSaveBtn} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Close</Text>
+        </TouchableOpacity>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -402,6 +464,19 @@ function renderDetailField(label: string, value: string) {
     <View style={s.detailField}>
       <Text style={s.detailLabel}>{label}</Text>
       <Text style={s.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+function renderReportItem(title: string, value: string, sub: string, icon: string, color: string) {
+  return (
+    <View style={s.reportItem}>
+      <View style={[s.reportItemIcon, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon as any} size={20} color={color} />
+      </View>
+      <Text style={s.reportItemTitle}>{title}</Text>
+      <Text style={[s.reportItemValue, { color }]}>{value}</Text>
+      <Text style={s.reportItemSub}>{sub}</Text>
     </View>
   );
 }
@@ -490,4 +565,17 @@ const s = StyleSheet.create({
   goalToggleTextActive: { color: Colors.textPrimary },
   checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
   checkboxActive: { backgroundColor: Colors.green, borderColor: Colors.green },
+
+  // Report
+  reportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: Spacing.lg, backgroundColor: Colors.waterBlue, borderRadius: Radius.lg, paddingVertical: 16, marginBottom: Spacing.lg },
+  reportBtnText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
+  reportPeriod: { fontSize: FontSize.small, color: Colors.textTertiary, marginTop: 4, marginBottom: Spacing.md },
+  reportGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  reportItem: { width: '47%' as any, backgroundColor: '#F7F8FA', borderRadius: Radius.lg, padding: 14, alignItems: 'center', gap: 4 },
+  reportItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  reportItemTitle: { fontSize: FontSize.caption, color: Colors.textTertiary, fontWeight: '600' },
+  reportItemValue: { fontSize: FontSize.body, fontWeight: '800' },
+  reportItemSub: { fontSize: 10, color: Colors.textTertiary },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: Colors.green, borderRadius: Radius.lg, paddingVertical: 12, marginTop: Spacing.md },
+  shareBtnText: { color: Colors.green, fontWeight: '700', fontSize: FontSize.small },
 });

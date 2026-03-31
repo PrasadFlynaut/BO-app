@@ -294,8 +294,12 @@ export default function QuickAddsScreen() {
   const [editingJournal, setEditingJournal] = useState<any>(null);
   const [journalSearch, setJournalSearch] = useState('');
 
-  // Timeline
+  // Timeline & Calendar
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  const [calendarMode, setCalendarMode] = useState<'calendar' | 'timeline'>('calendar');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [activityDates, setActivityDates] = useState<Record<string, string[]>>({});
 
   // Refs for focusing next input
   const calInputRef = useRef<TextInput>(null);
@@ -308,14 +312,15 @@ export default function QuickAddsScreen() {
     setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes] = await Promise.all([
+      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes, summaryRes] = await Promise.all([
         api.get(`/v1/meals/log?date=${today}`).catch(() => ({ data: { logs: [] } })),
         api.get(`/v1/trackers/water?date=${today}`).catch(() => ({ data: { logs: [] } })),
         api.get('/v1/trackers/sleep').catch(() => ({ data: { logs: [] } })),
         api.get('/v1/trackers/walking').catch(() => ({ data: { logs: [] } })),
         api.get('/v1/trackers/met').catch(() => ({ data: { logs: [] } })),
         api.get('/v1/journal?limit=30').catch(() => ({ data: { data: [] } })),
-        api.get(`/v1/trackers/timeline?date=${today}`).catch(() => ({ data: { events: [] } })),
+        api.get(`/v1/trackers/timeline?date=${selectedDate}`).catch(() => ({ data: { events: [] } })),
+        api.get(`/v1/trackers/summary?date=${today}`).catch(() => ({ data: {} })),
       ]);
       setMealLogs(mealsRes.data.logs || []);
       const wLogs = waterRes.data.logs || [];
@@ -325,8 +330,40 @@ export default function QuickAddsScreen() {
       setMetLogs(metRes.data.logs || []);
       setJournals(journalRes.data.data || []);
       setTimelineEvents(timelineRes.data.events || []);
+
+      // Build activity dates map from all logs
+      const datesMap: Record<string, string[]> = {};
+      for (const m of mealsRes.data.logs || []) {
+        const d = m.date;
+        if (d) { datesMap[d] = [...(datesMap[d] || []), 'meal']; }
+      }
+      for (const w of wLogs) {
+        const d = w.date;
+        if (d && !datesMap[d]?.includes('water')) { datesMap[d] = [...(datesMap[d] || []), 'water']; }
+      }
+      for (const sl of sleepRes.data.logs || []) {
+        const d = sl.date;
+        if (d && !datesMap[d]?.includes('sleep')) { datesMap[d] = [...(datesMap[d] || []), 'sleep']; }
+      }
+      for (const w of walkRes.data.logs || []) {
+        const d = w.date;
+        if (d && !datesMap[d]?.includes('walk')) { datesMap[d] = [...(datesMap[d] || []), 'walk']; }
+      }
+      for (const m of metRes.data.logs || []) {
+        const d = m.date;
+        if (d && !datesMap[d]?.includes('met')) { datesMap[d] = [...(datesMap[d] || []), 'met']; }
+      }
+      setActivityDates(datesMap);
     } catch (e) { console.error(e); }
     setLoading(false);
+  };
+
+  const loadTimelineForDate = async (dateStr: string) => {
+    setSelectedDate(dateStr);
+    try {
+      const { data } = await api.get(`/v1/trackers/timeline?date=${dateStr}`);
+      setTimelineEvents(data.events || []);
+    } catch (e) { console.error(e); }
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadAllData(); setRefreshing(false); };
@@ -670,43 +707,166 @@ export default function QuickAddsScreen() {
     return map[type] || 'ellipse';
   };
 
-  const renderTimeline = () => (
-    <View>
-      <Text style={s.timelineTitle}>Today's Timeline</Text>
-      {timelineEvents.length === 0 ? (
-        <Animated.View entering={FadeIn.duration(500)} style={s.emptyState}>
-          <Ionicons name="time-outline" size={48} color={Colors.textTertiary} />
-          <Text style={s.emptyTitle}>No activities yet</Text>
-          <Text style={s.emptySubtext}>Log meals, water, or exercise to see your timeline</Text>
-        </Animated.View>
-      ) : (
-        timelineEvents.map((ev: any, idx: number) => (
-          <Animated.View key={idx} entering={FadeInDown.delay(idx * 70).springify()}>
-            <View style={s.timelineItem}>
-              <View style={s.timelineLeft}>
-                <Text style={s.timelineTime}>
-                  {ev.time ? new Date(ev.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                </Text>
-              </View>
-              <View style={s.timelineLine}>
-                <Animated.View entering={FadeIn.delay(idx * 100)} style={[s.timelineDot, { backgroundColor: ev.color || Colors.green }]} />
-                {idx < timelineEvents.length - 1 && <View style={s.timelineConnector} />}
-              </View>
-              <View style={[s.timelineCard, Shadow.sm]}>
-                <View style={[s.timelineIconWrap, { backgroundColor: (ev.color || Colors.green) + '15' }]}>
-                  <Ionicons name={getTimelineIcon(ev.type) as any} size={18} color={ev.color || Colors.green} />
+  // Calendar helpers
+  const getDaysInMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
+  const formatMonthYear = (d: Date) => d.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  const prevMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
+  const nextMonth = () => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
+
+  const getActivityColor = (types: string[]) => {
+    if (types.includes('meal') && types.includes('water')) return Colors.green;
+    if (types.includes('meal')) return Colors.nutritionOrange;
+    if (types.includes('water')) return Colors.waterBlue;
+    if (types.includes('walk') || types.includes('met')) return Colors.socialTeal;
+    if (types.includes('sleep')) return Colors.fitnessPurple;
+    return Colors.textTertiary;
+  };
+
+  const renderCalendarTimeline = () => {
+    const daysInMonth = getDaysInMonth(calendarMonth);
+    const firstDay = getFirstDayOfMonth(calendarMonth);
+    const today = new Date().toISOString().split('T')[0];
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const calendarDays = [];
+    for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+    for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+
+    return (
+      <View>
+        {/* Mode toggle */}
+        <View style={s.modeToggle}>
+          <TouchableOpacity onPress={() => setCalendarMode('calendar')} style={[s.modeBtn, calendarMode === 'calendar' && s.modeBtnActive]}>
+            <Ionicons name="calendar" size={16} color={calendarMode === 'calendar' ? '#FFF' : Colors.textTertiary} />
+            <Text style={[s.modeBtnText, calendarMode === 'calendar' && s.modeBtnTextActive]}>Calendar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCalendarMode('timeline')} style={[s.modeBtn, calendarMode === 'timeline' && s.modeBtnActive]}>
+            <Ionicons name="list" size={16} color={calendarMode === 'timeline' ? '#FFF' : Colors.textTertiary} />
+            <Text style={[s.modeBtnText, calendarMode === 'timeline' && s.modeBtnTextActive]}>Timeline</Text>
+          </TouchableOpacity>
+        </View>
+
+        {calendarMode === 'calendar' ? (
+          <Animated.View entering={FadeIn.duration(300)}>
+            {/* Month navigator */}
+            <View style={s.calMonthRow}>
+              <TouchableOpacity onPress={prevMonth} style={s.calNavBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={s.calMonthText}>{formatMonthYear(calendarMonth)}</Text>
+              <TouchableOpacity onPress={nextMonth} style={s.calNavBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Day headers */}
+            <View style={s.calDayHeaders}>
+              {DAYS.map(d => (
+                <View key={d} style={s.calDayHeader}>
+                  <Text style={s.calDayHeaderText}>{d}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.timelineCardTitle}>{ev.title}</Text>
-                  <Text style={s.timelineCardDesc}>{ev.description}</Text>
+              ))}
+            </View>
+
+            {/* Calendar grid */}
+            <View style={s.calGrid}>
+              {calendarDays.map((day, idx) => {
+                if (day === null) return <View key={`e-${idx}`} style={s.calCell} />;
+                const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isToday = dateStr === today;
+                const isSelected = dateStr === selectedDate;
+                const activities = activityDates[dateStr] || [];
+                const hasActivity = activities.length > 0;
+
+                return (
+                  <TouchableOpacity
+                    key={dateStr}
+                    style={[s.calCell, isSelected && s.calCellSelected, isToday && !isSelected && s.calCellToday]}
+                    onPress={() => loadTimelineForDate(dateStr)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.calDayText, isSelected && s.calDayTextSelected, isToday && !isSelected && s.calDayTextToday]}>{day}</Text>
+                    {hasActivity && (
+                      <View style={s.calDotRow}>
+                        {activities.slice(0, 3).map((a: string, i: number) => (
+                          <View key={i} style={[s.calDot, { backgroundColor: getActivityColor([a]) }]} />
+                        ))}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Selected date activity summary */}
+            <View style={[s.calSummary, Shadow.sm]}>
+              <Text style={s.calSummaryTitle}>
+                {selectedDate === today ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </Text>
+              {activityDates[selectedDate] ? (
+                <View style={s.calSummaryDots}>
+                  {activityDates[selectedDate].map((a: string, i: number) => (
+                    <View key={i} style={s.calSummaryTag}>
+                      <View style={[s.calDot, { backgroundColor: getActivityColor([a]) }]} />
+                      <Text style={s.calSummaryTagText}>{a.charAt(0).toUpperCase() + a.slice(1)}</Text>
+                    </View>
+                  ))}
                 </View>
-              </View>
+              ) : (
+                <Text style={s.calSummaryEmpty}>No activities logged</Text>
+              )}
+              <TouchableOpacity onPress={() => { setCalendarMode('timeline'); }} style={s.calViewTimelineBtn}>
+                <Text style={s.calViewTimelineText}>View Timeline</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.green} />
+              </TouchableOpacity>
             </View>
           </Animated.View>
-        ))
-      )}
-    </View>
-  );
+        ) : (
+          <Animated.View entering={FadeIn.duration(300)}>
+            <View style={s.timelineDateRow}>
+              <Text style={s.timelineTitle}>
+                {selectedDate === today ? "Today's Timeline" : `Timeline for ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+              </Text>
+            </View>
+            {timelineEvents.length === 0 ? (
+              <View style={s.emptyState}>
+                <Ionicons name="time-outline" size={48} color={Colors.textTertiary} />
+                <Text style={s.emptyTitle}>No activities</Text>
+                <Text style={s.emptySubtext}>No tracker events for this date</Text>
+              </View>
+            ) : (
+              timelineEvents.map((ev: any, idx: number) => (
+                <Animated.View key={idx} entering={FadeInDown.delay(idx * 70).springify()}>
+                  <View style={s.timelineItem}>
+                    <View style={s.timelineLeft}>
+                      <Text style={s.timelineTime}>
+                        {ev.time ? new Date(ev.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      </Text>
+                    </View>
+                    <View style={s.timelineLine}>
+                      <View style={[s.timelineDot, { backgroundColor: ev.color || Colors.green }]} />
+                      {idx < timelineEvents.length - 1 && <View style={s.timelineConnector} />}
+                    </View>
+                    <View style={[s.timelineCard, Shadow.sm]}>
+                      <View style={[s.timelineIconWrap, { backgroundColor: (ev.color || Colors.green) + '15' }]}>
+                        <Ionicons name={getTimelineIcon(ev.type) as any} size={18} color={ev.color || Colors.green} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.timelineCardTitle}>{ev.title}</Text>
+                        <Text style={s.timelineCardDesc}>{ev.description}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </Animated.View>
+              ))
+            )}
+          </Animated.View>
+        )}
+      </View>
+    );
+  };
 
   // Zone indicator animation
   const zoneUnderline = useSharedValue(0);
@@ -756,7 +916,7 @@ export default function QuickAddsScreen() {
             {activeZone === 'meals' && renderMeals()}
             {activeZone === 'trackers' && renderTrackers()}
             {activeZone === 'journal' && renderJournal()}
-            {activeZone === 'calendar' && renderTimeline()}
+            {activeZone === 'calendar' && renderCalendarTimeline()}
           </>
         )}
       </ScrollView>
@@ -1089,4 +1249,37 @@ const s = StyleSheet.create({
   metChipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
   metChipTextActive: { color: Colors.green },
   metChipVal: { fontSize: 10, color: Colors.textTertiary },
+
+  // Calendar mode toggle
+  modeToggle: { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: '#F1F5F9', borderRadius: Radius.lg, padding: 3 },
+  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: Radius.md },
+  modeBtnActive: { backgroundColor: Colors.green },
+  modeBtnText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textTertiary },
+  modeBtnTextActive: { color: '#FFF' },
+
+  // Calendar
+  calMonthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  calNavBtn: { padding: 4 },
+  calMonthText: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary },
+  calDayHeaders: { flexDirection: 'row', paddingHorizontal: Spacing.md },
+  calDayHeader: { flex: 1, alignItems: 'center', paddingBottom: 8 },
+  calDayHeaderText: { fontSize: FontSize.caption, fontWeight: '600', color: Colors.textTertiary },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.md },
+  calCell: { width: `${100 / 7}%` as any, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
+  calCellSelected: { backgroundColor: Colors.green },
+  calCellToday: { backgroundColor: Colors.greenLight },
+  calDayText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textPrimary },
+  calDayTextSelected: { color: '#FFF' },
+  calDayTextToday: { color: Colors.green },
+  calDotRow: { flexDirection: 'row', gap: 2, marginTop: 3 },
+  calDot: { width: 5, height: 5, borderRadius: 3 },
+  calSummary: { marginHorizontal: Spacing.md, marginTop: Spacing.md, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 14 },
+  calSummaryTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  calSummaryDots: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  calSummaryTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F7F8FA', borderRadius: Radius.pill, paddingVertical: 4, paddingHorizontal: 10 },
+  calSummaryTagText: { fontSize: FontSize.caption, color: Colors.textSecondary, fontWeight: '500' },
+  calSummaryEmpty: { fontSize: FontSize.small, color: Colors.textTertiary, marginTop: 6 },
+  calViewTimelineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 8 },
+  calViewTimelineText: { fontSize: FontSize.small, color: Colors.green, fontWeight: '700' },
+  timelineDateRow: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
 });
