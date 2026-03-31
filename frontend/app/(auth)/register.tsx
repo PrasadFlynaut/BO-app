@@ -18,7 +18,7 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (user) {
-      if (!user.onboarding_complete) router.replace('/(onboarding)/goals');
+      if (!user.onboarding_complete) router.replace('/(onboarding)/activities');
       else router.replace('/(tabs)/home');
     }
   }, [user]);

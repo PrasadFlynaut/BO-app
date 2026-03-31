@@ -101,3 +101,130 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "BO Mobile App - Sprint 1 Scope: Auth (MOD-001) + Onboarding (MOD-002). Implement forgot/reset password, change password, privacy policy, enhanced registration, and full onboarding flow (activities, badges, happiness, dietary, questionnaire, life-goals, permissions, complete)."
+
+backend:
+  - task: "Forgot Password API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/auth/forgot-password - generates 6-digit code, stores in DB, returns code for dev testing"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: POST /api/auth/forgot-password works correctly. Generates 6-digit reset code, stores in DB with expiry, returns code in response for dev testing. Verified with admin@bo.com."
+
+  - task: "Reset Password API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/auth/reset-password - verifies code, resets password, handles expiry and attempt limits"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: POST /api/auth/reset-password works correctly. Verifies reset code, updates password hash, handles expiry and attempt limits. Verified password reset and login with new password successful."
+
+  - task: "Change Password API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PUT /api/auth/change-password - requires auth, verifies current password, updates to new"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: PUT /api/auth/change-password works correctly. Requires Bearer token auth, verifies current password, updates to new password. Verified password change and login with new password successful."
+
+  - task: "Enhanced Registration API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/auth/register now accepts first_name, last_name, phone, date_of_birth"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: POST /api/auth/register works correctly with enhanced fields. Accepts and stores first_name, last_name, phone, date_of_birth. Returns access_token and user object with all fields populated."
+
+  - task: "Onboarding Step APIs"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/onboarding/activities, PUT /api/onboarding/preferences, PUT /api/onboarding/questionnaire, PUT /api/onboarding/life-goals, PUT /api/onboarding/permissions, POST /api/onboarding/complete - all save data to user profile in MongoDB"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All 6 onboarding endpoints work correctly. POST /api/onboarding/activities saves activities & fitness_goals. PUT /api/onboarding/preferences saves meal_preferences & allergies. PUT /api/onboarding/questionnaire saves health questionnaire data. PUT /api/onboarding/life-goals saves life_goals & happiness_level. PUT /api/onboarding/permissions saves all permission flags. POST /api/onboarding/complete sets onboarding_complete=true. All require auth and update user profile in MongoDB."
+
+frontend:
+  - task: "Forgot/Reset Password Screen"
+    implemented: true
+    working: "NA"
+    file: "app/(auth)/forgot-password.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+
+  - task: "Privacy Policy Screen"
+    implemented: true
+    working: "NA"
+    file: "app/(auth)/privacy-policy.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+
+  - task: "8-step Onboarding Flow"
+    implemented: true
+    working: "NA"
+    file: "app/(onboarding)/*.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+
+  - task: "Change Password Modal in Profile"
+    implemented: true
+    working: "NA"
+    file: "app/(tabs)/profile.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+
+  - task: "Smart Menu Accordion"
+    implemented: true
+    working: "NA"
+    file: "app/(tabs)/menu.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+
+test_plan: "Test all new backend API endpoints: forgot-password, reset-password, change-password, enhanced register, and all onboarding step endpoints. Use test credentials from /app/memory/test_credentials.md."
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented full Sprint 1 scope: 3 new auth endpoints (forgot/reset/change password), enhanced registration with more fields, 6 new onboarding step endpoints, 9 new frontend screens. Please test all backend endpoints first."
+  - agent: "testing"
+    message: "✅ BACKEND TESTING COMPLETE: All 12 backend API tests passed (100% success rate). Tested forgot-password, reset-password, change-password, enhanced registration, and all 6 onboarding step endpoints. All APIs working correctly with proper auth, data validation, and MongoDB persistence. Created comprehensive backend_test.py for future testing. Ready for frontend testing or project completion."

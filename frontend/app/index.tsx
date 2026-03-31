@@ -73,7 +73,7 @@ export default function SplashScreen() {
     if (loading || onboardingSeen === null) return;
     if (onboardingSeen && user) {
       if (!user.onboarding_complete) {
-        router.replace('/(onboarding)/goals');
+        router.replace('/(onboarding)/activities');
       } else {
         router.replace('/(tabs)/home');
       }

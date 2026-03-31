@@ -89,7 +89,11 @@ def serialize_user(user: dict) -> dict:
 class RegisterInput(BaseModel):
     email: str
     password: str
-    name: str
+    name: str = ""
+    first_name: str = ""
+    last_name: str = ""
+    phone: str = ""
+    date_of_birth: str = ""
 
 class LoginInput(BaseModel):
     email: str
@@ -138,6 +142,53 @@ class ChatInput(BaseModel):
 class RefreshInput(BaseModel):
     refresh_token: str
 
+class ForgotPasswordInput(BaseModel):
+    email: str
+
+class ResetPasswordInput(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+class ChangePasswordInput(BaseModel):
+    current_password: str
+    new_password: str
+
+class ActivitiesInput(BaseModel):
+    activities: List[str] = []
+    fitness_goals: List[str] = []
+
+class MealPreferencesInput(BaseModel):
+    meal_preferences: List[str] = []
+    allergies: List[str] = []
+
+class QuestionnaireInput(BaseModel):
+    favorite_fast_food: str = ""
+    dietary_restriction: bool = False
+    under_nutritionist: bool = False
+    health_info: str = ""
+    lifestyle_busyness: int = 3
+    sleep_hours: float = 7
+    current_workout_plan: str = ""
+    best_meal: str = ""
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    target_weight_kg: Optional[float] = None
+    gender: Optional[str] = None
+    activity_level: Optional[str] = None
+
+class LifeGoalsInput(BaseModel):
+    life_goals: List[str] = []
+    happiness_level: int = 5
+    review_text: str = ""
+
+class PermissionsInput(BaseModel):
+    push_notifications: bool = False
+    gallery_access: bool = False
+    location_sharing: bool = False
+    data_personalization_consent: bool = False
+    privacy_policy_accepted: bool = False
+
 # ===================== AUTH =====================
 @api_router.post("/auth/register")
 async def register(input: RegisterInput):
@@ -145,27 +196,48 @@ async def register(input: RegisterInput):
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+    display_name = input.name or f"{input.first_name} {input.last_name}".strip() or "User"
     user_doc = {
         "email": email,
         "password_hash": hash_password(input.password),
-        "name": input.name,
+        "name": display_name,
+        "first_name": input.first_name or input.name.split()[0] if input.name else "",
+        "last_name": input.last_name or (" ".join(input.name.split()[1:]) if input.name else ""),
+        "phone": input.phone,
+        "date_of_birth": input.date_of_birth,
         "role": "user",
         "onboarding_complete": False,
+        "activities": [],
+        "fitness_goals": [],
+        "life_goals": [],
         "goals": [],
         "dietary_preferences": [],
+        "meal_preferences": [],
         "allergies": [],
         "height_cm": None,
         "weight_kg": None,
         "target_weight_kg": None,
-        "date_of_birth": None,
         "gender": None,
         "activity_level": None,
         "sleep_hours": None,
-        "phone": None,
         "address": None,
         "bio": None,
         "subscription": "free",
         "badges": [],
+        "happiness_level": 5,
+        "review_text": "",
+        "favorite_fast_food": "",
+        "dietary_restriction": False,
+        "under_nutritionist": False,
+        "health_info": "",
+        "lifestyle_busyness": 3,
+        "current_workout_plan": "",
+        "best_meal": "",
+        "push_notifications": False,
+        "gallery_access": False,
+        "location_sharing": False,
+        "data_personalization_consent": False,
+        "privacy_policy_accepted": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     result = await db.users.insert_one(user_doc)
@@ -212,6 +284,53 @@ async def refresh_token(input: RefreshInput):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+# ===================== FORGOT / RESET / CHANGE PASSWORD =====================
+@api_router.post("/auth/forgot-password")
+async def forgot_password(input: ForgotPasswordInput):
+    email = input.email.lower().strip()
+    user = await db.users.find_one({"email": email})
+    if not user:
+        return {"message": "If the email exists, a reset code has been sent"}
+    code = f"{secrets.randbelow(900000) + 100000}"
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.reset_codes.update_one(
+        {"email": email},
+        {"$set": {"code": code, "expires_at": expires.isoformat(), "attempts": 0}},
+        upsert=True
+    )
+    logger.info(f"Reset code for {email}: {code}")
+    return {"message": "If the email exists, a reset code has been sent", "code": code}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(input: ResetPasswordInput):
+    email = input.email.lower().strip()
+    reset = await db.reset_codes.find_one({"email": email})
+    if not reset:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+    if reset.get("attempts", 0) >= 3:
+        await db.reset_codes.delete_one({"email": email})
+        raise HTTPException(status_code=400, detail="Too many attempts. Request a new code.")
+    if reset["code"] != input.code:
+        await db.reset_codes.update_one({"email": email}, {"$inc": {"attempts": 1}})
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+    expires = datetime.fromisoformat(reset["expires_at"])
+    if datetime.now(timezone.utc) > expires:
+        await db.reset_codes.delete_one({"email": email})
+        raise HTTPException(status_code=400, detail="Reset code has expired")
+    await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(input.new_password)}})
+    await db.reset_codes.delete_one({"email": email})
+    return {"message": "Password reset successfully"}
+
+@api_router.put("/auth/change-password")
+async def change_password(input: ChangePasswordInput, user=Depends(get_current_user)):
+    full_user = await db.users.find_one({"_id": ObjectId(user["id"])})
+    if not verify_password(input.current_password, full_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(input.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"password_hash": hash_password(input.new_password)}})
+    return {"message": "Password changed successfully"}
+
 # ===================== ONBOARDING =====================
 @api_router.put("/profile/onboarding")
 async def save_onboarding(input: OnboardingInput, user=Depends(get_current_user)):
@@ -230,6 +349,41 @@ async def save_onboarding(input: OnboardingInput, user=Depends(get_current_user)
     }
     await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
     return {"message": "Onboarding complete", "data": update}
+
+@api_router.post("/onboarding/activities")
+async def save_activities(input: ActivitiesInput, user=Depends(get_current_user)):
+    update = {"activities": input.activities, "fitness_goals": input.fitness_goals}
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"message": "Activities saved", "data": update}
+
+@api_router.put("/onboarding/preferences")
+async def save_preferences(input: MealPreferencesInput, user=Depends(get_current_user)):
+    update = {"meal_preferences": input.meal_preferences, "dietary_preferences": input.meal_preferences, "allergies": input.allergies}
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"message": "Preferences saved", "data": update}
+
+@api_router.put("/onboarding/questionnaire")
+async def save_questionnaire(input: QuestionnaireInput, user=Depends(get_current_user)):
+    update = {k: v for k, v in input.dict().items() if v is not None}
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"message": "Questionnaire saved", "data": update}
+
+@api_router.put("/onboarding/life-goals")
+async def save_life_goals(input: LifeGoalsInput, user=Depends(get_current_user)):
+    update = {"life_goals": input.life_goals, "happiness_level": input.happiness_level, "review_text": input.review_text}
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"message": "Life goals saved", "data": update}
+
+@api_router.put("/onboarding/permissions")
+async def save_permissions(input: PermissionsInput, user=Depends(get_current_user)):
+    update = input.dict()
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"message": "Permissions saved", "data": update}
+
+@api_router.post("/onboarding/complete")
+async def complete_onboarding(user=Depends(get_current_user)):
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"onboarding_complete": True}})
+    return {"message": "Onboarding complete", "is_complete": True}
 
 @api_router.get("/profile")
 async def get_profile(user=Depends(get_current_user)):

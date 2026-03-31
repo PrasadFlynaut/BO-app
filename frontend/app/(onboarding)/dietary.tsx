@@ -11,6 +11,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import api from '@/src/api';
 
 const DIETS = [
   { id: 'keto', label: 'Keto', icon: 'flame-outline' as const, color: '#FF6B35', bg: Colors.nutritionSurface },
@@ -52,7 +53,7 @@ export default function DietaryScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)}>
           <LinearGradient colors={[Colors.nutritionOrange + '15', 'transparent']} style={styles.stepBadge}>
-            <Text style={styles.step}>Step 2 of 3</Text>
+            <Text style={styles.step}>Step 4 of 8</Text>
           </LinearGradient>
           <Text style={styles.title}>Dietary Preferences</Text>
           <Text style={styles.subtitle}>What type of diet interests you?</Text>
@@ -117,7 +118,10 @@ export default function DietaryScreen() {
               btnScale.value = withSpring(0.95, { stiffness: 400 });
               setTimeout(() => {
                 btnScale.value = withSpring(1, { stiffness: 300 });
-                router.push({ pathname: '/(onboarding)/health', params: { goals: params.goals as string, diets: JSON.stringify(diets), allergies: JSON.stringify(allergies) } });
+                try {
+                  await api.put('/onboarding/preferences', { meal_preferences: diets, allergies });
+                } catch (e) { console.error(e); }
+                router.push('/(onboarding)/questionnaire');
               }, 150);
             }}
             activeOpacity={0.9}

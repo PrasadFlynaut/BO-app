@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, TextInput, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -13,10 +13,39 @@ export default function ProfileScreen() {
   const { user, logout, refreshUser } = useAuth();
   const [dashboard, setDashboard] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [curPw, setCurPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const router = useRouter();
 
   useFocusEffect(useCallback(() => { refreshUser(); loadDashboard(); }, []));
   const loadDashboard = async () => { try { const { data } = await api.get('/dashboard'); setDashboard(data); } catch (e) { console.error(e); } };
   const onRefresh = async () => { setRefreshing(true); await refreshUser(); await loadDashboard(); setRefreshing(false); };
+
+  const handleChangePw = async () => {
+    setPwError(''); setPwSuccess('');
+    if (!curPw || !newPw || !confirmPw) { setPwError('All fields required'); return; }
+    if (newPw.length < 8) { setPwError('New password must be at least 8 characters'); return; }
+    if (newPw !== confirmPw) { setPwError('New passwords do not match'); return; }
+    setPwLoading(true);
+    try {
+      await api.put('/auth/change-password', { current_password: curPw, new_password: newPw });
+      setPwSuccess('Password changed successfully!');
+      setCurPw(''); setNewPw(''); setConfirmPw('');
+      setTimeout(() => { setShowChangePw(false); setPwSuccess(''); }, 1500);
+    } catch (e: any) {
+      setPwError(e.response?.data?.detail || 'Failed to change password');
+    } finally { setPwLoading(false); }
+  };
+
+  const onSettingPress = (label: string) => {
+    if (label === 'Change Password') { setShowChangePw(true); setPwError(''); setPwSuccess(''); setCurPw(''); setNewPw(''); setConfirmPw(''); }
+    else if (label === 'Privacy Policy') { router.push('/(auth)/privacy-policy'); }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -91,6 +120,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(400).duration(500)} style={[styles.settingsCard, Shadow.sm]}>
           <Text style={styles.sectionTitle}>Settings</Text>
           {[
+            { icon: 'lock-closed-outline', label: 'Change Password', color: '#FF5252', bg: '#FFF0F0' },
             { icon: 'notifications-outline', label: 'Notifications', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
             { icon: 'people-outline', label: 'Invite Friends', color: Colors.waterBlue, bg: Colors.waterSurface },
             { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.socialTeal, bg: Colors.socialSurface },
@@ -98,7 +128,7 @@ export default function ProfileScreen() {
             { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.textSecondary, bg: Colors.greenLight },
             { icon: 'information-circle-outline', label: 'About BO', color: Colors.green, bg: Colors.greenLight },
           ].map((item, i) => (
-            <TouchableOpacity key={i} testID={`settings-${item.label.replace(/\s/g, '-').toLowerCase()}`} style={styles.menuItem} activeOpacity={0.7}>
+            <TouchableOpacity key={i} testID={`settings-${item.label.replace(/\s/g, '-').toLowerCase()}`} style={styles.menuItem} onPress={() => onSettingPress(item.label)} activeOpacity={0.7}>
               <View style={styles.menuLeft}>
                 <View style={[styles.menuIconWrap, { backgroundColor: item.bg }]}><Ionicons name={item.icon as any} size={20} color={item.color} /></View>
                 <Text style={styles.menuLabel}>{item.label}</Text>
@@ -127,6 +157,31 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* Change Password Modal */}
+      <Modal visible={showChangePw} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, Shadow.lg]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setShowChangePw(false)}><Ionicons name="close" size={24} color={Colors.textPrimary} /></TouchableOpacity>
+            </View>
+            {pwError ? <View style={styles.pwErrorBox}><Text style={styles.pwErrorText}>{pwError}</Text></View> : null}
+            {pwSuccess ? <View style={styles.pwSuccessBox}><Text style={styles.pwSuccessText}>{pwSuccess}</Text></View> : null}
+            <Text style={styles.pwLabel}>Current Password</Text>
+            <TextInput style={styles.pwInput} value={curPw} onChangeText={setCurPw} secureTextEntry placeholder="Enter current password" placeholderTextColor={Colors.textTertiary} />
+            <Text style={styles.pwLabel}>New Password</Text>
+            <TextInput style={styles.pwInput} value={newPw} onChangeText={setNewPw} secureTextEntry placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} />
+            <Text style={styles.pwLabel}>Confirm New Password</Text>
+            <TextInput style={styles.pwInput} value={confirmPw} onChangeText={setConfirmPw} secureTextEntry placeholder="Confirm new password" placeholderTextColor={Colors.textTertiary} />
+            <TouchableOpacity onPress={handleChangePw} disabled={pwLoading} activeOpacity={0.8}>
+              <LinearGradient colors={[Colors.green, Colors.greenDark]} style={styles.pwButton}>
+                {pwLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.pwButtonText}>Change Password</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -167,4 +222,16 @@ const styles = StyleSheet.create({
   upgradeSub: { color: 'rgba(10,26,18,0.6)', fontSize: FontSize.caption, marginTop: 2 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.lg, marginTop: Spacing.sm },
   logoutText: { color: Colors.danger, fontSize: FontSize.body, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.bgBase, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.lg, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
+  modalTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary },
+  pwErrorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  pwErrorText: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
+  pwSuccessBox: { backgroundColor: Colors.greenLight, borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  pwSuccessText: { color: Colors.green, fontSize: FontSize.small, textAlign: 'center', fontWeight: '700' },
+  pwLabel: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase' as const, letterSpacing: 1 },
+  pwInput: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
+  pwButton: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
+  pwButtonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
 });

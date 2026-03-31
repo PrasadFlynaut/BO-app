@@ -17,7 +17,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (user) {
-      if (!user.onboarding_complete) router.replace('/(onboarding)/goals');
+      if (!user.onboarding_complete) router.replace('/(onboarding)/activities');
       else router.replace('/(tabs)/home');
     }
   }, [user]);
@@ -63,6 +63,10 @@ export default function LoginScreen() {
           <TouchableOpacity testID="go-to-register-button" onPress={() => router.push('/(auth)/register')} style={styles.linkWrap}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Sign Up</Text></Text>
           </TouchableOpacity>
+
+          <TouchableOpacity testID="forgot-password-link" onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotWrap}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -82,7 +86,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.greenLight, borderWidth: 0, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
   button: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
   buttonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
-  linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.xl },
+  linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.sm },
   linkText: { color: Colors.textSecondary, fontSize: FontSize.body },
   linkBold: { color: Colors.green, fontWeight: '700' },
+  forgotWrap: { alignItems: 'center', paddingBottom: Spacing.xl, paddingTop: Spacing.sm },
+  forgotText: { color: Colors.nutritionOrange, fontSize: FontSize.small, fontWeight: '600' },
 });
