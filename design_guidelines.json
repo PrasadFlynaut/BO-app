@@ -1,0 +1,154 @@
+{
+  "theme": "dark",
+  "archetype": "2 (Performance Pro) mixed with 7 (Electric/Neon) for energetic feel",
+  "app_type": "hybrid_fullstack (React Native)",
+  "colors": {
+    "primary": "#26B50F",
+    "secondary": "#DBFF02",
+    "background_base": "#0A0A0A",
+    "background_surface": "#1A1A1A",
+    "background_elevated": "#242424",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#666666",
+    "border": "#333333",
+    "danger": "#FF3B30",
+    "success": "#26B50F"
+  },
+  "typography": {
+    "fontFamily": {
+      "bold": "Inter-Bold",
+      "semiBold": "Inter-SemiBold",
+      "regular": "Inter-Regular"
+    },
+    "sizes": {
+      "h1": 32,
+      "h2": 24,
+      "h3": 20,
+      "body": 16,
+      "caption": 12,
+      "overline": 10
+    },
+    "letterSpacing": {
+      "tight": -0.5,
+      "normal": 0,
+      "wide": 1.5
+    }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "xxl": 48
+  },
+  "components": {
+    "buttons": {
+      "primary": {
+        "backgroundColor": "#26B50F",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "paddingHorizontal": 24,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "secondary": {
+        "backgroundColor": "#DBFF02",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "paddingHorizontal": 24,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "outline": {
+        "borderWidth": 1,
+        "borderColor": "#333333",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "paddingHorizontal": 24,
+        "alignItems": "center",
+        "justifyContent": "center",
+        "backgroundColor": "transparent"
+      }
+    },
+    "cards": {
+      "base": {
+        "backgroundColor": "#1A1A1A",
+        "borderRadius": 16,
+        "padding": 16,
+        "borderWidth": 1,
+        "borderColor": "#333333"
+      }
+    },
+    "inputs": {
+      "base": {
+        "backgroundColor": "#0A0A0A",
+        "borderWidth": 1,
+        "borderColor": "#333333",
+        "borderRadius": 12,
+        "padding": 16,
+        "color": "#FFFFFF",
+        "fontSize": 16
+      }
+    },
+    "bottom_tab": {
+      "container": {
+        "backgroundColor": "#0A0A0A",
+        "borderTopWidth": 1,
+        "borderTopColor": "#333333",
+        "paddingBottom": 24,
+        "paddingTop": 12
+      },
+      "active_icon_color": "#DBFF02",
+      "inactive_icon_color": "#666666"
+    }
+  },
+  "media": {
+    "logos": {
+      "color": "https://customer-assets.emergentagent.com/job_78422c49-5348-441f-bc53-d90eaaac0909/artifacts/9yt4dytf_BO_Logo_Color.png",
+      "white": "https://customer-assets.emergentagent.com/job_78422c49-5348-441f-bc53-d90eaaac0909/artifacts/349ony80_BO_Logo_White.png"
+    },
+    "splash_background": "https://static.prod-images.emergentagent.com/jobs/78422c49-5348-441f-bc53-d90eaaac0909/images/7f85908daad5743110f6c3c422e3b438d0153cc4eb0558a58e69bf48c0aaa3d8.png",
+    "meals": [
+      "https://images.pexels.com/photos/842571/pexels-photo-842571.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "https://images.unsplash.com/photo-1710795878156-4e18c8d6a330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxoZWFsdGh5JTIwbWVhbCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NDk4MDAyOXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1606791422814-b32c705e3e2f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxoZWFsdGh5JTIwbWVhbCUyMGRhcmt8ZW58MHx8fHwxNzc0OTgwMDMwfDA&ixlib=rb-4.1.0&q=85",
+      "https://images.pexels.com/photos/13427910/pexels-photo-13427910.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ],
+    "workouts": [
+      "https://images.pexels.com/photos/6388985/pexels-photo-6388985.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "https://images.pexels.com/photos/136404/pexels-photo-136404.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ],
+    "water_tracker": [
+      "https://images.unsplash.com/photo-1764426445457-59169e244cce?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHxkcmlua2luZyUyMHdhdGVyJTIwZml0bmVzc3xlbnwwfHx8fDE3NzQ5ODAwMzF8MA&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "icons": {
+    "library": "@expo/vector-icons",
+    "rules": "Use clear, sharp icons. Active states in Lime #DBFF02, inactive in Mid Gray #666666."
+  },
+  "layout_and_screens": {
+    "splash": "Full screen splash_background image using ImageBackground. Center the white logo. Add an ActivityIndicator or custom glowing Lime loader at the bottom.",
+    "onboarding": "Dark background (#0A0A0A). Large, bold typography for questions. Use 'cards' for selectable options (e.g. goals) with Lime border on active. Use ScrollView to prevent keyboard/small screen overlap.",
+    "dashboard": "Header with 'Hello, User' and a small notification icon. Use horizontal FlatLists for quick stats (Water, Calories, Workout). High contrast typography.",
+    "smart_menu": "Vertical FlatList of meal cards. Each card has an image (from 'meals' array), an absolute positioned overlay (backgroundColor: 'rgba(0,0,0,0.5)'), and bold white text for meal name.",
+    "nutrition_tracker": "Use SVG-based circular progress ring or stacked bar chart for macros. Emphasize remaining calories in large bold font.",
+    "water_intake": "Visual representation of water level using primary Green #26B50F. Quick add buttons (+250ml) styled as primary buttons.",
+    "social_feed": "Feed of posts. Each post is a View card. Author name, time, image/text, and interaction row (like, comment).",
+    "ai_assistant": "Chat interface (FlatList inverted=true). User bubbles: background_surface (#1A1A1A) with text_primary. AI bubbles: dark green (#26B50F with 20% opacity) with Lime text. Input field pinned to bottom via KeyboardAvoidingView."
+  },
+  "accessibility_and_testing": {
+    "testing": "All interactive elements must have a 'testID' attribute in React Native. Format: kebab-case, role-based. e.g., testID='login-submit-button'.",
+    "accessibility": "Use accessibilityLabel and accessibilityRole on primary buttons and icons to ensure screen reader support."
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: This is a React Native app. Do not use standard HTML/CSS, Shadcn, or Tailwind web classes. Use React Native's StyleSheet API and core components (View, Text, TouchableOpacity, Image, FlatList).",
+    "Ensure all backgrounds are explicitly set to the dark hex values (#0A0A0A or #1A1A1A) as the default RN background is light on some devices.",
+    "For icons, use @expo/vector-icons which is built into Expo.",
+    "Images should use 'source={{ uri: ... }}' with absolute URIs provided in the media section.",
+    "For text styles, map the Inter fonts appropriately. If using Expo, you'll need to use expo-font to load 'Inter-Bold', 'Inter-SemiBold', 'Inter-Regular'. During MVP, if fonts aren't explicitly loaded in the boilerplate, fallback to system fonts with weights ('700', '600', '400').",
+    "Adhere strictly to the 8px base spacing grid (8, 16, 24, 32).",
+    "Always use KeyboardAvoidingView for screens with TextInputs (like Login and Chat).",
+    "Do not assume routing is already set up. You will likely need @react-navigation/native and @react-navigation/bottom-tabs if not already provided."
+  ]
+}
