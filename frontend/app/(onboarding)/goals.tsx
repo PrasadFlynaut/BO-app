@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, Radius } from '../../src/theme';
+import { Colors, Spacing, FontSize, Radius } from '@/src/theme';
 
 const GOALS = [
   { id: 'stay_fit', label: 'Stay Fit', icon: 'fitness-outline' as const, desc: 'Maintain a healthy body' },
@@ -17,10 +17,7 @@ const GOALS = [
 export default function GoalsScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const router = useRouter();
-
-  const toggle = (id: string) => {
-    setSelected(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
-  };
+  const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -28,35 +25,20 @@ export default function GoalsScreen() {
         <Text style={styles.step}>Step 1 of 3</Text>
         <Text style={styles.title}>What are your goals?</Text>
         <Text style={styles.subtitle}>Select all that apply to personalize your experience</Text>
-
         <View style={styles.grid}>
           {GOALS.map(g => {
             const active = selected.includes(g.id);
             return (
-              <TouchableOpacity
-                key={g.id}
-                testID={`goal-${g.id}`}
-                style={[styles.card, active && styles.cardActive]}
-                onPress={() => toggle(g.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={g.icon} size={28} color={active ? Colors.secondary : Colors.textMuted} />
+              <TouchableOpacity key={g.id} testID={`goal-${g.id}`} style={[styles.card, active && styles.cardActive]} onPress={() => toggle(g.id)} activeOpacity={0.7}>
+                <Ionicons name={g.icon} size={28} color={active ? Colors.green : Colors.textMuted} />
                 <Text style={[styles.cardLabel, active && styles.cardLabelActive]}>{g.label}</Text>
                 <Text style={styles.cardDesc}>{g.desc}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
-
-        <TouchableOpacity
-          testID="goals-continue-button"
-          style={[styles.button, selected.length === 0 && styles.buttonDisabled]}
-          onPress={() => router.push({ pathname: '/(onboarding)/dietary', params: { goals: JSON.stringify(selected) } })}
-          disabled={selected.length === 0}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={20} color="#000" />
+        <TouchableOpacity testID="goals-continue-button" style={[styles.button, selected.length === 0 && styles.buttonDisabled]} onPress={() => router.push({ pathname: '/(onboarding)/dietary', params: { goals: JSON.stringify(selected) } })} disabled={selected.length === 0} activeOpacity={0.8}>
+          <Text style={styles.buttonText}>Continue</Text><Ionicons name="arrow-forward" size={20} color="#FFF" />
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -66,16 +48,16 @@ export default function GoalsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xxl },
-  step: { color: Colors.secondary, fontSize: FontSize.caption, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 2 },
+  step: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '700', marginTop: Spacing.sm },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.xl },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
   card: { width: '47%', backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.border },
-  cardActive: { borderColor: Colors.secondary, backgroundColor: 'rgba(219,255,2,0.05)' },
+  cardActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
   cardLabel: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '600', marginTop: Spacing.sm },
-  cardLabelActive: { color: Colors.secondary },
+  cardLabelActive: { color: Colors.green },
   cardDesc: { color: Colors.textMuted, fontSize: FontSize.small, marginTop: 2 },
-  button: { backgroundColor: Colors.secondary, borderRadius: Radius.md, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, marginTop: Spacing.xl },
+  button: { backgroundColor: Colors.green, borderRadius: Radius.md, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, marginTop: Spacing.xl },
   buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: '#000', fontSize: FontSize.body, fontWeight: '700' },
+  buttonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
 });

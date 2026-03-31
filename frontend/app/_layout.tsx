@@ -5,8 +5,8 @@ import { AuthProvider } from '@/src/auth';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0A0A0A' }, animation: 'fade' }} />
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFFFFF' }, animation: 'fade' }} />
     </AuthProvider>
   );
 }
