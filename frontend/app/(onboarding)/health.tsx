@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
   },
-  input: { flex: 1, paddingVertical: 14, color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '600' },
+  input: { flex: 1, paddingVertical: 14, color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '600', outlineStyle: 'none' as any },
   inputUnit: { fontSize: FontSize.small, fontWeight: '700' },
   inputRow: { flexDirection: 'row', gap: Spacing.md },
   inputGroup: { flex: 1 },

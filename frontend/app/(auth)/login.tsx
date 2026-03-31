@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
   error: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
   label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase', letterSpacing: 1 },
-  input: { backgroundColor: Colors.greenLight, borderWidth: 0, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body },
+  input: { backgroundColor: Colors.greenLight, borderWidth: 0, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
   button: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
   buttonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
   linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.xl },

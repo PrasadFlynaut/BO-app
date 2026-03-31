@@ -139,6 +139,6 @@ const styles = StyleSheet.create({
   typingDots: { backgroundColor: Colors.greenLight, borderRadius: Radius.md, paddingVertical: 8, paddingHorizontal: Spacing.md, alignSelf: 'flex-start' },
   typingText: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '500' },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#FFF' },
-  chatInput: { flex: 1, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 12, paddingHorizontal: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, maxHeight: 100 },
+  chatInput: { flex: 1, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 12, paddingHorizontal: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, maxHeight: 100, outlineStyle: 'none' as any },
   sendBtn: { borderRadius: Radius.lg, padding: 14 },
 });
