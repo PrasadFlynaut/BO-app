@@ -1,12 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image, ActivityIndicator, TextInputProps } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+
+// Reusable focused input with highlight + optional info icon
+function FocusInput({ label, info, ...props }: TextInputProps & { label: string; info?: string }) {
+  const [focused, setFocused] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  return (
+    <View style={fi.wrap}>
+      <View style={fi.labelRow}>
+        <Text style={fi.label}>{label}</Text>
+        {info && (
+          <TouchableOpacity onPress={() => setShowInfo(!showInfo)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="information-circle-outline" size={16} color={showInfo ? Colors.green : Colors.textTertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {showInfo && info && (
+        <View style={fi.infoBubble}>
+          <Ionicons name="bulb-outline" size={14} color={Colors.nutritionOrange} />
+          <Text style={fi.infoText}>{info}</Text>
+        </View>
+      )}
+      <TextInput
+        {...props}
+        style={[fi.input, focused && fi.inputFocused]}
+        onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
+      />
+    </View>
+  );
+}
+
+const fi = StyleSheet.create({
+  wrap: {},
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, marginTop: 14 },
+  label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  infoBubble: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.nutritionSurface, borderRadius: Radius.md, paddingVertical: 6, paddingHorizontal: 10, marginBottom: 6 },
+  infoText: { fontSize: 11, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
+  input: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, borderWidth: 2, borderColor: 'transparent', outlineStyle: 'none' as any },
+  inputFocused: { borderColor: Colors.green, backgroundColor: '#FFF' },
+});
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -17,34 +57,68 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const { register, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
+    if (user && success) {
+      // Short delay to show success message
+      const timer = setTimeout(() => {
+        if (!user.onboarding_complete) router.replace('/(onboarding)/activities');
+        else router.replace('/(tabs)/home');
+      }, 1200);
+      return () => clearTimeout(timer);
+    } else if (user && !success) {
       if (!user.onboarding_complete) router.replace('/(onboarding)/activities');
       else router.replace('/(tabs)/home');
     }
-  }, [user]);
+  }, [user, success]);
 
   const handleRegister = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) { setError('Please fill in all required fields'); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (!agreedPrivacy) { setError('Please agree to the Privacy Policy'); return; }
+    if (!agreedPrivacy) { setError('Please agree to the Privacy Policy to continue'); return; }
     setLoading(true); setError('');
     try {
       const fullName = `${firstName} ${lastName}`.trim();
-      await register(fullName, email, password);
+      await register(fullName, email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        date_of_birth: dob,
+      });
+      setSuccess(true);
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Registration failed');
     } finally { setLoading(false); }
   };
 
+  const canSubmit = agreedPrivacy && firstName.trim() && lastName.trim() && email.trim() && password.trim() && password.length >= 8;
+
+  if (success) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.successContainer}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.successContent}>
+            <LinearGradient colors={[Colors.green, Colors.greenDark]} style={styles.successCircle}>
+              <Ionicons name="checkmark" size={40} color="#FFF" />
+            </LinearGradient>
+            <Text style={styles.successTitle}>Account Created!</Text>
+            <Text style={styles.successSub}>Welcome to BO Wellness, {firstName}!</Text>
+            <Text style={styles.successSub2}>Setting up your onboarding...</Text>
+            <ActivityIndicator size="small" color={Colors.green} style={{ marginTop: 16 }} />
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(600)} style={styles.logoSection}>
             <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_78422c49-5348-441f-bc53-d90eaaac0909/artifacts/9yt4dytf_BO_Logo_Color.png' }} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Create Account</Text>
@@ -56,34 +130,28 @@ export default function RegisterScreen() {
           <Animated.View entering={FadeInDown.delay(80).duration(500)}>
             <View style={styles.nameRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>First Name</Text>
-                <TextInput testID="register-first-name" style={styles.input} placeholder="First" placeholderTextColor={Colors.textTertiary} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+                <FocusInput label="First Name" placeholder="First" placeholderTextColor={Colors.textTertiary} value={firstName} onChangeText={setFirstName} autoCapitalize="words" testID="register-first-name" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Last Name</Text>
-                <TextInput testID="register-last-name" style={styles.input} placeholder="Last" placeholderTextColor={Colors.textTertiary} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+                <FocusInput label="Last Name" placeholder="Last" placeholderTextColor={Colors.textTertiary} value={lastName} onChangeText={setLastName} autoCapitalize="words" testID="register-last-name" />
               </View>
             </View>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(120).duration(500)}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput testID="register-email-input" style={styles.input} placeholder="Enter your email" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+            <FocusInput label="Email" info="We'll use this to verify your account and send important updates" placeholder="Enter your email" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" testID="register-email-input" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(160).duration(500)}>
-            <Text style={styles.label}>Phone Number (Optional)</Text>
-            <TextInput testID="register-phone-input" style={styles.input} placeholder="+1 (555) 000-0000" placeholderTextColor={Colors.textTertiary} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <FocusInput label="Phone Number (Optional)" info="Used for account recovery and meal delivery notifications" placeholder="+1 (555) 000-0000" placeholderTextColor={Colors.textTertiary} value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="register-phone-input" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-            <Text style={styles.label}>Date of Birth (Optional)</Text>
-            <TextInput testID="register-dob-input" style={styles.input} placeholder="MM/DD/YYYY" placeholderTextColor={Colors.textTertiary} value={dob} onChangeText={setDob} />
+            <FocusInput label="Date of Birth (Optional)" info="Helps personalize calorie goals and nutrition recommendations based on your age" placeholder="MM/DD/YYYY" placeholderTextColor={Colors.textTertiary} value={dob} onChangeText={setDob} testID="register-dob-input" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(240).duration(500)}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput testID="register-password-input" style={styles.input} placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry />
+            <FocusInput label="Password" info="Must be at least 8 characters. Use a mix of letters, numbers, and symbols for best security" placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry testID="register-password-input" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(280).duration(500)}>
@@ -91,14 +159,27 @@ export default function RegisterScreen() {
               <View style={[styles.checkbox, agreedPrivacy && styles.checkboxActive]}>
                 {agreedPrivacy && <Ionicons name="checkmark" size={14} color="#FFF" />}
               </View>
-              <Text style={styles.privacyText}>I agree to the <Text style={styles.privacyLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text></Text>
+              <Text style={styles.privacyText}>
+                I agree to the{' '}
+                <Text style={styles.privacyLink} onPress={() => router.push('/(auth)/privacy-policy')}>Privacy Policy</Text>
+              </Text>
             </TouchableOpacity>
+            {!agreedPrivacy && (
+              <View style={styles.privacyHint}>
+                <Ionicons name="shield-checkmark-outline" size={12} color={Colors.textTertiary} />
+                <Text style={styles.privacyHintText}>You must accept the Privacy Policy to create an account</Text>
+              </View>
+            )}
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(320).duration(500)}>
-            <TouchableOpacity testID="register-submit-button" onPress={handleRegister} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={[Colors.lime, Colors.green]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.button, Shadow.md]}>
-                {loading ? <ActivityIndicator color={Colors.textPrimary} /> : <Text style={styles.buttonText}>Create Account</Text>}
+            <TouchableOpacity testID="register-submit-button" onPress={handleRegister} disabled={loading || !canSubmit} activeOpacity={0.8}>
+              <LinearGradient
+                colors={canSubmit ? [Colors.lime, Colors.green] : [Colors.textTertiary, Colors.textTertiary]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={[styles.button, !canSubmit && { opacity: 0.5 }]}
+              >
+                {loading ? <ActivityIndicator color={Colors.textPrimary} /> : <Text style={[styles.buttonText, !canSubmit && { color: '#FFF' }]}>Create Account</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
@@ -115,23 +196,30 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  logoSection: { alignItems: 'center', marginBottom: Spacing.lg },
+  logoSection: { alignItems: 'center', marginBottom: Spacing.md },
   logo: { width: 80, height: 80, marginBottom: Spacing.sm },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, textAlign: 'center', marginTop: Spacing.xs },
   errorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
   error: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
   nameRow: { flexDirection: 'row', gap: Spacing.sm },
-  label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase', letterSpacing: 1 },
-  input: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.lg },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center' },
   checkboxActive: { backgroundColor: Colors.green, borderColor: Colors.green },
-  privacyText: { fontSize: FontSize.small, color: Colors.textSecondary },
+  privacyText: { fontSize: FontSize.small, color: Colors.textSecondary, flex: 1 },
   privacyLink: { color: Colors.green, fontWeight: '700' },
+  privacyHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingLeft: 36 },
+  privacyHintText: { fontSize: 11, color: Colors.textTertiary, fontStyle: 'italic' },
   button: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
   buttonText: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '700' },
   linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.xl },
   linkText: { color: Colors.textSecondary, fontSize: FontSize.body },
   linkBold: { color: Colors.green, fontWeight: '700' },
+  // Success state
+  successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  successContent: { alignItems: 'center', paddingHorizontal: Spacing.lg },
+  successCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.lg },
+  successTitle: { fontSize: FontSize.h1, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
+  successSub: { fontSize: FontSize.body, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
+  successSub2: { fontSize: FontSize.small, color: Colors.textTertiary, textAlign: 'center', marginTop: Spacing.xs },
 });

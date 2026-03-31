@@ -20,7 +20,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, extra?: { first_name?: string; last_name?: string; phone?: string; date_of_birth?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -63,8 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    const { data } = await api.post('/auth/register', { name, email, password });
+  const register = async (name: string, email: string, password: string, extra?: { first_name?: string; last_name?: string; phone?: string; date_of_birth?: string }) => {
+    const { data } = await api.post('/auth/register', {
+      name,
+      email,
+      password,
+      first_name: extra?.first_name || name.split(' ')[0] || '',
+      last_name: extra?.last_name || name.split(' ').slice(1).join(' ') || '',
+      phone: extra?.phone || '',
+      date_of_birth: extra?.date_of_birth || '',
+    });
     await AsyncStorage.setItem('access_token', data.access_token);
     await AsyncStorage.setItem('refresh_token', data.refresh_token);
     setUser(data.user);

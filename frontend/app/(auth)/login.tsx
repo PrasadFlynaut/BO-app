@@ -2,10 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+
+// Focus-aware input
+function FocusInput({ label, ...props }: any) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        {...props}
+        style={[styles.input, focused && styles.inputFocused]}
+        onFocus={(e: any) => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={(e: any) => { setFocused(false); props.onBlur?.(e); }}
+      />
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -43,13 +60,11 @@ export default function LoginScreen() {
           {error ? <Animated.View entering={FadeInDown.duration(300)} style={styles.errorBox}><Text style={styles.error}>{error}</Text></Animated.View> : null}
 
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput testID="login-email-input" style={styles.input} placeholder="Enter your email" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+            <FocusInput label="Email" testID="login-email-input" placeholder="Enter your email" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput testID="login-password-input" style={styles.input} placeholder="Enter your password" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry />
+            <FocusInput label="Password" testID="login-password-input" placeholder="Enter your password" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(300).duration(500)}>
@@ -83,7 +98,8 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
   error: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
   label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase', letterSpacing: 1 },
-  input: { backgroundColor: Colors.greenLight, borderWidth: 0, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
+  input: { backgroundColor: Colors.greenLight, borderWidth: 2, borderColor: 'transparent', borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
+  inputFocused: { borderColor: Colors.green, backgroundColor: '#FFF' },
   button: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
   buttonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
   linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.sm },
