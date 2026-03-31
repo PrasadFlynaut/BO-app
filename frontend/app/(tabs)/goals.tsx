@@ -9,8 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-  FadeInDown, FadeIn, SlideInDown, SlideOutDown,
-  useSharedValue, useAnimatedStyle, withSpring, withTiming,
+  FadeInDown, FadeIn,
+  useSharedValue, useAnimatedStyle, withTiming,
   withDelay, withSequence, Easing,
 } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
@@ -34,7 +34,7 @@ const EMOJI_LABELS = ['Very Low', 'Low', 'Neutral', 'Good', 'Great'];
 function AnimatedProgressBar({ value, max, color, height = 10 }: { value: number; max: number; color: string; height?: number }) {
   const progress = useSharedValue(0);
   useEffect(() => {
-    progress.value = withDelay(300, withSpring(Math.min(1, value / Math.max(max, 1)), { damping: 15, stiffness: 60 }));
+    progress.value = withDelay(300, withTiming(Math.min(1, value / Math.max(max, 1)), { duration: 600, easing: Easing.out(Easing.cubic) }));
   }, [value, max]);
   const style = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -55,8 +55,8 @@ function AnimatedCounter({ value, color, size = 22 }: { value: number; color: st
   useEffect(() => {
     if (value !== prevVal.current) {
       scale.value = withSequence(
-        withSpring(1.2, { damping: 10, stiffness: 200 }),
-        withSpring(1, { damping: 12, stiffness: 150 })
+        withTiming(1.08, { duration: 150, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 200, easing: Easing.inOut(Easing.quad) })
       );
       prevVal.current = value;
     }
@@ -83,12 +83,14 @@ function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose
           <TouchableWithoutFeedback onPress={onClose}>
             <View style={ms.backdrop} />
           </TouchableWithoutFeedback>
-          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(250)} style={ms.sheet}>
-            <View style={ms.handle} />
-            <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={ms.sheetContent}>
-              {children}
-            </ScrollView>
-          </Animated.View>
+        <View style={ms.sheet}>
+          <View style={ms.handle} />
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={ms.sheetContent}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View>{children}</View>
+            </TouchableWithoutFeedback>
+          </ScrollView>
+        </View>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </Modal>
@@ -226,7 +228,7 @@ export default function GoalsScreen() {
         ) : (
           <>
             {/* Life Goals Pills */}
-            <Animated.View entering={FadeInDown.delay(0).springify()}>
+            <Animated.View entering={FadeInDown.delay(0).duration(350)}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pillScroll}>
                 {(goals?.lifeGoals || []).map((g: string, i: number) => (
                   <Animated.View key={g} entering={FadeIn.delay(i * 80)}>
@@ -245,7 +247,7 @@ export default function GoalsScreen() {
             </Animated.View>
 
             {/* Happiness Gauge Card */}
-            <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <Animated.View entering={FadeInDown.delay(100).duration(350)}>
               <TouchableOpacity onPress={() => setShowHappinessModal(true)} style={[s.happinessCard, Shadow.sm]} activeOpacity={0.85}>
                 <View style={s.happinessHeader}>
                   <View style={s.happinessHeaderLeft}>
@@ -271,7 +273,7 @@ export default function GoalsScreen() {
             {progress.map((p: any, idx: number) => {
               const color = getProgressColor(p.percent);
               return (
-                <Animated.View key={p.name} entering={FadeInDown.delay(200 + idx * 100).springify()}>
+                <Animated.View key={p.name} entering={FadeInDown.delay(200 + idx * 100).duration(350)}>
                   <View style={[s.progressCard, Shadow.sm]}>
                     <View style={s.progressHeader}>
                       <View style={[s.progressIcon, { backgroundColor: color + '15' }]}>
@@ -308,7 +310,7 @@ export default function GoalsScreen() {
             })}
 
             {/* Health Profile */}
-            <Animated.View entering={FadeInDown.delay(600).springify()}>
+            <Animated.View entering={FadeInDown.delay(600).duration(350)}>
               <TouchableOpacity onPress={() => setShowQuestionnaire(true)} activeOpacity={0.85}>
                 <View style={s.sectionHead}>
                   <Text style={s.sectionTitle}>Health Profile</Text>
@@ -323,7 +325,7 @@ export default function GoalsScreen() {
               </View>
             </Animated.View>
             {/* Download Report Button */}
-            <Animated.View entering={FadeInDown.delay(700).springify()}>
+            <Animated.View entering={FadeInDown.delay(700).duration(350)}>
               <TouchableOpacity onPress={generateReport} style={[s.reportBtn, Shadow.sm]} activeOpacity={0.8} disabled={generatingReport}>
                 {generatingReport ? (
                   <ActivityIndicator size="small" color="#FFF" />

@@ -10,8 +10,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInDown, FadeIn, FadeInUp, FadeOut, SlideInDown, SlideOutDown,
-  useSharedValue, useAnimatedStyle, withTiming, withSpring, withRepeat,
-  withSequence, Easing, interpolate, runOnJS, withDelay,
+  useSharedValue, useAnimatedStyle, withTiming, withRepeat,
+  withSequence, Easing, interpolate, withDelay,
 } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
@@ -47,21 +47,20 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
   const fillLevel = useSharedValue(0);
   const wave1 = useSharedValue(0);
   const wave2 = useSharedValue(0);
-  const splash = useSharedValue(0);
   const countScale = useSharedValue(1);
   const prevCurrent = useRef(current);
 
   useEffect(() => {
     const pct = Math.min(1, current / goal);
-    fillLevel.value = withSpring(pct, { damping: 15, stiffness: 80 });
+    fillLevel.value = withTiming(pct, { duration: 800, easing: Easing.out(Easing.cubic) });
 
-    // Wave animations - continuous gentle wave
+    // Gentle wave
     wave1.value = withRepeat(
-      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
       -1, true
     );
     wave2.value = withRepeat(
-      withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 3800, easing: Easing.inOut(Easing.ease) }),
       -1, true
     );
   }, []);
@@ -69,19 +68,12 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
   useEffect(() => {
     if (current !== prevCurrent.current) {
       const pct = Math.min(1, current / goal);
-      fillLevel.value = withSpring(pct, { damping: 12, stiffness: 60 });
+      fillLevel.value = withTiming(pct, { duration: 600, easing: Easing.out(Easing.cubic) });
 
-      // Splash on add
-      splash.value = 0;
-      splash.value = withSequence(
-        withTiming(1, { duration: 200 }),
-        withTiming(0, { duration: 400 })
-      );
-
-      // Bounce the count
+      // Gentle scale on count change - no bounce
       countScale.value = withSequence(
-        withSpring(1.3, { damping: 8, stiffness: 200 }),
-        withSpring(1, { damping: 10, stiffness: 150 })
+        withTiming(1.08, { duration: 150, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 200, easing: Easing.inOut(Easing.quad) })
       );
 
       prevCurrent.current = current;
@@ -90,12 +82,12 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
 
   const fillStyle = useAnimatedStyle(() => ({
     height: `${fillLevel.value * 100}%`,
-    transform: [{ translateY: interpolate(wave1.value, [0, 1], [2, -2]) }],
+    transform: [{ translateY: interpolate(wave1.value, [0, 1], [1, -1]) }],
   }));
 
   const wave1Style = useAnimatedStyle(() => ({
     transform: [
-      { translateX: interpolate(wave1.value, [0, 1], [-8, 8]) },
+      { translateX: interpolate(wave1.value, [0, 1], [-6, 6]) },
       { translateY: interpolate(wave1.value, [0, 1], [1, -1]) },
     ],
     opacity: 0.4,
@@ -103,15 +95,10 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
 
   const wave2Style = useAnimatedStyle(() => ({
     transform: [
-      { translateX: interpolate(wave2.value, [0, 1], [6, -6]) },
-      { translateY: interpolate(wave2.value, [0, 1], [-2, 2]) },
+      { translateX: interpolate(wave2.value, [0, 1], [4, -4]) },
+      { translateY: interpolate(wave2.value, [0, 1], [-1, 1]) },
     ],
     opacity: 0.25,
-  }));
-
-  const splashStyle = useAnimatedStyle(() => ({
-    opacity: splash.value,
-    transform: [{ scale: interpolate(splash.value, [0, 1], [0.8, 1.4]) }],
   }));
 
   const countStyle = useAnimatedStyle(() => ({
@@ -128,9 +115,6 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
           <Animated.View style={[ws.wave, wave1Style]} />
           <Animated.View style={[ws.wave, ws.wave2, wave2Style]} />
         </Animated.View>
-
-        {/* Splash ripple */}
-        <Animated.View style={[ws.splashRipple, splashStyle]} />
 
         {/* Center text */}
         <View style={ws.centerContent}>
@@ -193,7 +177,7 @@ const ws = StyleSheet.create({
 function AnimatedProgressBar({ value, max, color, height = 8 }: { value: number; max: number; color: string; height?: number }) {
   const progress = useSharedValue(0);
   useEffect(() => {
-    progress.value = withDelay(200, withSpring(Math.min(1, value / max), { damping: 15, stiffness: 60 }));
+    progress.value = withDelay(200, withTiming(Math.min(1, value / max), { duration: 600, easing: Easing.out(Easing.cubic) }));
   }, [value, max]);
   const style = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -211,28 +195,28 @@ function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose
   if (!visible) return null;
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={ms.overlay}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-          <TouchableWithoutFeedback onPress={onClose}>
-            <View style={ms.backdrop} />
-          </TouchableWithoutFeedback>
-          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(250)} style={ms.sheet}>
-            <View style={ms.handle} />
-            <ScrollView
-              bounces={false}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={ms.sheetContent}
-            >
-              {children}
-            </ScrollView>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={ms.overlay}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={ms.backdrop} />
+        </TouchableWithoutFeedback>
+        <View style={ms.sheet}>
+          <View style={ms.handle} />
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={ms.sheetContent}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View>{children}</View>
+            </TouchableWithoutFeedback>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -479,7 +463,7 @@ export default function QuickAddsScreen() {
       {MEAL_SLOTS.map((slot, idx) => {
         const meals = getMealForSlot(slot.type);
         return (
-          <Animated.View key={slot.type} entering={FadeInDown.delay(80 + idx * 100).springify()}>
+          <Animated.View key={slot.type} entering={FadeInDown.delay(80 + idx * 100).duration(350)}>
             <View style={[s.mealCard, Shadow.sm]}>
               <View style={s.mealCardHeader}>
                 <View style={[s.mealIcon, { backgroundColor: slot.color + '15' }]}>
@@ -527,7 +511,7 @@ export default function QuickAddsScreen() {
   const renderTrackers = () => (
     <View>
       {/* Water Tracker */}
-      <Animated.View entering={FadeInDown.delay(0).springify()}>
+      <Animated.View entering={FadeInDown.delay(0).duration(350)}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="water" size={22} color={Colors.waterBlue} />
@@ -566,7 +550,7 @@ export default function QuickAddsScreen() {
       </Animated.View>
 
       {/* Sleep */}
-      <Animated.View entering={FadeInDown.delay(120).springify()}>
+      <Animated.View entering={FadeInDown.delay(120).duration(350)}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="moon" size={22} color={Colors.fitnessPurple} />
@@ -597,7 +581,7 @@ export default function QuickAddsScreen() {
       </Animated.View>
 
       {/* Walking */}
-      <Animated.View entering={FadeInDown.delay(240).springify()}>
+      <Animated.View entering={FadeInDown.delay(240).duration(350)}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="walk" size={22} color={Colors.socialTeal} />
@@ -617,7 +601,7 @@ export default function QuickAddsScreen() {
       </Animated.View>
 
       {/* MET */}
-      <Animated.View entering={FadeInDown.delay(360).springify()}>
+      <Animated.View entering={FadeInDown.delay(360).duration(350)}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="barbell" size={22} color={Colors.danger} />
@@ -677,7 +661,7 @@ export default function QuickAddsScreen() {
         </Animated.View>
       ) : (
         filteredJournals.map((j: any, idx: number) => (
-          <Animated.View key={j.id} entering={FadeInDown.delay(idx * 70).springify()}>
+          <Animated.View key={j.id} entering={FadeInDown.delay(idx * 60).duration(350)}>
             <TouchableOpacity style={[s.journalCard, Shadow.sm]} onPress={() => openEditJournal(j)} activeOpacity={0.85}>
               <Text style={s.journalTitle} numberOfLines={1}>{j.title}</Text>
               <Text style={s.journalPreview} numberOfLines={2}>{j.description}</Text>
@@ -838,7 +822,7 @@ export default function QuickAddsScreen() {
               </View>
             ) : (
               timelineEvents.map((ev: any, idx: number) => (
-                <Animated.View key={idx} entering={FadeInDown.delay(idx * 70).springify()}>
+                <Animated.View key={idx} entering={FadeInDown.delay(idx * 60).duration(350)}>
                   <View style={s.timelineItem}>
                     <View style={s.timelineLeft}>
                       <Text style={s.timelineTime}>
@@ -872,7 +856,7 @@ export default function QuickAddsScreen() {
   const zoneUnderline = useSharedValue(0);
   const handleZoneChange = (key: string) => {
     const idx = ZONES.findIndex(z => z.key === key);
-    zoneUnderline.value = withSpring(idx, { damping: 15, stiffness: 120 });
+    zoneUnderline.value = withTiming(idx, { duration: 250, easing: Easing.out(Easing.quad) });
     setActiveZone(key);
   };
 
