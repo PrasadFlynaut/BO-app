@@ -1,16 +1,23 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, ActivityIndicator, RefreshControl, Alert, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown, FadeIn, FadeInUp, FadeOut, SlideInDown, SlideOutDown,
+  useSharedValue, useAnimatedStyle, withTiming, withSpring, withRepeat,
+  withSequence, Easing, interpolate, runOnJS, withDelay,
+} from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ZONES = [
   { key: 'meals', icon: 'restaurant', label: 'Quick Add' },
@@ -32,57 +39,268 @@ const MET_ACTIVITIES = [
   { name: 'Swimming', value: 8.0 },
   { name: 'Running', value: 9.8 },
   { name: 'Yoga', value: 3.0 },
-  { name: 'Strength Training', value: 6.0 },
+  { name: 'Strength', value: 6.0 },
 ];
 
+// ============ ANIMATED WATER RING COMPONENT ============
+function AnimatedWaterRing({ current, goal }: { current: number; goal: number }) {
+  const fillLevel = useSharedValue(0);
+  const wave1 = useSharedValue(0);
+  const wave2 = useSharedValue(0);
+  const splash = useSharedValue(0);
+  const countScale = useSharedValue(1);
+  const prevCurrent = useRef(current);
+
+  useEffect(() => {
+    const pct = Math.min(1, current / goal);
+    fillLevel.value = withSpring(pct, { damping: 15, stiffness: 80 });
+
+    // Wave animations - continuous gentle wave
+    wave1.value = withRepeat(
+      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      -1, true
+    );
+    wave2.value = withRepeat(
+      withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.ease) }),
+      -1, true
+    );
+  }, []);
+
+  useEffect(() => {
+    if (current !== prevCurrent.current) {
+      const pct = Math.min(1, current / goal);
+      fillLevel.value = withSpring(pct, { damping: 12, stiffness: 60 });
+
+      // Splash on add
+      splash.value = 0;
+      splash.value = withSequence(
+        withTiming(1, { duration: 200 }),
+        withTiming(0, { duration: 400 })
+      );
+
+      // Bounce the count
+      countScale.value = withSequence(
+        withSpring(1.3, { damping: 8, stiffness: 200 }),
+        withSpring(1, { damping: 10, stiffness: 150 })
+      );
+
+      prevCurrent.current = current;
+    }
+  }, [current]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    height: `${fillLevel.value * 100}%`,
+    transform: [{ translateY: interpolate(wave1.value, [0, 1], [2, -2]) }],
+  }));
+
+  const wave1Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(wave1.value, [0, 1], [-8, 8]) },
+      { translateY: interpolate(wave1.value, [0, 1], [1, -1]) },
+    ],
+    opacity: 0.4,
+  }));
+
+  const wave2Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(wave2.value, [0, 1], [6, -6]) },
+      { translateY: interpolate(wave2.value, [0, 1], [-2, 2]) },
+    ],
+    opacity: 0.25,
+  }));
+
+  const splashStyle = useAnimatedStyle(() => ({
+    opacity: splash.value,
+    transform: [{ scale: interpolate(splash.value, [0, 1], [0.8, 1.4]) }],
+  }));
+
+  const countStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: countScale.value }],
+  }));
+
+  const reached = current >= goal;
+
+  return (
+    <View style={ws.ringOuter}>
+      <View style={ws.ringContainer}>
+        {/* Water fill */}
+        <Animated.View style={[ws.waterFill, fillStyle]}>
+          <Animated.View style={[ws.wave, wave1Style]} />
+          <Animated.View style={[ws.wave, ws.wave2, wave2Style]} />
+        </Animated.View>
+
+        {/* Splash ripple */}
+        <Animated.View style={[ws.splashRipple, splashStyle]} />
+
+        {/* Center text */}
+        <View style={ws.centerContent}>
+          <Animated.View style={countStyle}>
+            <Text style={[ws.countText, reached && ws.countReached]}>{current}</Text>
+          </Animated.View>
+          <Text style={ws.goalText}>of {goal}</Text>
+        </View>
+      </View>
+
+      {/* Decorative droplets */}
+      {reached && (
+        <Animated.View entering={FadeIn.duration(600)} style={ws.celebrationBadge}>
+          <Ionicons name="checkmark-circle" size={20} color={Colors.green} />
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+const ws = StyleSheet.create({
+  ringOuter: { position: 'relative' },
+  ringContainer: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: '#EBF5FF',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    borderWidth: 3, borderColor: '#B3D9FF',
+  },
+  waterFill: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#4DA8FF',
+    borderTopLeftRadius: 8, borderTopRightRadius: 8,
+  },
+  wave: {
+    position: 'absolute', top: -6, left: -10, right: -10,
+    height: 14, backgroundColor: '#6BB8FF',
+    borderRadius: 999,
+  },
+  wave2: { top: -3, backgroundColor: '#8EC8FF' },
+  splashRipple: {
+    position: 'absolute', top: '30%', left: '30%',
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 2, borderColor: '#4DA8FF',
+  },
+  centerContent: {
+    position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  countText: { fontSize: 30, fontWeight: '800', color: Colors.waterBlue },
+  countReached: { color: Colors.green },
+  goalText: { fontSize: 11, color: '#6B7C93', marginTop: -2 },
+  celebrationBadge: {
+    position: 'absolute', top: -4, right: -4,
+    backgroundColor: '#FFF', borderRadius: 12,
+  },
+});
+
+// ============ ANIMATED PROGRESS RING ============
+function AnimatedProgressBar({ value, max, color, height = 8 }: { value: number; max: number; color: string; height?: number }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withDelay(200, withSpring(Math.min(1, value / max), { damping: 15, stiffness: 60 }));
+  }, [value, max]);
+  const style = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+    height, backgroundColor: color, borderRadius: height / 2,
+  }));
+  return (
+    <View style={{ height, backgroundColor: color + '15', borderRadius: height / 2, overflow: 'hidden' }}>
+      <Animated.View style={style} />
+    </View>
+  );
+}
+
+// ============ MODAL WRAPPER WITH KEYBOARD HANDLING ============
+function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={ms.overlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={ms.backdrop} />
+          </TouchableWithoutFeedback>
+          <Animated.View entering={SlideInDown.springify().damping(18)} exiting={SlideOutDown.duration(250)} style={ms.sheet}>
+            <View style={ms.handle} />
+            <ScrollView
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={ms.sheetContent}
+            >
+              {children}
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+const ms = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+  handle: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 6 },
+  sheetContent: { paddingHorizontal: Spacing.lg, paddingBottom: 40 },
+});
+
+// ============ MAIN SCREEN ============
 export default function QuickAddsScreen() {
   const { user } = useAuth();
   const [activeZone, setActiveZone] = useState('meals');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Meal state
+  // Meal
   const [mealLogs, setMealLogs] = useState<any[]>([]);
   const [showMealModal, setShowMealModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [mealName, setMealName] = useState('');
   const [mealCalories, setMealCalories] = useState('');
 
-  // Water state
+  // Water
   const [waterTotal, setWaterTotal] = useState(0);
   const [waterGoal] = useState(8);
-  const [waterLogs, setWaterLogs] = useState<any[]>([]);
 
-  // Sleep state
+  // Sleep
   const [sleepLogs, setSleepLogs] = useState<any[]>([]);
   const [showSleepModal, setShowSleepModal] = useState(false);
   const [sleepHours, setSleepHours] = useState('7');
   const [sleepMinutes, setSleepMinutes] = useState('30');
   const [sleepQuality, setSleepQuality] = useState(3);
 
-  // Walking state
+  // Walking
   const [walkLogs, setWalkLogs] = useState<any[]>([]);
   const [showWalkModal, setShowWalkModal] = useState(false);
   const [walkSteps, setWalkSteps] = useState('');
   const [walkDuration, setWalkDuration] = useState('');
 
-  // MET state
+  // MET
   const [metLogs, setMetLogs] = useState<any[]>([]);
   const [showMetModal, setShowMetModal] = useState(false);
   const [metActivity, setMetActivity] = useState(MET_ACTIVITIES[0]);
   const [metDuration, setMetDuration] = useState('');
 
-  // Journal state
+  // Journal
   const [journals, setJournals] = useState<any[]>([]);
   const [showJournalModal, setShowJournalModal] = useState(false);
   const [journalTitle, setJournalTitle] = useState('');
   const [journalDesc, setJournalDesc] = useState('');
+  const [editingJournal, setEditingJournal] = useState<any>(null);
+  const [journalSearch, setJournalSearch] = useState('');
 
-  // Timeline state
+  // Timeline
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
 
-  // Summary state
-  const [summary, setSummary] = useState<any>(null);
+  // Refs for focusing next input
+  const calInputRef = useRef<TextInput>(null);
+  const journalDescRef = useRef<TextInput>(null);
+  const walkDurRef = useRef<TextInput>(null);
 
   useFocusEffect(useCallback(() => { loadAllData(); }, []));
 
@@ -90,169 +308,141 @@ export default function QuickAddsScreen() {
     setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes, summaryRes] = await Promise.all([
+      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes] = await Promise.all([
         api.get(`/v1/meals/log?date=${today}`).catch(() => ({ data: { logs: [] } })),
-        api.get(`/v1/trackers/water?date=${today}`).catch(() => ({ data: { logs: [], dailyTotals: [] } })),
+        api.get(`/v1/trackers/water?date=${today}`).catch(() => ({ data: { logs: [] } })),
         api.get('/v1/trackers/sleep').catch(() => ({ data: { logs: [] } })),
-        api.get('/v1/trackers/walking').catch(() => ({ data: { logs: [], weeklyTotal: 0 } })),
-        api.get('/v1/trackers/met').catch(() => ({ data: { logs: [], weeklyTotal: 0 } })),
-        api.get('/v1/journal?limit=20').catch(() => ({ data: { data: [] } })),
+        api.get('/v1/trackers/walking').catch(() => ({ data: { logs: [] } })),
+        api.get('/v1/trackers/met').catch(() => ({ data: { logs: [] } })),
+        api.get('/v1/journal?limit=30').catch(() => ({ data: { data: [] } })),
         api.get(`/v1/trackers/timeline?date=${today}`).catch(() => ({ data: { events: [] } })),
-        api.get(`/v1/trackers/summary?date=${today}`).catch(() => ({ data: {} })),
       ]);
       setMealLogs(mealsRes.data.logs || []);
       const wLogs = waterRes.data.logs || [];
-      setWaterLogs(wLogs);
       setWaterTotal(wLogs.reduce((s: number, w: any) => s + (w.glasses || 0), 0));
       setSleepLogs(sleepRes.data.logs || []);
       setWalkLogs(walkRes.data.logs || []);
       setMetLogs(metRes.data.logs || []);
       setJournals(journalRes.data.data || []);
       setTimelineEvents(timelineRes.data.events || []);
-      setSummary(summaryRes.data);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadAllData(); setRefreshing(false); };
 
-  // ===== MEAL ACTIONS =====
-  const openMealSlot = (slot: any) => {
-    setSelectedSlot(slot);
-    setMealName('');
-    setMealCalories('');
-    setShowMealModal(true);
-  };
-
+  // ===== MEAL =====
+  const openMealSlot = (slot: any) => { setSelectedSlot(slot); setMealName(''); setMealCalories(''); setShowMealModal(true); };
   const saveMeal = async () => {
     if (!mealName.trim()) return;
     try {
-      await api.post('/v1/meals/log', {
-        meal_type: selectedSlot.type,
-        name: mealName.trim(),
-        calories: parseInt(mealCalories) || 0,
-      });
+      await api.post('/v1/meals/log', { meal_type: selectedSlot.type, name: mealName.trim(), calories: parseInt(mealCalories) || 0 });
       setShowMealModal(false);
+      Keyboard.dismiss();
       loadAllData();
     } catch (e) { console.error(e); }
   };
-
-  const deleteMeal = async (id: string) => {
-    Alert.alert('Delete Meal', 'Remove this meal log?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await api.delete(`/v1/meals/log/${id}`); loadAllData(); } catch (e) { console.error(e); }
-      }},
-    ]);
-  };
-
+  const deleteMeal = (id: string) => Alert.alert('Delete Meal', 'Remove this meal log?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/meals/log/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
+  ]);
   const getMealForSlot = (type: string) => mealLogs.filter(m => m.meal_type === type);
 
-  // ===== WATER ACTIONS =====
+  // ===== WATER =====
   const addWater = async () => {
     try {
       const { data } = await api.post('/v1/trackers/water', { glasses: 1 });
       setWaterTotal(data.dailyTotal || waterTotal + 1);
-      loadAllData();
     } catch (e) { console.error(e); }
   };
 
-  // ===== SLEEP ACTIONS =====
+  // ===== SLEEP =====
   const saveSleep = async () => {
     const totalMins = (parseInt(sleepHours) || 0) * 60 + (parseInt(sleepMinutes) || 0);
     const now = new Date();
     const bedtime = new Date(now.getTime() - totalMins * 60000).toISOString();
     try {
-      await api.post('/v1/trackers/sleep', {
-        bedtime,
-        wake_time: now.toISOString(),
-        duration: totalMins,
-        quality: sleepQuality,
-      });
+      await api.post('/v1/trackers/sleep', { bedtime, wake_time: now.toISOString(), duration: totalMins, quality: sleepQuality });
       setShowSleepModal(false);
+      Keyboard.dismiss();
       loadAllData();
     } catch (e) { console.error(e); }
   };
 
-  // ===== WALKING ACTIONS =====
+  // ===== WALKING =====
   const saveWalk = async () => {
     const steps = parseInt(walkSteps) || 0;
     if (steps <= 0) return;
     try {
-      await api.post('/v1/trackers/walking', {
-        steps,
-        duration: parseInt(walkDuration) || 0,
-      });
-      setShowWalkModal(false);
-      setWalkSteps('');
-      setWalkDuration('');
+      await api.post('/v1/trackers/walking', { steps, duration: parseInt(walkDuration) || 0 });
+      setShowWalkModal(false); setWalkSteps(''); setWalkDuration('');
+      Keyboard.dismiss();
       loadAllData();
     } catch (e) { console.error(e); }
   };
 
-  // ===== MET ACTIONS =====
+  // ===== MET =====
   const saveMet = async () => {
     const dur = parseInt(metDuration) || 0;
     if (dur <= 0) return;
     try {
-      await api.post('/v1/trackers/met', {
-        activity_type: metActivity.name,
-        met_value: metActivity.value,
-        duration: dur,
-        met_minutes: metActivity.value * dur,
-      });
-      setShowMetModal(false);
-      setMetDuration('');
+      await api.post('/v1/trackers/met', { activity_type: metActivity.name, met_value: metActivity.value, duration: dur, met_minutes: metActivity.value * dur });
+      setShowMetModal(false); setMetDuration('');
+      Keyboard.dismiss();
       loadAllData();
     } catch (e) { console.error(e); }
   };
 
-  // ===== JOURNAL ACTIONS =====
+  // ===== JOURNAL =====
+  const openNewJournal = () => { setEditingJournal(null); setJournalTitle(''); setJournalDesc(''); setShowJournalModal(true); };
+  const openEditJournal = (j: any) => { setEditingJournal(j); setJournalTitle(j.title); setJournalDesc(j.description); setShowJournalModal(true); };
   const saveJournal = async () => {
     if (!journalTitle.trim() || journalTitle.trim().length < 3) return;
     try {
-      await api.post('/v1/journal', { title: journalTitle.trim(), description: journalDesc.trim() });
-      setShowJournalModal(false);
-      setJournalTitle('');
-      setJournalDesc('');
+      if (editingJournal) {
+        await api.put(`/v1/journal/${editingJournal.id}`, { title: journalTitle.trim(), description: journalDesc.trim() });
+      } else {
+        await api.post('/v1/journal', { title: journalTitle.trim(), description: journalDesc.trim() });
+      }
+      setShowJournalModal(false); setJournalTitle(''); setJournalDesc('');
+      Keyboard.dismiss();
       loadAllData();
     } catch (e) { console.error(e); }
   };
-
-  const deleteJournal = async (id: string) => {
-    Alert.alert('Delete Entry', 'Delete this journal entry? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await api.delete(`/v1/journal/${id}`); loadAllData(); } catch (e) { console.error(e); }
-      }},
-    ]);
-  };
-
-  const toggleJournalLike = async (id: string) => {
-    try {
-      await api.post('/v1/journal/like', { journal_id: id });
-      loadAllData();
-    } catch (e) { console.error(e); }
-  };
+  const deleteJournal = (id: string) => Alert.alert('Delete Entry', 'Delete this journal entry?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/journal/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
+  ]);
+  const toggleLike = async (id: string) => { try { await api.post('/v1/journal/like', { journal_id: id }); loadAllData(); } catch (e) { console.error(e); } };
 
   const totalCalories = mealLogs.reduce((s, m) => s + (m.calories || 0), 0);
+  const calorieGoal = 2000;
+  const totalStepsWeek = walkLogs.reduce((t: number, w: any) => t + (w.steps || 0), 0);
+  const totalMetWeek = metLogs.reduce((t: number, m: any) => t + (m.met_minutes || 0), 0);
 
-  // ===== RENDER ZONES =====
+  const filteredJournals = journalSearch
+    ? journals.filter((j: any) => j.title?.toLowerCase().includes(journalSearch.toLowerCase()) || j.description?.toLowerCase().includes(journalSearch.toLowerCase()))
+    : journals;
+
+  // ============ RENDER ZONES ============
   const renderMeals = () => (
     <View>
-      {/* Calorie summary bar */}
-      <View style={s.calorieBar}>
-        <View style={s.calorieInfo}>
-          <Ionicons name="flame" size={18} color={Colors.nutritionOrange} />
-          <Text style={s.calorieText}>{totalCalories} cal consumed</Text>
+      {/* Calorie summary */}
+      <Animated.View entering={FadeInDown.delay(0).duration(500)}>
+        <View style={[s.calorieBar, Shadow.sm]}>
+          <View style={s.calorieInfo}>
+            <Ionicons name="flame" size={18} color={Colors.nutritionOrange} />
+            <Text style={s.calorieText}>{totalCalories} cal</Text>
+          </View>
+          <AnimatedProgressBar value={totalCalories} max={calorieGoal} color={Colors.nutritionOrange} height={6} />
+          <Text style={s.calorieGoal}>Goal: {calorieGoal.toLocaleString()}</Text>
         </View>
-        <Text style={s.calorieGoal}>Goal: 2,000</Text>
-      </View>
+      </Animated.View>
 
       {MEAL_SLOTS.map((slot, idx) => {
         const meals = getMealForSlot(slot.type);
         return (
-          <Animated.View key={slot.type} entering={FadeInDown.delay(idx * 80).duration(400)}>
+          <Animated.View key={slot.type} entering={FadeInDown.delay(80 + idx * 100).springify()}>
             <View style={[s.mealCard, Shadow.sm]}>
               <View style={s.mealCardHeader}>
                 <View style={[s.mealIcon, { backgroundColor: slot.color + '15' }]}>
@@ -262,30 +452,32 @@ export default function QuickAddsScreen() {
                   <Text style={s.mealLabel}>{slot.label}</Text>
                   <Text style={s.mealTime}>{slot.time}</Text>
                 </View>
-                <TouchableOpacity onPress={() => openMealSlot(slot)} style={s.addMealBtn}>
-                  <Ionicons name="add-circle" size={28} color={Colors.green} />
+                <TouchableOpacity onPress={() => openMealSlot(slot)} style={s.addMealBtn} activeOpacity={0.7}>
+                  <Ionicons name="add-circle" size={30} color={Colors.green} />
                 </TouchableOpacity>
               </View>
               {meals.length === 0 ? (
-                <TouchableOpacity onPress={() => openMealSlot(slot)} style={s.tapToAdd}>
+                <TouchableOpacity onPress={() => openMealSlot(slot)} style={s.tapToAdd} activeOpacity={0.6}>
                   <Text style={s.tapToAddText}>Tap to add</Text>
                 </TouchableOpacity>
               ) : (
-                meals.map((m: any) => (
-                  <View key={m.id} style={s.loggedMeal}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.loggedMealName}>{m.manual_name || m.name || 'Meal'}</Text>
-                      {m.calories > 0 && (
-                        <View style={s.calBadge}>
-                          <Ionicons name="flame-outline" size={12} color={Colors.nutritionOrange} />
-                          <Text style={s.calBadgeText}>{m.calories} cal</Text>
-                        </View>
-                      )}
+                meals.map((m: any, mi: number) => (
+                  <Animated.View key={m.id} entering={FadeIn.delay(mi * 60)}>
+                    <View style={s.loggedMeal}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.loggedMealName}>{m.manual_name || m.name || 'Meal'}</Text>
+                        {(m.calories || 0) > 0 && (
+                          <View style={s.calBadge}>
+                            <Ionicons name="flame-outline" size={12} color={Colors.nutritionOrange} />
+                            <Text style={s.calBadgeText}>{m.calories} cal</Text>
+                          </View>
+                        )}
+                      </View>
+                      <TouchableOpacity onPress={() => deleteMeal(m.id)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                        <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => deleteMeal(m.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                    </TouchableOpacity>
-                  </View>
+                  </Animated.View>
                 ))
               )}
             </View>
@@ -298,102 +490,113 @@ export default function QuickAddsScreen() {
   const renderTrackers = () => (
     <View>
       {/* Water Tracker */}
-      <Animated.View entering={FadeInDown.delay(0).duration(400)}>
+      <Animated.View entering={FadeInDown.delay(0).springify()}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="water" size={22} color={Colors.waterBlue} />
             <Text style={s.trackerTitle}>Water Intake</Text>
+            <View style={s.trackerBadge}>
+              <Text style={s.trackerBadgeText}>{waterTotal >= waterGoal ? 'Done!' : `${waterGoal - waterTotal} left`}</Text>
+            </View>
           </View>
           <View style={s.waterTracker}>
-            <View style={s.waterRing}>
-              <View style={[s.waterRingFill, { height: `${Math.min(100, (waterTotal / waterGoal) * 100)}%` as any }]} />
-              <View style={s.waterRingContent}>
-                <Text style={s.waterCount}>{waterTotal}</Text>
-                <Text style={s.waterLabel}>of {waterGoal}</Text>
-              </View>
-            </View>
+            <AnimatedWaterRing current={waterTotal} goal={waterGoal} />
             <View style={s.waterActions}>
               <Text style={s.waterStatus}>
-                {waterTotal >= waterGoal ? 'Goal reached!' : `${waterGoal - waterTotal} more glasses to go`}
+                {waterTotal >= waterGoal ? 'Great job! Goal reached!' : `Drink ${waterGoal - waterTotal} more glasses`}
               </Text>
-              <TouchableOpacity onPress={addWater} style={[s.waterAddBtn, Shadow.sm]}>
-                <Ionicons name="add" size={24} color="#FFF" />
-                <Text style={s.waterAddText}>Add Glass</Text>
-              </TouchableOpacity>
+              <View style={s.waterBtns}>
+                <TouchableOpacity onPress={addWater} style={[s.waterAddBtn, Shadow.sm]} activeOpacity={0.8}>
+                  <Ionicons name="add" size={22} color="#FFF" />
+                  <Text style={s.waterAddText}>Add Glass</Text>
+                </TouchableOpacity>
+              </View>
+              {/* Mini history */}
+              <View style={s.waterGlassRow}>
+                {Array.from({ length: waterGoal }).map((_, i) => (
+                  <Animated.View key={i} entering={FadeIn.delay(i * 50)}>
+                    <Ionicons
+                      name={i < waterTotal ? "water" : "water-outline"}
+                      size={16}
+                      color={i < waterTotal ? Colors.waterBlue : '#D1D5DB'}
+                    />
+                  </Animated.View>
+                ))}
+              </View>
             </View>
           </View>
         </View>
       </Animated.View>
 
-      {/* Sleep Tracker */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+      {/* Sleep */}
+      <Animated.View entering={FadeInDown.delay(120).springify()}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="moon" size={22} color={Colors.fitnessPurple} />
-            <Text style={s.trackerTitle}>Sleep Tracking</Text>
+            <Text style={s.trackerTitle}>Sleep</Text>
           </View>
           {sleepLogs.length > 0 ? (
             <View style={s.sleepInfo}>
-              <View style={s.sleepStat}>
+              <View>
                 <Text style={s.sleepValue}>{Math.floor((sleepLogs[0]?.duration_minutes || 0) / 60)}h {(sleepLogs[0]?.duration_minutes || 0) % 60}m</Text>
                 <Text style={s.sleepLabel}>Last night</Text>
               </View>
               <View style={s.sleepQualityRow}>
                 {[1,2,3,4,5].map(i => (
-                  <Ionicons key={i} name={i <= (sleepLogs[0]?.quality || 0) ? "moon" : "moon-outline"} size={18} color={Colors.fitnessPurple} />
+                  <Animated.View key={i} entering={FadeIn.delay(i * 80)}>
+                    <Ionicons name={i <= (sleepLogs[0]?.quality || 0) ? "moon" : "moon-outline"} size={18} color={Colors.fitnessPurple} />
+                  </Animated.View>
                 ))}
               </View>
             </View>
           ) : (
-            <Text style={s.emptyTracker}>No sleep data logged</Text>
+            <Text style={s.emptyTracker}>No sleep data logged yet</Text>
           )}
-          <TouchableOpacity onPress={() => setShowSleepModal(true)} style={s.trackerLogBtn}>
+          <TouchableOpacity onPress={() => setShowSleepModal(true)} style={s.trackerLogBtn} activeOpacity={0.8}>
+            <Ionicons name="add-circle-outline" size={18} color={Colors.green} />
             <Text style={s.trackerLogText}>Log Sleep</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* Walking Tracker */}
-      <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+      {/* Walking */}
+      <Animated.View entering={FadeInDown.delay(240).springify()}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="walk" size={22} color={Colors.socialTeal} />
             <Text style={s.trackerTitle}>Walking</Text>
           </View>
-          {walkLogs.length > 0 ? (
-            <View style={s.walkInfo}>
-              <Text style={s.walkSteps}>{walkLogs.reduce((t: number, w: any) => t + (w.steps || 0), 0).toLocaleString()}</Text>
-              <Text style={s.walkLabel}>steps this week</Text>
-              <View style={s.walkProgressOuter}>
-                <View style={[s.walkProgressInner, { width: `${Math.min(100, walkLogs.reduce((t: number, w: any) => t + (w.steps || 0), 0) / 70000 * 100)}%` as any }]} />
-              </View>
-              <Text style={s.walkGoalText}>Goal: 10,000 / day (70,000 / week)</Text>
-            </View>
-          ) : (
-            <Text style={s.emptyTracker}>No walking data yet</Text>
-          )}
-          <TouchableOpacity onPress={() => setShowWalkModal(true)} style={s.trackerLogBtn}>
+          <View style={s.walkInfo}>
+            <Text style={s.walkSteps}>{totalStepsWeek.toLocaleString()}</Text>
+            <Text style={s.walkLabel}>steps this week</Text>
+            <AnimatedProgressBar value={totalStepsWeek} max={70000} color={Colors.socialTeal} />
+            <Text style={s.walkGoalText}>Goal: 10,000 / day (70,000 / week)</Text>
+          </View>
+          <TouchableOpacity onPress={() => setShowWalkModal(true)} style={s.trackerLogBtn} activeOpacity={0.8}>
+            <Ionicons name="add-circle-outline" size={18} color={Colors.green} />
             <Text style={s.trackerLogText}>Log Walk</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* MET Tracker */}
-      <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+      {/* MET */}
+      <Animated.View entering={FadeInDown.delay(360).springify()}>
         <View style={[s.trackerCard, Shadow.sm]}>
           <View style={s.trackerHeader}>
             <Ionicons name="barbell" size={22} color={Colors.danger} />
             <Text style={s.trackerTitle}>MET Tracker</Text>
           </View>
           <View style={s.metInfo}>
-            <Text style={s.metTotal}>{Math.round(metLogs.reduce((t: number, m: any) => t + (m.met_minutes || 0), 0))}</Text>
-            <Text style={s.metLabel}>MET-minutes this week</Text>
+            <Text style={s.metTotal}>{Math.round(totalMetWeek)}</Text>
+            <Text style={s.metLabel}>MET-min this week</Text>
           </View>
+          <AnimatedProgressBar value={totalMetWeek} max={1000} color={Colors.danger} />
           <View style={s.metCallout}>
             <Ionicons name="information-circle" size={16} color={Colors.waterBlue} />
-            <Text style={s.metCalloutText}>MET measures exercise intensity. 1 MET = energy at rest.</Text>
+            <Text style={s.metCalloutText}>MET = Metabolic Equivalent. 1 MET = energy at rest.</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowMetModal(true)} style={s.trackerLogBtn}>
+          <TouchableOpacity onPress={() => setShowMetModal(true)} style={s.trackerLogBtn} activeOpacity={0.8}>
+            <Ionicons name="add-circle-outline" size={18} color={Colors.green} />
             <Text style={s.trackerLogText}>Log Activity</Text>
           </TouchableOpacity>
         </View>
@@ -405,20 +608,40 @@ export default function QuickAddsScreen() {
     <View>
       <View style={s.journalHeader}>
         <Text style={s.journalHeaderTitle}>My Journal</Text>
-        <TouchableOpacity onPress={() => setShowJournalModal(true)} style={s.journalAddBtn}>
+        <TouchableOpacity onPress={openNewJournal} style={s.journalAddBtn} activeOpacity={0.8}>
           <Ionicons name="add" size={22} color="#FFF" />
         </TouchableOpacity>
       </View>
-      {journals.length === 0 ? (
-        <View style={s.emptyState}>
-          <Ionicons name="book-outline" size={48} color={Colors.textTertiary} />
-          <Text style={s.emptyTitle}>Start your journal</Text>
-          <Text style={s.emptySubtext}>Tap + to write your first entry.</Text>
+
+      {/* Search */}
+      <Animated.View entering={FadeInDown.delay(0).duration(400)}>
+        <View style={s.searchBar}>
+          <Ionicons name="search" size={18} color={Colors.textTertiary} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search journal entries..."
+            placeholderTextColor={Colors.textTertiary}
+            value={journalSearch}
+            onChangeText={setJournalSearch}
+          />
+          {journalSearch.length > 0 && (
+            <TouchableOpacity onPress={() => setJournalSearch('')}>
+              <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+            </TouchableOpacity>
+          )}
         </View>
+      </Animated.View>
+
+      {filteredJournals.length === 0 ? (
+        <Animated.View entering={FadeIn.duration(500)} style={s.emptyState}>
+          <Ionicons name="book-outline" size={48} color={Colors.textTertiary} />
+          <Text style={s.emptyTitle}>{journalSearch ? 'No results' : 'Start your journal'}</Text>
+          <Text style={s.emptySubtext}>{journalSearch ? 'Try different keywords' : 'Tap + to write your first entry.'}</Text>
+        </Animated.View>
       ) : (
-        journals.map((j: any, idx: number) => (
-          <Animated.View key={j.id} entering={FadeInDown.delay(idx * 60).duration(400)}>
-            <View style={[s.journalCard, Shadow.sm]}>
+        filteredJournals.map((j: any, idx: number) => (
+          <Animated.View key={j.id} entering={FadeInDown.delay(idx * 70).springify()}>
+            <TouchableOpacity style={[s.journalCard, Shadow.sm]} onPress={() => openEditJournal(j)} activeOpacity={0.85}>
               <Text style={s.journalTitle} numberOfLines={1}>{j.title}</Text>
               <Text style={s.journalPreview} numberOfLines={2}>{j.description}</Text>
               <View style={s.journalMeta}>
@@ -426,34 +649,39 @@ export default function QuickAddsScreen() {
                   {j.date === new Date().toISOString().split('T')[0] ? 'Today' : j.date}
                 </Text>
                 <View style={s.journalActions}>
-                  <TouchableOpacity onPress={() => toggleJournalLike(j.id)} style={s.journalAction}>
+                  <TouchableOpacity onPress={() => toggleLike(j.id)} style={s.journalAction} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name={j.is_liked ? "heart" : "heart-outline"} size={18} color={j.is_liked ? '#FF5252' : Colors.textTertiary} />
                     <Text style={[s.journalActionText, j.is_liked && { color: '#FF5252' }]}>{j.like_count || 0}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteJournal(j.id)} style={s.journalAction}>
+                  <TouchableOpacity onPress={() => deleteJournal(j.id)} style={s.journalAction} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="trash-outline" size={18} color={Colors.textTertiary} />
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           </Animated.View>
         ))
       )}
     </View>
   );
 
+  const getTimelineIcon = (type: string): string => {
+    const map: Record<string, string> = { meal: 'restaurant', water: 'water', sleep: 'moon', walking: 'walk', met: 'barbell', journal: 'book' };
+    return map[type] || 'ellipse';
+  };
+
   const renderTimeline = () => (
     <View>
       <Text style={s.timelineTitle}>Today's Timeline</Text>
       {timelineEvents.length === 0 ? (
-        <View style={s.emptyState}>
+        <Animated.View entering={FadeIn.duration(500)} style={s.emptyState}>
           <Ionicons name="time-outline" size={48} color={Colors.textTertiary} />
           <Text style={s.emptyTitle}>No activities yet</Text>
           <Text style={s.emptySubtext}>Log meals, water, or exercise to see your timeline</Text>
-        </View>
+        </Animated.View>
       ) : (
         timelineEvents.map((ev: any, idx: number) => (
-          <Animated.View key={idx} entering={FadeInDown.delay(idx * 60).duration(400)}>
+          <Animated.View key={idx} entering={FadeInDown.delay(idx * 70).springify()}>
             <View style={s.timelineItem}>
               <View style={s.timelineLeft}>
                 <Text style={s.timelineTime}>
@@ -461,11 +689,13 @@ export default function QuickAddsScreen() {
                 </Text>
               </View>
               <View style={s.timelineLine}>
-                <View style={[s.timelineDot, { backgroundColor: ev.color || Colors.green }]} />
+                <Animated.View entering={FadeIn.delay(idx * 100)} style={[s.timelineDot, { backgroundColor: ev.color || Colors.green }]} />
                 {idx < timelineEvents.length - 1 && <View style={s.timelineConnector} />}
               </View>
               <View style={[s.timelineCard, Shadow.sm]}>
-                <Ionicons name={(ev.icon || 'ellipse') as any} size={18} color={ev.color || Colors.green} />
+                <View style={[s.timelineIconWrap, { backgroundColor: (ev.color || Colors.green) + '15' }]}>
+                  <Ionicons name={getTimelineIcon(ev.type) as any} size={18} color={ev.color || Colors.green} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.timelineCardTitle}>{ev.title}</Text>
                   <Text style={s.timelineCardDesc}>{ev.description}</Text>
@@ -478,15 +708,28 @@ export default function QuickAddsScreen() {
     </View>
   );
 
+  // Zone indicator animation
+  const zoneUnderline = useSharedValue(0);
+  const handleZoneChange = (key: string) => {
+    const idx = ZONES.findIndex(z => z.key === key);
+    zoneUnderline.value = withSpring(idx, { damping: 15, stiffness: 120 });
+    setActiveZone(key);
+  };
+
+  const underlineStyle = useAnimatedStyle(() => ({
+    left: (SCREEN_WIDTH / 4) * zoneUnderline.value + (SCREEN_WIDTH / 4 - 30) / 2,
+  }));
+
   return (
     <SafeAreaView style={s.safe}>
       {/* Zone icon bar */}
       <View style={s.zoneBar}>
-        {ZONES.map(z => (
+        {ZONES.map((z, i) => (
           <TouchableOpacity
             key={z.key}
-            style={[s.zoneBtn, activeZone === z.key && s.zoneBtnActive]}
-            onPress={() => setActiveZone(z.key)}
+            style={s.zoneBtn}
+            onPress={() => handleZoneChange(z.key)}
+            activeOpacity={0.7}
           >
             <Ionicons
               name={(activeZone === z.key ? z.icon : `${z.icon}-outline`) as any}
@@ -494,15 +737,16 @@ export default function QuickAddsScreen() {
               color={activeZone === z.key ? Colors.green : Colors.textTertiary}
             />
             <Text style={[s.zoneBtnText, activeZone === z.key && s.zoneBtnTextActive]}>{z.label}</Text>
-            {activeZone === z.key && <View style={s.zoneIndicator} />}
           </TouchableOpacity>
         ))}
+        <Animated.View style={[s.zoneIndicator, underlineStyle]} />
       </View>
 
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />}
       >
         {loading ? (
@@ -517,166 +761,200 @@ export default function QuickAddsScreen() {
         )}
       </ScrollView>
 
-      {/* Meal Log Modal */}
-      <Modal visible={showMealModal} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>Add {selectedSlot?.label || 'Meal'}</Text>
-            <TextInput
-              style={s.modalInput}
-              placeholder="What did you eat?"
-              placeholderTextColor={Colors.textTertiary}
-              value={mealName}
-              onChangeText={setMealName}
-            />
-            <TextInput
-              style={s.modalInput}
-              placeholder="Estimated calories (optional)"
-              placeholderTextColor={Colors.textTertiary}
-              value={mealCalories}
-              onChangeText={setMealCalories}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity onPress={saveMeal} style={[s.modalSaveBtn, !mealName.trim() && s.modalSaveBtnDisabled]}>
-              <Text style={s.modalSaveBtnText}>Save Meal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowMealModal(false)} style={s.modalCancelBtn}>
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* ===== MODALS ===== */}
+
+      {/* Meal Modal */}
+      <BottomSheet visible={showMealModal} onClose={() => { setShowMealModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.modalTitle}>Add {selectedSlot?.label || 'Meal'}</Text>
+        <Text style={s.inputLabel}>What did you eat?</Text>
+        <TextInput
+          style={s.modalInput}
+          placeholder="e.g. Grilled chicken salad"
+          placeholderTextColor={Colors.textTertiary}
+          value={mealName}
+          onChangeText={setMealName}
+          returnKeyType="next"
+          onSubmitEditing={() => calInputRef.current?.focus()}
+          autoFocus
+        />
+        <Text style={s.inputLabel}>Estimated calories (optional)</Text>
+        <TextInput
+          ref={calInputRef}
+          style={s.modalInput}
+          placeholder="e.g. 350"
+          placeholderTextColor={Colors.textTertiary}
+          value={mealCalories}
+          onChangeText={setMealCalories}
+          keyboardType="numeric"
+          returnKeyType="done"
+          onSubmitEditing={saveMeal}
+        />
+        <TouchableOpacity onPress={saveMeal} style={[s.modalSaveBtn, !mealName.trim() && s.modalSaveBtnDisabled]} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Save Meal</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowMealModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
 
       {/* Sleep Modal */}
-      <Modal visible={showSleepModal} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>Log Sleep</Text>
-            <View style={s.sleepInputRow}>
-              <View style={s.sleepInputWrap}>
-                <Text style={s.sleepInputLabel}>Hours</Text>
-                <TextInput style={s.modalInput} value={sleepHours} onChangeText={setSleepHours} keyboardType="numeric" placeholder="7" placeholderTextColor={Colors.textTertiary} />
-              </View>
-              <View style={s.sleepInputWrap}>
-                <Text style={s.sleepInputLabel}>Minutes</Text>
-                <TextInput style={s.modalInput} value={sleepMinutes} onChangeText={setSleepMinutes} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textTertiary} />
-              </View>
-            </View>
-            <Text style={s.sleepInputLabel}>Sleep Quality</Text>
-            <View style={s.qualityRow}>
-              {[1,2,3,4,5].map(q => (
-                <TouchableOpacity key={q} onPress={() => setSleepQuality(q)} style={s.qualityBtn}>
-                  <Ionicons name={q <= sleepQuality ? "moon" : "moon-outline"} size={28} color={Colors.fitnessPurple} />
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity onPress={saveSleep} style={s.modalSaveBtn}>
-              <Text style={s.modalSaveBtnText}>Save Sleep</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowSleepModal(false)} style={s.modalCancelBtn}>
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
+      <BottomSheet visible={showSleepModal} onClose={() => { setShowSleepModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.modalTitle}>Log Sleep</Text>
+        <View style={s.sleepInputRow}>
+          <View style={s.sleepInputWrap}>
+            <Text style={s.inputLabel}>Hours</Text>
+            <TextInput style={s.modalInput} value={sleepHours} onChangeText={setSleepHours} keyboardType="numeric" placeholder="7" placeholderTextColor={Colors.textTertiary} />
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          <View style={s.sleepInputWrap}>
+            <Text style={s.inputLabel}>Minutes</Text>
+            <TextInput style={s.modalInput} value={sleepMinutes} onChangeText={setSleepMinutes} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textTertiary} />
+          </View>
+        </View>
+        <Text style={s.inputLabel}>Sleep Quality</Text>
+        <View style={s.qualityRow}>
+          {[1,2,3,4,5].map(q => (
+            <TouchableOpacity key={q} onPress={() => setSleepQuality(q)} style={[s.qualityBtn, q <= sleepQuality && s.qualityBtnActive]}>
+              <Ionicons name={q <= sleepQuality ? "moon" : "moon-outline"} size={26} color={q <= sleepQuality ? Colors.fitnessPurple : '#CCC'} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity onPress={saveSleep} style={s.modalSaveBtn} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Save Sleep</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowSleepModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
 
       {/* Walking Modal */}
-      <Modal visible={showWalkModal} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>Log Walk</Text>
-            <TextInput style={s.modalInput} placeholder="Steps" placeholderTextColor={Colors.textTertiary} value={walkSteps} onChangeText={setWalkSteps} keyboardType="numeric" />
-            <TextInput style={s.modalInput} placeholder="Duration (minutes, optional)" placeholderTextColor={Colors.textTertiary} value={walkDuration} onChangeText={setWalkDuration} keyboardType="numeric" />
-            {walkSteps ? (
-              <View style={s.calcRow}>
-                <Text style={s.calcText}>Distance: {(parseInt(walkSteps) * 0.0008).toFixed(2)} km</Text>
-                <Text style={s.calcText}>Calories: {Math.round(parseInt(walkSteps) * 0.04)} kcal</Text>
-              </View>
-            ) : null}
-            <TouchableOpacity onPress={saveWalk} style={[s.modalSaveBtn, !walkSteps && s.modalSaveBtnDisabled]}>
-              <Text style={s.modalSaveBtnText}>Log Walk</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowWalkModal(false)} style={s.modalCancelBtn}>
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <BottomSheet visible={showWalkModal} onClose={() => { setShowWalkModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.modalTitle}>Log Walk</Text>
+        <Text style={s.inputLabel}>Steps</Text>
+        <TextInput
+          style={s.modalInput}
+          placeholder="e.g. 5000"
+          placeholderTextColor={Colors.textTertiary}
+          value={walkSteps}
+          onChangeText={setWalkSteps}
+          keyboardType="numeric"
+          returnKeyType="next"
+          onSubmitEditing={() => walkDurRef.current?.focus()}
+          autoFocus
+        />
+        <Text style={s.inputLabel}>Duration (minutes, optional)</Text>
+        <TextInput
+          ref={walkDurRef}
+          style={s.modalInput}
+          placeholder="e.g. 45"
+          placeholderTextColor={Colors.textTertiary}
+          value={walkDuration}
+          onChangeText={setWalkDuration}
+          keyboardType="numeric"
+          returnKeyType="done"
+          onSubmitEditing={saveWalk}
+        />
+        {walkSteps ? (
+          <Animated.View entering={FadeIn.duration(300)} style={s.calcRow}>
+            <View style={s.calcItem}>
+              <Ionicons name="navigate" size={14} color={Colors.socialTeal} />
+              <Text style={s.calcText}>{(parseInt(walkSteps) * 0.0008).toFixed(2)} km</Text>
+            </View>
+            <View style={s.calcItem}>
+              <Ionicons name="flame" size={14} color={Colors.nutritionOrange} />
+              <Text style={s.calcText}>{Math.round(parseInt(walkSteps) * 0.04)} kcal</Text>
+            </View>
+          </Animated.View>
+        ) : null}
+        <TouchableOpacity onPress={saveWalk} style={[s.modalSaveBtn, !walkSteps && s.modalSaveBtnDisabled]} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Log Walk</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowWalkModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
 
       {/* MET Modal */}
-      <Modal visible={showMetModal} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>Log Activity (MET)</Text>
-            <Text style={s.sleepInputLabel}>Activity Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.metActivityScroll}>
-              {MET_ACTIVITIES.map(a => (
-                <TouchableOpacity
-                  key={a.name}
-                  style={[s.metActivityChip, metActivity.name === a.name && s.metActivityChipActive]}
-                  onPress={() => setMetActivity(a)}
-                >
-                  <Text style={[s.metActivityText, metActivity.name === a.name && s.metActivityTextActive]}>{a.name}</Text>
-                  <Text style={[s.metActivityValue, metActivity.name === a.name && s.metActivityTextActive]}>{a.value}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TextInput style={s.modalInput} placeholder="Duration (minutes)" placeholderTextColor={Colors.textTertiary} value={metDuration} onChangeText={setMetDuration} keyboardType="numeric" />
-            {metDuration ? (
-              <View style={s.calcRow}>
-                <Text style={s.calcText}>MET-minutes: {(metActivity.value * parseInt(metDuration || '0')).toFixed(0)}</Text>
-              </View>
-            ) : null}
-            <TouchableOpacity onPress={saveMet} style={[s.modalSaveBtn, !metDuration && s.modalSaveBtnDisabled]}>
-              <Text style={s.modalSaveBtnText}>Log Activity</Text>
+      <BottomSheet visible={showMetModal} onClose={() => { setShowMetModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.modalTitle}>Log Activity</Text>
+        <Text style={s.inputLabel}>Activity Type</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.metActivityScroll} keyboardShouldPersistTaps="handled">
+          {MET_ACTIVITIES.map(a => (
+            <TouchableOpacity
+              key={a.name}
+              style={[s.metChip, metActivity.name === a.name && s.metChipActive]}
+              onPress={() => setMetActivity(a)}
+            >
+              <Text style={[s.metChipText, metActivity.name === a.name && s.metChipTextActive]}>{a.name}</Text>
+              <Text style={[s.metChipVal, metActivity.name === a.name && s.metChipTextActive]}>MET {a.value}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowMetModal(false)} style={s.modalCancelBtn}>
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          ))}
+        </ScrollView>
+        <Text style={s.inputLabel}>Duration (minutes)</Text>
+        <TextInput
+          style={s.modalInput}
+          placeholder="e.g. 30"
+          placeholderTextColor={Colors.textTertiary}
+          value={metDuration}
+          onChangeText={setMetDuration}
+          keyboardType="numeric"
+          returnKeyType="done"
+          onSubmitEditing={saveMet}
+        />
+        {metDuration ? (
+          <Animated.View entering={FadeIn.duration(300)} style={s.calcRow}>
+            <View style={s.calcItem}>
+              <Ionicons name="barbell" size={14} color={Colors.danger} />
+              <Text style={s.calcText}>{(metActivity.value * parseInt(metDuration || '0')).toFixed(0)} MET-minutes</Text>
+            </View>
+          </Animated.View>
+        ) : null}
+        <TouchableOpacity onPress={saveMet} style={[s.modalSaveBtn, !metDuration && s.modalSaveBtnDisabled]} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Log Activity</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowMetModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
 
       {/* Journal Modal */}
-      <Modal visible={showJournalModal} animationType="slide" transparent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-          <View style={s.modalSheet}>
-            <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>New Journal Entry</Text>
-            <TextInput
-              style={s.modalInput}
-              placeholder="What is on your mind?"
-              placeholderTextColor={Colors.textTertiary}
-              value={journalTitle}
-              onChangeText={setJournalTitle}
-              maxLength={100}
-            />
-            <TextInput
-              style={[s.modalInput, { height: 120, textAlignVertical: 'top' }]}
-              placeholder="Write your thoughts..."
-              placeholderTextColor={Colors.textTertiary}
-              value={journalDesc}
-              onChangeText={setJournalDesc}
-              multiline
-              maxLength={2000}
-            />
-            <TouchableOpacity onPress={saveJournal} style={[s.modalSaveBtn, (!journalTitle.trim() || journalTitle.trim().length < 3) && s.modalSaveBtnDisabled]}>
-              <Text style={s.modalSaveBtnText}>Save Entry</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowJournalModal(false)} style={s.modalCancelBtn}>
-              <Text style={s.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <BottomSheet visible={showJournalModal} onClose={() => { setShowJournalModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.modalTitle}>{editingJournal ? 'Edit Entry' : 'New Journal Entry'}</Text>
+        <Text style={s.inputLabel}>Title</Text>
+        <TextInput
+          style={s.modalInput}
+          placeholder="What's on your mind?"
+          placeholderTextColor={Colors.textTertiary}
+          value={journalTitle}
+          onChangeText={setJournalTitle}
+          maxLength={100}
+          returnKeyType="next"
+          onSubmitEditing={() => journalDescRef.current?.focus()}
+          autoFocus
+        />
+        <Text style={s.inputLabel}>Description</Text>
+        <TextInput
+          ref={journalDescRef}
+          style={[s.modalInput, { height: 120, textAlignVertical: 'top', paddingTop: 14 }]}
+          placeholder="Write your thoughts, feelings, reflections..."
+          placeholderTextColor={Colors.textTertiary}
+          value={journalDesc}
+          onChangeText={setJournalDesc}
+          multiline
+          maxLength={2000}
+        />
+        <Text style={s.charCount}>{journalDesc.length}/2000</Text>
+        <TouchableOpacity onPress={saveJournal} style={[s.modalSaveBtn, (!journalTitle.trim() || journalTitle.trim().length < 3) && s.modalSaveBtnDisabled]} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>{editingJournal ? 'Update Entry' : 'Save Entry'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setShowJournalModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
 
+// ============ STYLES ============
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { flex: 1 },
@@ -684,29 +962,28 @@ const s = StyleSheet.create({
   loadWrap: { paddingVertical: 80, alignItems: 'center' },
 
   // Zone bar
-  zoneBar: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: 8, paddingBottom: 4, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  zoneBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, position: 'relative' },
-  zoneBtnActive: {},
+  zoneBar: { flexDirection: 'row', paddingHorizontal: 0, paddingTop: 8, paddingBottom: 6, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, position: 'relative' },
+  zoneBtn: { flex: 1, alignItems: 'center', paddingVertical: 8 },
   zoneBtnText: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary, marginTop: 4 },
-  zoneBtnTextActive: { color: Colors.green },
-  zoneIndicator: { position: 'absolute', bottom: 0, width: 24, height: 3, backgroundColor: Colors.green, borderRadius: 2 },
+  zoneBtnTextActive: { color: Colors.green, fontWeight: '700' },
+  zoneIndicator: { position: 'absolute', bottom: 0, width: 30, height: 3, backgroundColor: Colors.green, borderRadius: 2 },
 
   // Calorie bar
-  calorieBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: Spacing.md, padding: 14, backgroundColor: Colors.nutritionSurface, borderRadius: Radius.lg, marginBottom: Spacing.md },
+  calorieBar: { marginHorizontal: Spacing.md, padding: 14, backgroundColor: '#FFF', borderRadius: Radius.lg, marginBottom: Spacing.md, gap: 8 },
   calorieInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   calorieText: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
-  calorieGoal: { fontSize: FontSize.small, color: Colors.textSecondary },
+  calorieGoal: { fontSize: FontSize.caption, color: Colors.textTertiary, alignSelf: 'flex-end' },
 
   // Meal cards
   mealCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.sm, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 14 },
   mealCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  mealIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  mealIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   mealLabel: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
-  mealTime: { fontSize: FontSize.caption, color: Colors.textTertiary },
+  mealTime: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 2 },
   addMealBtn: { padding: 4 },
-  tapToAdd: { paddingVertical: 10, paddingLeft: 56 },
+  tapToAdd: { paddingVertical: 10, paddingLeft: 58 },
   tapToAddText: { fontSize: FontSize.small, color: Colors.textTertiary, fontStyle: 'italic' },
-  loggedMeal: { flexDirection: 'row', alignItems: 'center', paddingTop: 10, paddingLeft: 56, borderTopWidth: 1, borderTopColor: Colors.borderLight, marginTop: 8 },
+  loggedMeal: { flexDirection: 'row', alignItems: 'center', paddingTop: 10, paddingLeft: 58, borderTopWidth: 1, borderTopColor: Colors.borderLight, marginTop: 8 },
   loggedMealName: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textPrimary },
   calBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   calBadgeText: { fontSize: FontSize.caption, color: Colors.nutritionOrange, fontWeight: '600' },
@@ -714,49 +991,47 @@ const s = StyleSheet.create({
   // Tracker cards
   trackerCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 16 },
   trackerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  trackerTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  trackerTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+  trackerBadge: { backgroundColor: Colors.waterBlue + '15', borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  trackerBadgeText: { fontSize: FontSize.caption, color: Colors.waterBlue, fontWeight: '600' },
   emptyTracker: { fontSize: FontSize.small, color: Colors.textTertiary, fontStyle: 'italic', marginBottom: 8 },
-  trackerLogBtn: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  trackerLogBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 12, marginTop: 10 },
   trackerLogText: { color: Colors.green, fontWeight: '700', fontSize: FontSize.small },
 
   // Water tracker
   waterTracker: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  waterRing: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.waterSurface, overflow: 'hidden', justifyContent: 'flex-end', alignItems: 'center', borderWidth: 3, borderColor: Colors.waterBlue + '30' },
-  waterRingFill: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.waterBlue + '30' },
-  waterRingContent: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center' },
-  waterCount: { fontSize: 28, fontWeight: '800', color: Colors.waterBlue },
-  waterLabel: { fontSize: FontSize.caption, color: Colors.textTertiary },
-  waterActions: { flex: 1, gap: 12 },
-  waterStatus: { fontSize: FontSize.small, color: Colors.textSecondary },
-  waterAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.waterBlue, borderRadius: Radius.lg, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
+  waterActions: { flex: 1, gap: 10 },
+  waterStatus: { fontSize: FontSize.small, color: Colors.textSecondary, lineHeight: 20 },
+  waterBtns: { flexDirection: 'row', gap: 8 },
+  waterAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.waterBlue, borderRadius: Radius.lg, paddingVertical: 10, paddingHorizontal: 16 },
   waterAddText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.small },
+  waterGlassRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
 
   // Sleep
   sleepInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sleepStat: {},
   sleepValue: { fontSize: 24, fontWeight: '800', color: Colors.fitnessPurple },
   sleepLabel: { fontSize: FontSize.caption, color: Colors.textTertiary },
   sleepQualityRow: { flexDirection: 'row', gap: 4 },
 
   // Walking
-  walkInfo: { alignItems: 'center', gap: 4 },
-  walkSteps: { fontSize: 28, fontWeight: '800', color: Colors.socialTeal },
-  walkLabel: { fontSize: FontSize.caption, color: Colors.textTertiary },
-  walkProgressOuter: { width: '100%', height: 8, backgroundColor: Colors.socialTeal + '15', borderRadius: 4, marginTop: 8 },
-  walkProgressInner: { height: '100%', backgroundColor: Colors.socialTeal, borderRadius: 4 },
-  walkGoalText: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 4 },
+  walkInfo: { gap: 6 },
+  walkSteps: { fontSize: 28, fontWeight: '800', color: Colors.socialTeal, textAlign: 'center' },
+  walkLabel: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'center' },
+  walkGoalText: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'center', marginTop: 2 },
 
   // MET
   metInfo: { alignItems: 'center', marginBottom: 8 },
   metTotal: { fontSize: 28, fontWeight: '800', color: Colors.danger },
   metLabel: { fontSize: FontSize.caption, color: Colors.textTertiary },
-  metCallout: { flexDirection: 'row', gap: 8, padding: 10, backgroundColor: Colors.waterSurface, borderRadius: Radius.sm },
+  metCallout: { flexDirection: 'row', gap: 8, padding: 10, backgroundColor: Colors.waterBlue + '08', borderRadius: Radius.sm, marginTop: 10 },
   metCalloutText: { flex: 1, fontSize: FontSize.caption, color: Colors.waterBlue },
 
   // Journal
   journalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
   journalHeaderTitle: { fontSize: FontSize.h3, fontWeight: '700', color: Colors.textPrimary },
-  journalAddBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.green, alignItems: 'center', justifyContent: 'center' },
+  journalAddBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.green, alignItems: 'center', justifyContent: 'center' },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: Spacing.md, marginBottom: Spacing.md, backgroundColor: '#FFF', borderRadius: Radius.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: Colors.borderLight },
+  searchInput: { flex: 1, fontSize: FontSize.small, color: Colors.textPrimary, paddingVertical: 0 },
   journalCard: { marginHorizontal: Spacing.md, marginBottom: Spacing.sm, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 14 },
   journalTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
   journalPreview: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4, lineHeight: 20 },
@@ -775,6 +1050,7 @@ const s = StyleSheet.create({
   timelineDot: { width: 12, height: 12, borderRadius: 6, marginTop: 2 },
   timelineConnector: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginVertical: 4 },
   timelineCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF', borderRadius: Radius.md, padding: 12, marginLeft: 8, marginBottom: 8 },
+  timelineIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   timelineCardTitle: { fontSize: FontSize.small, fontWeight: '700', color: Colors.textPrimary },
   timelineCardDesc: { fontSize: FontSize.caption, color: Colors.textSecondary },
 
@@ -783,34 +1059,34 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textSecondary },
   emptySubtext: { fontSize: FontSize.small, color: Colors.textTertiary },
 
-  // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.lg, paddingBottom: 40 },
-  modalHandle: { width: 40, height: 4, backgroundColor: Colors.borderLight, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.md },
-  modalTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.md },
-  modalInput: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 16, fontSize: FontSize.body, color: Colors.textPrimary, marginBottom: Spacing.sm },
-  modalSaveBtn: { backgroundColor: Colors.green, borderRadius: Radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: Spacing.sm },
-  modalSaveBtnDisabled: { opacity: 0.5 },
+  // Modal (shared)
+  modalTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4, marginTop: Spacing.sm },
+  inputLabel: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6, marginTop: 10 },
+  modalInput: { backgroundColor: '#F7F8FA', borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 16, fontSize: FontSize.body, color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.borderLight },
+  modalSaveBtn: { backgroundColor: Colors.green, borderRadius: Radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: Spacing.md },
+  modalSaveBtnDisabled: { opacity: 0.45 },
   modalSaveBtnText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
-  modalCancelBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  modalCancelBtn: { alignItems: 'center', paddingVertical: 14 },
   modalCancelText: { color: Colors.textTertiary, fontSize: FontSize.body },
+  charCount: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'right', marginTop: 4 },
 
-  // Sleep modal extras
+  // Sleep modal
   sleepInputRow: { flexDirection: 'row', gap: 12 },
   sleepInputWrap: { flex: 1 },
-  sleepInputLabel: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },
-  qualityRow: { flexDirection: 'row', gap: 12, marginBottom: Spacing.md, marginTop: 8, justifyContent: 'center' },
-  qualityBtn: { padding: 8 },
+  qualityRow: { flexDirection: 'row', gap: 10, marginBottom: Spacing.sm, marginTop: 8, justifyContent: 'center' },
+  qualityBtn: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
+  qualityBtnActive: { borderColor: Colors.fitnessPurple, backgroundColor: Colors.fitnessPurple + '10' },
 
-  // Walk & MET calc
+  // Calc row
   calcRow: { flexDirection: 'row', gap: 16, marginVertical: 8, paddingHorizontal: 4 },
-  calcText: { fontSize: FontSize.small, color: Colors.textSecondary },
+  calcItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  calcText: { fontSize: FontSize.small, color: Colors.textSecondary, fontWeight: '500' },
 
-  // MET activity selector
-  metActivityScroll: { marginBottom: Spacing.sm },
-  metActivityChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: Colors.borderLight, marginRight: 8, alignItems: 'center' },
-  metActivityChipActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
-  metActivityText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
-  metActivityTextActive: { color: Colors.green },
-  metActivityValue: { fontSize: FontSize.caption, color: Colors.textTertiary },
+  // MET chips
+  metActivityScroll: { marginBottom: 4, marginTop: 4 },
+  metChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: Colors.borderLight, marginRight: 8, alignItems: 'center' },
+  metChipActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
+  metChipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+  metChipTextActive: { color: Colors.green },
+  metChipVal: { fontSize: 10, color: Colors.textTertiary },
 });
