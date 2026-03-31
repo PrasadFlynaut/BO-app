@@ -4,10 +4,12 @@
 BO is a comprehensive health, wellness, and nutrition mobile platform built with React Native/Expo (frontend) and FastAPI/MongoDB (backend). The app enables users to track nutrition, water intake, browse diet plans, chat with an AI wellness coach, and engage with a social feed.
 
 ## Brand Identity
-- **Colors**: BO Green #26B50F, BO Lime #DBFF02, Dark #0A0A0A/#1A1A1A, White #FFFFFF
-- **Typography**: System fonts (Inter-inspired), weights 400/600/700
-- **Theme**: Dark premium aesthetic with green/lime accents
+- **Colors**: BO Green #26B50F, BO Lime #DBFF02, White #FFFFFF
+- **Accent Colors**: Nutrition Orange #FF9F1C, Water Blue #3A86FF, Fitness Purple #8338EC, Social Teal #06D6A0
+- **Typography**: System fonts (Inter-inspired), weights 400/600/700/800
+- **Theme**: Light, vibrant enterprise design with organic & earthy feel. No grey cards — all surfaces use brand-tinted colors.
 - **Logo**: Intertwined "bo" letterform in green/lime gradient
+- **Animations**: react-native-reanimated FadeInDown, spring scale micro-interactions, staggered list entries
 
 ## MVP Features Implemented
 

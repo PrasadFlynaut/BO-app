@@ -3,7 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, Radius } from '@/src/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
 
 export default function ChatScreen() {
@@ -26,38 +28,79 @@ export default function ChatScreen() {
     } catch (e) { console.error(e); } finally { setSending(false); }
   };
 
-  const SUGGESTIONS = ['Suggest a healthy breakfast', 'How much water should I drink?', 'Give me a quick workout', 'Help me plan meals for today'];
+  const SUGGESTIONS = [
+    { text: 'Suggest a healthy breakfast', icon: 'sunny-outline', color: Colors.nutritionOrange },
+    { text: 'How much water today?', icon: 'water-outline', color: Colors.waterBlue },
+    { text: 'Quick 15-min workout', icon: 'barbell-outline', color: Colors.fitnessPurple },
+    { text: 'Plan meals for today', icon: 'restaurant-outline', color: Colors.green },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <View style={styles.headerIcon}><Ionicons name="sparkles" size={20} color={Colors.green} /></View>
-        <View><Text style={styles.headerTitle}>BO Wellness Coach</Text><Text style={styles.headerSub}>Powered by AI</Text></View>
+      {/* Header */}
+      <View style={[styles.header, Shadow.sm]}>
+        <LinearGradient colors={[Colors.greenLight, '#FFFFFF']} style={styles.headerGradient}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconWrap}><Ionicons name="sparkles" size={22} color={Colors.green} /></View>
+            <View><Text style={styles.headerTitle}>BO Wellness Coach</Text><Text style={styles.headerSub}>AI-Powered Nutrition & Fitness</Text></View>
+          </View>
+          <View style={styles.statusDot}><View style={styles.statusDotInner} /><Text style={styles.statusText}>Online</Text></View>
+        </LinearGradient>
       </View>
+
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
         <FlatList ref={flatListRef} data={messages} keyExtractor={item => item.id} contentContainerStyle={styles.chatList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={
-            <View style={styles.emptyChat}>
-              <Ionicons name="sparkles" size={40} color={Colors.green} />
+            <Animated.View entering={FadeInDown.duration(600)} style={styles.emptyChat}>
+              <View style={styles.welcomeIconWrap}><Ionicons name="sparkles" size={36} color={Colors.green} /></View>
               <Text style={styles.welcomeTitle}>Hi! I'm your BO Coach</Text>
-              <Text style={styles.welcomeSub}>Ask me anything about nutrition, fitness, or wellness</Text>
+              <Text style={styles.welcomeSub}>Ask me anything about nutrition, fitness, or wellness. I'm personalized to your goals.</Text>
               <View style={styles.suggestions}>
-                {SUGGESTIONS.map((s, i) => (<TouchableOpacity key={i} style={styles.suggestionChip} onPress={() => setInput(s)} activeOpacity={0.7}><Text style={styles.suggestionText}>{s}</Text></TouchableOpacity>))}
+                {SUGGESTIONS.map((s, i) => (
+                  <Animated.View key={i} entering={FadeInDown.delay(200 + i * 100).duration(400)}>
+                    <TouchableOpacity style={[styles.suggestionChip, Shadow.sm]} onPress={() => setInput(s.text)} activeOpacity={0.7}>
+                      <View style={[styles.suggestionIcon, { backgroundColor: s.color + '15' }]}><Ionicons name={s.icon as any} size={18} color={s.color} /></View>
+                      <Text style={styles.suggestionText}>{s.text}</Text>
+                      <Ionicons name="arrow-forward" size={14} color={Colors.textTertiary} />
+                    </TouchableOpacity>
+                  </Animated.View>
+                ))}
               </View>
-            </View>
+            </Animated.View>
           }
           renderItem={({ item }) => (
-            <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.aiBubble]}>
-              {item.role === 'assistant' && <View style={styles.aiIcon}><Ionicons name="sparkles" size={14} color={Colors.green} /></View>}
-              <Text style={[styles.bubbleText, item.role === 'user' ? styles.userBubbleText : styles.aiBubbleText]}>{item.content}</Text>
-            </View>
+            <Animated.View entering={FadeInUp.duration(300)}>
+              {item.role === 'user' ? (
+                <View style={styles.userBubbleWrap}>
+                  <LinearGradient colors={[Colors.green, Colors.greenDark]} style={styles.userBubble}>
+                    <Text style={styles.userBubbleText}>{item.content}</Text>
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={styles.aiBubbleWrap}>
+                  <View style={styles.aiIconSmall}><Ionicons name="sparkles" size={12} color={Colors.green} /></View>
+                  <View style={[styles.aiBubble, Shadow.sm]}>
+                    <Text style={styles.aiBubbleText}>{item.content}</Text>
+                  </View>
+                </View>
+              )}
+            </Animated.View>
           )}
         />
-        <View style={styles.inputRow}>
-          <TextInput testID="chat-input" style={styles.chatInput} value={input} onChangeText={setInput} placeholder="Ask your wellness coach..." placeholderTextColor={Colors.textMuted} multiline maxLength={500} />
-          <TouchableOpacity testID="chat-send-button" style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnDisabled]} onPress={sendMessage} disabled={!input.trim() || sending}>
-            {sending ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="send" size={20} color="#FFF" />}
+
+        {sending && (
+          <View style={styles.typingRow}>
+            <View style={styles.typingDots}><Text style={styles.typingText}>BO Coach is typing...</Text></View>
+          </View>
+        )}
+
+        <View style={[styles.inputRow, Shadow.sm]}>
+          <TextInput testID="chat-input" style={styles.chatInput} value={input} onChangeText={setInput} placeholder="Ask your wellness coach..." placeholderTextColor={Colors.textTertiary} multiline maxLength={500} />
+          <TouchableOpacity testID="chat-send-button" onPress={sendMessage} disabled={!input.trim() || sending} activeOpacity={0.7}>
+            <LinearGradient colors={(!input.trim() || sending) ? [Colors.textTertiary, Colors.textTertiary] : [Colors.green, Colors.greenDark]} style={styles.sendBtn}>
+              {sending ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="send" size={20} color="#FFF" />}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -67,26 +110,35 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  headerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '700' },
-  headerSub: { color: Colors.textMuted, fontSize: FontSize.small },
+  header: { backgroundColor: '#FFF' },
+  headerGradient: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '800' },
+  headerSub: { color: Colors.textTertiary, fontSize: FontSize.caption },
+  statusDot: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statusDotInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.green },
+  statusText: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '600' },
   chatList: { padding: Spacing.md, paddingBottom: Spacing.lg, flexGrow: 1 },
-  bubble: { maxWidth: '82%', borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm },
-  userBubble: { backgroundColor: Colors.green, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  aiBubble: { backgroundColor: Colors.bgSurface, alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: Colors.border },
-  aiIcon: { marginBottom: 4 },
-  bubbleText: { fontSize: FontSize.body, lineHeight: 22 },
-  userBubbleText: { color: '#FFFFFF' },
-  aiBubbleText: { color: Colors.textPrimary },
-  emptyChat: { alignItems: 'center', paddingTop: 60, paddingHorizontal: Spacing.lg },
-  welcomeTitle: { color: Colors.textPrimary, fontSize: FontSize.h2, fontWeight: '700', marginTop: Spacing.md },
-  welcomeSub: { color: Colors.textSecondary, fontSize: FontSize.body, textAlign: 'center', marginTop: Spacing.sm },
+  userBubbleWrap: { alignItems: 'flex-end', marginBottom: Spacing.sm },
+  userBubble: { maxWidth: '80%', borderRadius: Radius.lg, borderBottomRightRadius: 4, padding: Spacing.md },
+  userBubbleText: { color: '#FFF', fontSize: FontSize.body, lineHeight: 22 },
+  aiBubbleWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginBottom: Spacing.sm },
+  aiIconSmall: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  aiBubble: { maxWidth: '78%', borderRadius: Radius.lg, borderBottomLeftRadius: 4, padding: Spacing.md, backgroundColor: '#FFF' },
+  aiBubbleText: { color: Colors.textPrimary, fontSize: FontSize.body, lineHeight: 22 },
+  emptyChat: { alignItems: 'center', paddingTop: 40, paddingHorizontal: Spacing.lg },
+  welcomeIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center' },
+  welcomeTitle: { color: Colors.textPrimary, fontSize: FontSize.h2, fontWeight: '800', marginTop: Spacing.md },
+  welcomeSub: { color: Colors.textSecondary, fontSize: FontSize.small, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 22 },
   suggestions: { marginTop: Spacing.xl, gap: Spacing.sm, width: '100%' },
-  suggestionChip: { backgroundColor: Colors.bgSurface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  suggestionText: { color: Colors.textSecondary, fontSize: FontSize.body },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.bgBase },
-  chatInput: { flex: 1, backgroundColor: Colors.bgSurface, borderRadius: Radius.md, paddingVertical: 12, paddingHorizontal: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, maxHeight: 100, borderWidth: 1, borderColor: Colors.border },
-  sendBtn: { backgroundColor: Colors.green, borderRadius: Radius.md, padding: 14 },
-  sendBtnDisabled: { opacity: 0.4 },
+  suggestionChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md },
+  suggestionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  suggestionText: { flex: 1, color: Colors.textPrimary, fontSize: FontSize.small, fontWeight: '500' },
+  typingRow: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+  typingDots: { backgroundColor: Colors.greenLight, borderRadius: Radius.md, paddingVertical: 8, paddingHorizontal: Spacing.md, alignSelf: 'flex-start' },
+  typingText: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '500' },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#FFF' },
+  chatInput: { flex: 1, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 12, paddingHorizontal: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, maxHeight: 100 },
+  sendBtn: { borderRadius: Radius.lg, padding: 14 },
 });
