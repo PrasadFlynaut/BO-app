@@ -116,7 +116,7 @@ export default function DietaryScreen() {
             testID="dietary-continue-button"
             onPress={() => {
               btnScale.value = withSpring(0.95, { stiffness: 400 });
-              setTimeout(() => {
+              setTimeout(async () => {
                 btnScale.value = withSpring(1, { stiffness: 300 });
                 try {
                   await api.put('/onboarding/preferences', { meal_preferences: diets, allergies });
