@@ -54,8 +54,8 @@ export default function MenuScreen() {
           </View>
         </View>
       )}
-      <FlatList data={meals} keyExtractor={item => item.id} contentContainerStyle={styles.mealList}
-        ListEmptyComponent={!selectedPlan ? <View style={styles.emptyState}><Ionicons name="restaurant-outline" size={48} color={Colors.textMuted} /><Text style={styles.emptyText}>Select a diet plan above</Text></View> : loading ? <Text style={styles.loadingText}>Loading...</Text> : null}
+      <FlatList style={{ flex: 1 }} data={meals} keyExtractor={item => item.id} contentContainerStyle={styles.mealList}
+        ListEmptyComponent={!selectedPlan ? <View style={styles.emptyState}><Ionicons name="restaurant-outline" size={48} color={Colors.textMuted} /><Text style={styles.emptyText}>Select a diet plan above</Text></View> : loading ? <Text style={styles.loadingText}>Loading...</Text> : meals.length === 0 ? <Text style={styles.loadingText}>No meals found</Text> : null}
         renderItem={({ item }) => (
           <View style={styles.mealCard}>
             <Image source={{ uri: item.image_url }} style={styles.mealImage} />

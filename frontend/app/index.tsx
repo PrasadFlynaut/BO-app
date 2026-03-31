@@ -99,6 +99,7 @@ export default function SplashScreen() {
         showsHorizontalScrollIndicator={false}
         scrollEnabled={false}
         style={{ flex: 1 }}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
         onMomentumScrollEnd={(e) => {
           const index = Math.round(e.nativeEvent.contentOffset.x / width);
           setCurrentIndex(index);
