@@ -13,6 +13,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors.textTertiary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: -2 },
         tabBarItemStyle: { paddingVertical: 4 },
+        sceneStyle: { backgroundColor: '#FFFFFF' },
       }}
     >
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} /></View> }} />
