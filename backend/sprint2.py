@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'bo_app')]
+db = client['bo_wellness']
 
 sprint2_router = APIRouter()
 
@@ -319,7 +319,7 @@ async def seed_sprint2():
         {"name": "Vegetarian", "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400", "is_active": True},
         {"name": "Vegan", "image_url": "https://images.unsplash.com/photo-1543362906-acfc16c67564?w=400", "is_active": True},
         {"name": "Kosher", "image_url": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400", "is_active": True},
-        {"name": "Keto", "image_url": "https://images.unsplash.com/photo-1432139509613-5c4255a78e03?w=400", "is_active": True},
+        {"name": "Keto", "image_url": "https://images.unsplash.com/photo-1559847844-5315695dadae?w=400", "is_active": True},
         {"name": "Allergy Friendly", "image_url": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400", "is_active": True},
         {"name": "High Protein", "image_url": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=400", "is_active": True},
         {"name": "Alkaline", "image_url": "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400", "is_active": True},
