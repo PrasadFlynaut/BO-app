@@ -761,6 +761,7 @@ async def startup():
     await db.chat_messages.create_index([("user_id", 1), ("created_at", 1)])
     await seed_data()
     await seed_sprint2()
+    await setup_sprint3_indexes()
     logger.info("BO Wellness App started")
 
 @app.on_event("shutdown")
@@ -768,7 +769,9 @@ async def shutdown():
     client.close()
 
 from sprint2 import sprint2_router, seed_sprint2
+from sprint3 import sprint3_router, setup_sprint3_indexes
 
+app.include_router(sprint3_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
 app.include_router(api_router)
 
