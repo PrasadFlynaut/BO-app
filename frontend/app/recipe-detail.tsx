@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,14 +76,14 @@ export default function RecipeDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Image source={boLogo} style={s.headerLogo} resizeMode="contain" />
+        <Image source={boLogo} style={s.headerLogo} contentFit="contain" transition={200} />
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         {recipe.image_url ? (
-          <Image source={{ uri: recipe.image_url }} style={s.heroImg} resizeMode="cover" />
+          <Image source={{ uri: recipe.image_url }} style={s.heroImg} contentFit="cover" transition={200} />
         ) : (
           <View style={s.heroPlaceholder}>
             <Ionicons name="restaurant" size={48} color={Colors.green} />

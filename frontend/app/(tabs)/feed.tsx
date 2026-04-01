@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, FlatList, Image,
+  View, Text, TouchableOpacity, StyleSheet, FlatList,
   TextInput, Modal, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform, ScrollView, Keyboard,
   Dimensions, Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,7 +86,7 @@ function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleD
         {/* Image */}
         {hasImage && (
           <TouchableOpacity activeOpacity={0.95} onPress={() => handleOpenDetail(item)}>
-            <Image source={{ uri: item.media_urls[0] }} style={s.postImage} resizeMode="cover" />
+            <Image source={{ uri: item.media_urls[0] }} style={s.postImage} contentFit="cover" transition={200} />
             {item.media_urls.length > 1 && (
               <View style={s.imageCount}>
                 <Text style={s.imageCountText}>+{item.media_urls.length - 1}</Text>
@@ -669,7 +670,7 @@ export default function FeedScreen() {
                   {selectedPost.media_urls?.length > 0 && selectedPost.media_type === 'image' && (
                     <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
                       {selectedPost.media_urls.map((url: string, i: number) => (
-                        <Image key={i} source={{ uri: url }} style={s.detailImage} resizeMode="cover" />
+                        <Image key={i} source={{ uri: url }} style={s.detailImage} contentFit="cover" transition={200} />
                       ))}
                     </ScrollView>
                   )}

@@ -8,17 +8,17 @@ import { Colors, Spacing, FontSize, Radius } from '@/src/theme';
 import api from '@/src/api';
 
 type Prefs = {
-  meal_reminders: boolean; water_reminders: boolean; sleep_reminders: boolean;
-  workout_reminders: boolean; wellness_reminders: boolean; badge_earned: boolean;
-  community_activity: boolean; admin_announcements: boolean;
-  quiet_hours_enabled: boolean; quiet_hours_start: string; quiet_hours_end: string;
+  mealReminders: boolean; waterReminders: boolean; sleepReminders: boolean;
+  workoutReminders: boolean; wellnessReminders: boolean; badgeEarned: boolean;
+  communityActivity: boolean; adminAnnouncements: boolean;
+  quietHoursEnabled: boolean; quietHoursStart: string; quietHoursEnd: string;
 };
 
 const DEFAULT: Prefs = {
-  meal_reminders: true, water_reminders: true, sleep_reminders: true,
-  workout_reminders: true, wellness_reminders: true, badge_earned: true,
-  community_activity: true, admin_announcements: true,
-  quiet_hours_enabled: false, quiet_hours_start: '22:00', quiet_hours_end: '07:00',
+  mealReminders: true, waterReminders: true, sleepReminders: true,
+  workoutReminders: true, wellnessReminders: true, badgeEarned: true,
+  communityActivity: true, adminAnnouncements: true,
+  quietHoursEnabled: false, quietHoursStart: '22:00', quietHoursEnd: '07:00',
 };
 
 export default function NotificationSettingsScreen() {
@@ -39,7 +39,7 @@ export default function NotificationSettingsScreen() {
   }, []);
 
   const toggle = (key: keyof Prefs) => {
-    if (key === 'admin_announcements') return;
+    if (key === 'adminAnnouncements') return;
     setPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] };
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -49,10 +49,10 @@ export default function NotificationSettingsScreen() {
   };
 
   const toggleAll = () => {
-    const allOn = prefs.meal_reminders && prefs.water_reminders && prefs.sleep_reminders && prefs.workout_reminders && prefs.wellness_reminders && prefs.badge_earned && prefs.community_activity;
+    const allOn = prefs.mealReminders && prefs.waterReminders && prefs.sleepReminders && prefs.workoutReminders && prefs.wellnessReminders && prefs.badgeEarned && prefs.communityActivity;
     setPrefs(prev => {
       const val = !allOn;
-      const next = { ...prev, meal_reminders: val, water_reminders: val, sleep_reminders: val, workout_reminders: val, wellness_reminders: val, badge_earned: val, community_activity: val };
+      const next = { ...prev, mealReminders: val, waterReminders: val, sleepReminders: val, workoutReminders: val, wellnessReminders: val, badgeEarned: val, communityActivity: val };
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => save(next), 500);
       return next;
@@ -65,23 +65,23 @@ export default function NotificationSettingsScreen() {
     } catch (e) { console.error('Save error:', e); }
   };
 
-  const allOn = prefs.meal_reminders && prefs.water_reminders && prefs.sleep_reminders && prefs.workout_reminders && prefs.wellness_reminders && prefs.badge_earned && prefs.community_activity;
+  const allOn = prefs.mealReminders && prefs.waterReminders && prefs.sleepReminders && prefs.workoutReminders && prefs.wellnessReminders && prefs.badgeEarned && prefs.communityActivity;
 
   type Row = { key: keyof Prefs; label: string; sub?: string; disabled?: boolean };
   const GROUPS: { title: string; rows: Row[] }[] = [
     { title: 'REMINDERS', rows: [
-      { key: 'meal_reminders', label: 'Meal Reminders', sub: 'Reminders for breakfast, lunch, dinner' },
-      { key: 'water_reminders', label: 'Water Reminders', sub: 'Stay hydrated throughout the day' },
-      { key: 'sleep_reminders', label: 'Sleep Reminders', sub: 'Bedtime and wake-up reminders' },
-      { key: 'workout_reminders', label: 'Workout Reminders', sub: 'Daily exercise motivation' },
-      { key: 'wellness_reminders', label: 'Wellness Program Reminders', sub: 'Program check-in alerts' },
+      { key: 'mealReminders', label: 'Meal Reminders', sub: 'Reminders for breakfast, lunch, dinner' },
+      { key: 'waterReminders', label: 'Water Reminders', sub: 'Stay hydrated throughout the day' },
+      { key: 'sleepReminders', label: 'Sleep Reminders', sub: 'Bedtime and wake-up reminders' },
+      { key: 'workoutReminders', label: 'Workout Reminders', sub: 'Daily exercise motivation' },
+      { key: 'wellnessReminders', label: 'Wellness Program Reminders', sub: 'Program check-in alerts' },
     ]},
     { title: 'SOCIAL', rows: [
-      { key: 'badge_earned', label: 'Badge Earned', sub: 'Celebrate your achievements' },
-      { key: 'community_activity', label: 'Community Activity', sub: 'Likes and comments on your posts' },
+      { key: 'badgeEarned', label: 'Badge Earned', sub: 'Celebrate your achievements' },
+      { key: 'communityActivity', label: 'Community Activity', sub: 'Likes and comments on your posts' },
     ]},
     { title: 'SYSTEM', rows: [
-      { key: 'admin_announcements', label: 'Admin Announcements', sub: 'Critical announcements cannot be disabled', disabled: true },
+      { key: 'adminAnnouncements', label: 'Admin Announcements', sub: 'Critical announcements cannot be disabled', disabled: true },
     ]},
   ];
 
@@ -136,20 +136,20 @@ export default function NotificationSettingsScreen() {
                 <Text style={s.toggleLabel}>Enable Quiet Hours</Text>
                 <Text style={s.toggleSub}>No notifications during quiet time</Text>
               </View>
-              <Switch value={prefs.quiet_hours_enabled} onValueChange={() => toggle('quiet_hours_enabled')} trackColor={{ false: '#D1D5DB', true: Colors.green }} thumbColor="#FFF" />
+              <Switch value={prefs.quietHoursEnabled} onValueChange={() => toggle('quietHoursEnabled')} trackColor={{ false: '#D1D5DB', true: Colors.green }} thumbColor="#FFF" />
             </View>
-            {prefs.quiet_hours_enabled && (
+            {prefs.quietHoursEnabled && (
               <View style={s.timeRow}>
                 <View style={s.timeBlock}>
                   <Ionicons name="moon-outline" size={18} color={Colors.fitnessPurple} />
                   <Text style={s.timeLabel}>Start</Text>
-                  <Text style={s.timeValue}>{prefs.quiet_hours_start}</Text>
+                  <Text style={s.timeValue}>{prefs.quietHoursStart}</Text>
                 </View>
                 <View style={s.timeSep}><Text style={{ color: '#9CA3AF' }}>to</Text></View>
                 <View style={s.timeBlock}>
                   <Ionicons name="sunny-outline" size={18} color={Colors.nutritionOrange} />
                   <Text style={s.timeLabel}>End</Text>
-                  <Text style={s.timeValue}>{prefs.quiet_hours_end}</Text>
+                  <Text style={s.timeValue}>{prefs.quietHoursEnd}</Text>
                 </View>
               </View>
             )}

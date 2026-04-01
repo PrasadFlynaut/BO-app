@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, Dimensions, Modal,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,7 +92,7 @@ export default function MealDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={ms.heroWrap}>
-          <Image source={{ uri: meal.image_url }} style={ms.heroImg} resizeMode="cover" />
+          <Image source={{ uri: meal.image_url }} style={ms.heroImg} contentFit="cover" transition={200} />
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.5)']} style={ms.heroOverlay} />
           <View style={ms.heroNav}>
             <TouchableOpacity onPress={() => router.back()} style={ms.heroBtn}>

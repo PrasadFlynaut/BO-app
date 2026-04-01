@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, ActivityIndicator, RefreshControl, Modal, Alert,
   KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -157,7 +158,7 @@ export default function HomeScreen() {
         {/* Greeting */}
         <View style={s.greetRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
-            <Image source={boLogoColor} style={s.headerLogo} resizeMode="contain" />
+            <Image source={boLogoColor} style={s.headerLogo} contentFit="contain" transition={200} />
             <View style={{ flex: 1 }}>
               <Text style={s.greeting}>{greeting}, {firstName}!</Text>
               <Text style={s.greetSub}>Let us find your healthiest meal today</Text>

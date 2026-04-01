@@ -336,6 +336,10 @@ async def reset_password(input: ResetPasswordInput):
     if datetime.now(timezone.utc) > expires:
         await db.reset_codes.delete_one({"email": email})
         raise HTTPException(status_code=400, detail="Reset code has expired")
+    # Validate new password strength
+    is_valid, err_msg = validate_password_strength(input.new_password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=err_msg)
     await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(input.new_password)}})
     await db.reset_codes.delete_one({"email": email})
     return {"message": "Password reset successfully"}
@@ -345,8 +349,10 @@ async def change_password(input: ChangePasswordInput, user=Depends(get_current_u
     full_user = await db.users.find_one({"_id": ObjectId(user["id"])})
     if not verify_password(input.current_password, full_user["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    if len(input.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    # Validate new password strength
+    is_valid, err_msg = validate_password_strength(input.new_password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=err_msg)
     await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"password_hash": hash_password(input.new_password)}})
     return {"message": "Password changed successfully"}
 

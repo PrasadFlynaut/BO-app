@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, RefreshControl, TextInput, FlatList, Modal, Alert,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -162,7 +163,7 @@ export default function CulinaryScreen() {
         onPress={() => router.push(`/meal/${item.id}`)}
         activeOpacity={0.85}
       >
-        <Image source={{ uri: item.image_url }} style={cs.mealImg} resizeMode="cover" />
+        <Image source={{ uri: item.image_url }} style={cs.mealImg} contentFit="cover" transition={200} />
         <View style={cs.mealInfo}>
           <Text style={cs.mealTitle} numberOfLines={2}>{item.title}</Text>
           <View style={cs.mealMeta}>
@@ -323,7 +324,7 @@ export default function CulinaryScreen() {
                   onPress={() => router.push(`/meal/${item.id}`)}
                   activeOpacity={0.85}
                 >
-                  <Image source={{ uri: item.image_url }} style={cs.favImg} resizeMode="cover" />
+                  <Image source={{ uri: item.image_url }} style={cs.favImg} contentFit="cover" transition={200} />
                   <View style={cs.favInfo}>
                     <Text style={cs.favTitle} numberOfLines={1}>{item.title}</Text>
                     <Text style={cs.favMeta}>{item.category} · {item.calories} cal</Text>
