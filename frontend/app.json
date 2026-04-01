@@ -16,7 +16,10 @@
         "NSCameraUsageDescription": "Take photos to share in feed posts",
         "NSPhotoLibraryUsageDescription": "Share photos from gallery in feed",
         "NSMicrophoneUsageDescription": "Record video audio for feed posts",
-        "NSLocationWhenInUseUsageDescription": "Find nearby healthy restaurants"
+        "NSLocationWhenInUseUsageDescription": "Find nearby healthy restaurants",
+        "NSHealthShareUsageDescription": "Sync steps and health data to BO",
+        "NSHealthUpdateUsageDescription": "Save workout data to Apple Health",
+        "NSMotionUsageDescription": "Track daily steps and activity"
       }
     },
     "android": {
@@ -38,7 +41,10 @@
         "ACCESS_COARSE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "SCHEDULE_EXACT_ALARM"
+        "SCHEDULE_EXACT_ALARM",
+        "ACTIVITY_RECOGNITION",
+        "BODY_SENSORS",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {

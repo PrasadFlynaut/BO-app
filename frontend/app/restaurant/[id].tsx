@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, TextInput, Modal, Linking,
+  ActivityIndicator, TextInput, Modal, Linking, Share,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -153,7 +153,11 @@ export default function RestaurantDetailScreen() {
               <Ionicons name="star-outline" size={22} color={Colors.textSecondary} />
               <Text style={st.actionLabel}>Rate</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={st.actionBtn}>
+            <TouchableOpacity style={st.actionBtn} onPress={async () => {
+              try {
+                await Share.share({ message: `Check out ${rest?.name} on BO Wellness!\n\n${rest?.description || ''}\n\nShared via BO Wellness App`, title: rest?.name || 'Restaurant' });
+              } catch (e) { console.error(e); }
+            }}>
               <Ionicons name="share-outline" size={22} color={Colors.textSecondary} />
               <Text style={st.actionLabel}>Share</Text>
             </TouchableOpacity>

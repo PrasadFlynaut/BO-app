@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   TextInput, Modal, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform, ScrollView, Keyboard,
-  Dimensions, Alert,
+  Dimensions, Alert, Share,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +32,7 @@ function getInitials(name: string) {
 }
 
 // Separate component to avoid hooks-in-callbacks issue
-function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleDeletePost, handleOpenDetail, handleLike, handleViewLikes }: any) {
+function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleDeletePost, handleOpenDetail, handleLike, handleViewLikes, handleShare }: any) {
   const [expanded, setExpanded] = React.useState(false);
   const hasImage = item.media_urls && item.media_urls.length > 0 && item.media_type === 'image';
   const textTruncated = item.text && item.text.length > 150;
@@ -113,7 +113,7 @@ function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleD
             <Text style={s.actionCount}>{item.comment_count || 0}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.actionBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={s.actionBtn} onPress={() => handleShare(item)} activeOpacity={0.7}>
             <Ionicons name="share-outline" size={22} color={Colors.textTertiary} />
           </TouchableOpacity>
         </View>
@@ -394,6 +394,21 @@ export default function FeedScreen() {
     } catch (e) { console.error(e); }
   };
 
+  // Share post
+  const handleShare = async (post: any) => {
+    try {
+      const message = post.content
+        ? `${post.user_name} on BO Wellness:\n\n"${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}"\n\nShared via BO Wellness App`
+        : `Check out this post by ${post.user_name} on BO Wellness App!`;
+      await Share.share({
+        message,
+        title: 'BO Wellness - Community Post',
+      });
+    } catch (e) {
+      console.error('Share error:', e);
+    }
+  };
+
   // Open comments/detail
   const handleOpenDetail = async (post: any) => {
     setSelectedPost(post);
@@ -447,7 +462,7 @@ export default function FeedScreen() {
 
   // ============ RENDER POST CARD ============
   const renderPost = ({ item, index }: { item: any; index: number }) => {
-    return <PostCard item={item} index={index} isOwner={item.user_id === user?.id} showPostMenu={showPostMenu} setShowPostMenu={setShowPostMenu} handleDeletePost={handleDeletePost} handleOpenDetail={handleOpenDetail} handleLike={handleLike} handleViewLikes={handleViewLikes} />;
+    return <PostCard item={item} index={index} isOwner={item.user_id === user?.id} showPostMenu={showPostMenu} setShowPostMenu={setShowPostMenu} handleDeletePost={handleDeletePost} handleOpenDetail={handleOpenDetail} handleLike={handleLike} handleViewLikes={handleViewLikes} handleShare={handleShare} />;
   };
 
   // ============ SKELETON ============
