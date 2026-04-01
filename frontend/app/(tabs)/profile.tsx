@@ -1,18 +1,36 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, TextInput, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl,
+  TextInput, Modal, ActivityIndicator, Alert, Platform,
+  KeyboardAvoidingView,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
 
+const BADGE_COLORS: Record<string, { bg: string; color: string }> = {
+  wellness: { bg: Colors.greenLight, color: Colors.green },
+  nutrition: { bg: Colors.nutritionSurface, color: Colors.nutritionOrange },
+  activity: { bg: Colors.fitnessSurface, color: Colors.fitnessPurple },
+  community: { bg: Colors.socialSurface, color: Colors.socialTeal },
+};
+
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<any>(null);
+  const [badges, setBadges] = useState<any[]>([]);
+  const [recipes, setRecipes] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Change password
   const [showChangePw, setShowChangePw] = useState(false);
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -20,11 +38,49 @@ export default function ProfileScreen() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
-  const router = useRouter();
 
-  useFocusEffect(useCallback(() => { refreshUser(); loadDashboard(); }, []));
-  const loadDashboard = async () => { try { const { data } = await api.get('/dashboard'); setDashboard(data); } catch (e) { console.error(e); } };
-  const onRefresh = async () => { setRefreshing(true); await refreshUser(); await loadDashboard(); setRefreshing(false); };
+  // Edit profile
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editDob, setEditDob] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Create recipe
+  const [showCreateRecipe, setShowCreateRecipe] = useState(false);
+  const [rTitle, setRTitle] = useState('');
+  const [rDesc, setRDesc] = useState('');
+  const [rCalories, setRCalories] = useState('');
+  const [rProteins, setRProteins] = useState('');
+  const [rFat, setRFat] = useState('');
+  const [rCarbs, setRCarbs] = useState('');
+  const [rDirections, setRDirections] = useState('');
+  const [rIngredients, setRIngredients] = useState('');
+  const [rCategory, setRCategory] = useState('custom');
+  const [creatingRecipe, setCreatingRecipe] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    refreshUser();
+    loadDashboard();
+    loadBadges();
+    loadRecipes();
+  }, []));
+
+  const loadDashboard = async () => {
+    try { const { data } = await api.get('/dashboard'); setDashboard(data); } catch (e) { console.error(e); }
+  };
+  const loadBadges = async () => {
+    try { const { data } = await api.get('/v1/badges'); setBadges(data.badges || []); } catch (e) { console.error(e); }
+  };
+  const loadRecipes = async () => {
+    try { const { data } = await api.get('/v1/receipes?limit=20'); setRecipes(data.data || []); } catch (e) { console.error(e); }
+  };
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refreshUser(), loadDashboard(), loadBadges(), loadRecipes()]);
+    setRefreshing(false);
+  };
 
   const handleChangePw = async () => {
     setPwError(''); setPwSuccess('');
@@ -37,201 +93,459 @@ export default function ProfileScreen() {
       setPwSuccess('Password changed successfully!');
       setCurPw(''); setNewPw(''); setConfirmPw('');
       setTimeout(() => { setShowChangePw(false); setPwSuccess(''); }, 1500);
-    } catch (e: any) {
-      setPwError(e.response?.data?.detail || 'Failed to change password');
-    } finally { setPwLoading(false); }
+    } catch (e: any) { setPwError(e.response?.data?.detail || 'Failed to change password'); }
+    setPwLoading(false);
   };
 
-  const onSettingPress = (label: string) => {
-    if (label === 'Change Password') { setShowChangePw(true); setPwError(''); setPwSuccess(''); setCurPw(''); setNewPw(''); setConfirmPw(''); }
-    else if (label === 'Privacy Policy') { router.push('/(auth)/privacy-policy'); }
+  const handleEditProfile = async () => {
+    setEditLoading(true);
+    try {
+      const payload: any = {};
+      if (editName) payload.name = editName;
+      if (editPhone) payload.phone = editPhone;
+      if (editAddress) payload.address = editAddress;
+      if (editDob) payload.date_of_birth = editDob;
+      await api.put('/v1/profile/update', payload);
+      await refreshUser();
+      setShowEditProfile(false);
+      Alert.alert('Success', 'Profile updated!');
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Update failed'); }
+    setEditLoading(false);
   };
+
+  const handleCreateRecipe = async () => {
+    if (!rTitle.trim()) { Alert.alert('Error', 'Title is required'); return; }
+    if (!rIngredients.trim()) { Alert.alert('Error', 'At least 1 ingredient is required'); return; }
+    setCreatingRecipe(true);
+    try {
+      const ingredients = rIngredients.split('\n').filter(l => l.trim()).map(l => {
+        const parts = l.split('-').map(s => s.trim());
+        return { name: parts[0] || l.trim(), quantity: parts[1] || '' };
+      });
+      await api.post('/v1/receipes', {
+        title: rTitle.trim(),
+        description: rDesc.trim(),
+        calories: parseInt(rCalories) || 0,
+        proteins: parseFloat(rProteins) || 0,
+        fat: parseFloat(rFat) || 0,
+        carbs: parseFloat(rCarbs) || 0,
+        directions: rDirections.trim(),
+        ingredients,
+        category: rCategory,
+      });
+      setShowCreateRecipe(false);
+      resetRecipeForm();
+      loadRecipes();
+      Alert.alert('Success', 'Recipe created!');
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed to create recipe'); }
+    setCreatingRecipe(false);
+  };
+
+  const resetRecipeForm = () => {
+    setRTitle(''); setRDesc(''); setRCalories(''); setRProteins('');
+    setRFat(''); setRCarbs(''); setRDirections(''); setRIngredients(''); setRCategory('custom');
+  };
+
+  const deleteRecipe = async (id: string) => {
+    try {
+      await api.delete(`/v1/receipes/${id}`);
+      setRecipes(prev => prev.filter(r => r.id !== id));
+    } catch (e) { console.error(e); }
+  };
+
+  const openEditProfile = () => {
+    setEditName(user?.name || '');
+    setEditPhone(user?.phone || '');
+    setEditAddress(user?.address || '');
+    setEditDob(user?.date_of_birth || '');
+    setShowEditProfile(true);
+  };
+
+  const earnedCount = badges.filter(b => b.earned).length;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />} showsVerticalScrollIndicator={false}>
-
+    <SafeAreaView style={st.safe}>
+      <ScrollView
+        contentContainerStyle={st.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Header */}
-        <Animated.View entering={FadeInDown.duration(500)}>
-          <LinearGradient colors={['#26B50F', '#1E8F0C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profileHeader}>
-            <View style={styles.avatarLarge}><Text style={styles.avatarLargeText}>{user?.name?.[0] || 'U'}</Text></View>
-            <Text style={styles.profileName}>{user?.name || 'User'}</Text>
-            <Text style={styles.profileEmail}>{user?.email}</Text>
-            <View style={styles.subscriptionBadge}>
+        <Animated.View entering={FadeInDown.duration(350)}>
+          <LinearGradient colors={['#26B50F', '#1E8F0C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.profileHeader}>
+            <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={22} color="#FFF" />
+            </TouchableOpacity>
+            <View style={st.avatarLarge}><Text style={st.avatarLargeText}>{user?.name?.[0] || 'U'}</Text></View>
+            <Text style={st.profileName}>{user?.name || 'User'}</Text>
+            <Text style={st.profileEmail}>{user?.email}</Text>
+            <View style={st.subBadge}>
               <Ionicons name={user?.subscription === 'pro' ? 'diamond' : 'sparkles'} size={14} color={user?.subscription === 'pro' ? Colors.lime : '#FFF'} />
-              <Text style={styles.subscriptionText}>{user?.subscription === 'pro' ? 'BO Pro' : 'Free Plan'}</Text>
+              <Text style={st.subBadgeText}>{user?.subscription === 'pro' ? 'BO Pro' : 'Free Plan'}</Text>
             </View>
+            <TouchableOpacity style={st.editBtn} onPress={openEditProfile}>
+              <Ionicons name="create-outline" size={16} color="#FFF" />
+              <Text style={st.editBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
 
         {/* Stats Row */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.statsRow}>
+        <Animated.View entering={FadeInDown.delay(100).duration(350)} style={st.statsRow}>
           {[
             { num: dashboard?.meals_logged || 0, label: 'Meals', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
             { num: Math.round(dashboard?.calories || 0), label: 'Calories', color: Colors.green, bg: Colors.greenLight },
-            { num: dashboard?.water_ml || 0, label: 'Water (ml)', color: Colors.waterBlue, bg: Colors.waterSurface },
+            { num: earnedCount, label: 'Badges', color: Colors.fitnessPurple, bg: Colors.fitnessSurface },
           ].map((s, i) => (
-            <View key={i} style={[styles.statBox, { backgroundColor: s.bg }, Shadow.sm]}>
-              <Text style={[styles.statNum, { color: s.color }]}>{s.num}</Text>
-              <Text style={styles.statSub}>{s.label}</Text>
+            <View key={i} style={[st.statBox, { backgroundColor: s.bg }, Shadow.sm]}>
+              <Text style={[st.statNum, { color: s.color }]}>{s.num}</Text>
+              <Text style={st.statSub}>{s.label}</Text>
             </View>
           ))}
         </Animated.View>
 
-        {/* Goals */}
+        {/* Badges Section */}
+        <Animated.View entering={FadeInDown.delay(150).duration(350)} style={st.section}>
+          <View style={st.sectionHeader}>
+            <Text style={st.sectionTitle}>Badges</Text>
+            <Text style={st.sectionCount}>{earnedCount}/{badges.length} earned</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
+            {badges.map((badge, i) => {
+              const cat = BADGE_COLORS[badge.category] || BADGE_COLORS.wellness;
+              return (
+                <View key={badge.id || i} style={[st.badgeCard, { backgroundColor: badge.earned ? cat.bg : '#F5F5F5' }, badge.earned && Shadow.sm]}>
+                  <View style={[st.badgeIcon, { backgroundColor: badge.earned ? cat.color : '#DDD' }]}>
+                    <Ionicons name={(badge.icon || 'star-outline') as any} size={20} color="#FFF" />
+                  </View>
+                  <Text style={[st.badgeName, !badge.earned && { color: Colors.textTertiary }]} numberOfLines={2}>{badge.name}</Text>
+                  {badge.earned ? (
+                    <Ionicons name="checkmark-circle" size={16} color={cat.color} />
+                  ) : (
+                    <Ionicons name="lock-closed-outline" size={14} color={Colors.textTertiary} />
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+
+        {/* My Recipes Section */}
+        <Animated.View entering={FadeInDown.delay(200).duration(350)} style={st.section}>
+          <View style={st.sectionHeader}>
+            <Text style={st.sectionTitle}>My Recipes</Text>
+            <TouchableOpacity onPress={() => setShowCreateRecipe(true)}>
+              <View style={st.addRecipeBtn}>
+                <Ionicons name="add" size={16} color={Colors.green} />
+                <Text style={st.addRecipeText}>Create</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+          {recipes.length === 0 ? (
+            <View style={st.emptyRecipes}>
+              <Ionicons name="book-outline" size={36} color={Colors.textTertiary} />
+              <Text style={st.emptyRecipesText}>No recipes yet</Text>
+              <TouchableOpacity onPress={() => setShowCreateRecipe(true)}>
+                <Text style={st.createRecipeLink}>Create your first recipe</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            recipes.map((recipe, i) => (
+              <View key={recipe.id} style={[st.recipeCard, Shadow.sm]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.recipeTitle}>{recipe.title}</Text>
+                  <Text style={st.recipeMeta}>
+                    {recipe.calories} cal · {recipe.category}
+                    {recipe.ingredients?.length ? ` · ${recipe.ingredients.length} ingredients` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => deleteRecipe(recipe.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </Animated.View>
+
+        {/* Personal Details */}
+        <Animated.View entering={FadeInDown.delay(250).duration(350)} style={st.section}>
+          <Text style={st.sectionTitle}>Personal Details</Text>
+          <View style={[st.detailsCard, Shadow.sm]}>
+            {[
+              { icon: 'mail-outline', label: 'Email', value: user?.email, color: Colors.waterBlue },
+              { icon: 'call-outline', label: 'Phone', value: user?.phone || 'Not set', color: Colors.green },
+              { icon: 'location-outline', label: 'Address', value: user?.address || 'Not set', color: Colors.nutritionOrange },
+              { icon: 'calendar-outline', label: 'Date of Birth', value: user?.date_of_birth || 'Not set', color: Colors.fitnessPurple },
+            ].map((item, i) => (
+              <View key={i} style={[st.detailRow, i < 3 && st.detailBorder]}>
+                <View style={[st.detailIcon, { backgroundColor: `${item.color}15` }]}>
+                  <Ionicons name={item.icon as any} size={18} color={item.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.detailLabel}>{item.label}</Text>
+                  <Text style={st.detailValue}>{item.value}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Goals & Diet */}
         {(user?.goals || []).length > 0 && (
-          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.section}>
-            <Text style={styles.sectionTitle}>My Goals</Text>
-            <View style={styles.chipRow}>
+          <Animated.View entering={FadeInDown.delay(300).duration(350)} style={st.section}>
+            <Text style={st.sectionTitle}>My Goals</Text>
+            <View style={st.chipRow}>
               {(user?.goals || []).map((g: string) => (
-                <LinearGradient key={g} colors={[Colors.lime + '30', Colors.greenLight]} style={styles.goalChip}>
-                  <Text style={styles.goalChipText}>{g.replace(/_/g, ' ')}</Text>
+                <LinearGradient key={g} colors={[Colors.lime + '30', Colors.greenLight]} style={st.goalChip}>
+                  <Text style={st.goalChipText}>{g.replace(/_/g, ' ')}</Text>
                 </LinearGradient>
               ))}
             </View>
           </Animated.View>
         )}
 
-        {/* Dietary Preferences */}
-        {(user?.dietary_preferences || []).length > 0 && (
-          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Diet Preferences</Text>
-            <View style={styles.chipRow}>
-              {(user?.dietary_preferences || []).map((d: string) => (
-                <View key={d} style={styles.dietChip}><Text style={styles.dietChipText}>{d.replace(/_/g, ' ')}</Text></View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Body Stats */}
-        {user?.weight_kg && (
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Body Stats</Text>
-            <View style={styles.bodyGrid}>
-              {user.height_cm && <View style={[styles.bodyItem, { backgroundColor: Colors.waterSurface }, Shadow.sm]}><Ionicons name="resize-outline" size={22} color={Colors.waterBlue} /><Text style={[styles.bodyVal, { color: Colors.waterBlue }]}>{user.height_cm} cm</Text><Text style={styles.bodyLbl}>Height</Text></View>}
-              <View style={[styles.bodyItem, { backgroundColor: Colors.nutritionSurface }, Shadow.sm]}><Ionicons name="scale-outline" size={22} color={Colors.nutritionOrange} /><Text style={[styles.bodyVal, { color: Colors.nutritionOrange }]}>{user.weight_kg} kg</Text><Text style={styles.bodyLbl}>Weight</Text></View>
-              {user.target_weight_kg && <View style={[styles.bodyItem, { backgroundColor: Colors.greenLight }, Shadow.sm]}><Ionicons name="flag-outline" size={22} color={Colors.green} /><Text style={[styles.bodyVal, { color: Colors.green }]}>{user.target_weight_kg} kg</Text><Text style={styles.bodyLbl}>Target</Text></View>}
-            </View>
-          </Animated.View>
-        )}
-
         {/* Settings */}
-        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={[styles.settingsCard, Shadow.sm]}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+        <Animated.View entering={FadeInDown.delay(350).duration(350)} style={[st.settingsCard, Shadow.sm]}>
+          <Text style={st.sectionTitle}>Settings</Text>
           {[
             { icon: 'lock-closed-outline', label: 'Change Password', color: '#FF5252', bg: '#FFF0F0' },
             { icon: 'notifications-outline', label: 'Notifications', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
             { icon: 'people-outline', label: 'Invite Friends', color: Colors.waterBlue, bg: Colors.waterSurface },
             { icon: 'help-circle-outline', label: 'Help & Support', color: Colors.socialTeal, bg: Colors.socialSurface },
-            { icon: 'card-outline', label: 'Subscription', color: Colors.fitnessPurple, bg: Colors.fitnessSurface },
             { icon: 'shield-checkmark-outline', label: 'Privacy Policy', color: Colors.textSecondary, bg: Colors.greenLight },
-            { icon: 'information-circle-outline', label: 'About BO', color: Colors.green, bg: Colors.greenLight },
           ].map((item, i) => (
-            <TouchableOpacity key={i} testID={`settings-${item.label.replace(/\s/g, '-').toLowerCase()}`} style={styles.menuItem} onPress={() => onSettingPress(item.label)} activeOpacity={0.7}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.menuIconWrap, { backgroundColor: item.bg }]}><Ionicons name={item.icon as any} size={20} color={item.color} /></View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
+            <TouchableOpacity key={i} style={st.menuItem} onPress={() => {
+              if (item.label === 'Change Password') { setShowChangePw(true); setPwError(''); setPwSuccess(''); setCurPw(''); setNewPw(''); setConfirmPw(''); }
+              else if (item.label === 'Privacy Policy') { router.push('/(auth)/privacy-policy'); }
+            }} activeOpacity={0.7}>
+              <View style={st.menuLeft}>
+                <View style={[st.menuIconWrap, { backgroundColor: item.bg }]}><Ionicons name={item.icon as any} size={20} color={item.color} /></View>
+                <Text style={st.menuLabel}>{item.label}</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
             </TouchableOpacity>
           ))}
         </Animated.View>
 
-        {/* Upgrade */}
-        {user?.subscription !== 'pro' && (
-          <Animated.View entering={FadeInDown.delay(500).duration(500)}>
-            <TouchableOpacity testID="upgrade-banner" activeOpacity={0.8}>
-              <LinearGradient colors={[Colors.lime, Colors.green]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.upgradeBanner, Shadow.lg]}>
-                <View style={styles.upgradeIcon}><Ionicons name="diamond" size={28} color="#FFF" /></View>
-                <View style={{ flex: 1 }}><Text style={styles.upgradeTitle}>Upgrade to BO Pro</Text><Text style={styles.upgradeSub}>Unlimited plans, AI coaching, family bundles & more</Text></View>
-                <Ionicons name="arrow-forward-circle" size={28} color="rgba(0,0,0,0.3)" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-
         {/* Logout */}
-        <TouchableOpacity testID="logout-button" style={styles.logoutBtn} onPress={logout} activeOpacity={0.7}>
-          <Ionicons name="log-out-outline" size={20} color={Colors.danger} /><Text style={styles.logoutText}>Log Out</Text>
+        <TouchableOpacity style={st.logoutBtn} onPress={logout} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+          <Text style={st.logoutText}>Log Out</Text>
         </TouchableOpacity>
-
       </ScrollView>
 
-      {/* Change Password Modal */}
+      {/* ===== CHANGE PASSWORD MODAL ===== */}
       <Modal visible={showChangePw} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, Shadow.lg]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Change Password</Text>
+        <View style={st.modalOverlay}>
+          <View style={[st.modalContent, Shadow.lg]}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>Change Password</Text>
               <TouchableOpacity onPress={() => setShowChangePw(false)}><Ionicons name="close" size={24} color={Colors.textPrimary} /></TouchableOpacity>
             </View>
-            {pwError ? <View style={styles.pwErrorBox}><Text style={styles.pwErrorText}>{pwError}</Text></View> : null}
-            {pwSuccess ? <View style={styles.pwSuccessBox}><Text style={styles.pwSuccessText}>{pwSuccess}</Text></View> : null}
-            <Text style={styles.pwLabel}>Current Password</Text>
-            <TextInput style={styles.pwInput} value={curPw} onChangeText={setCurPw} secureTextEntry placeholder="Enter current password" placeholderTextColor={Colors.textTertiary} />
-            <Text style={styles.pwLabel}>New Password</Text>
-            <TextInput style={styles.pwInput} value={newPw} onChangeText={setNewPw} secureTextEntry placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} />
-            <Text style={styles.pwLabel}>Confirm New Password</Text>
-            <TextInput style={styles.pwInput} value={confirmPw} onChangeText={setConfirmPw} secureTextEntry placeholder="Confirm new password" placeholderTextColor={Colors.textTertiary} />
+            {pwError ? <View style={st.errBox}><Text style={st.errText}>{pwError}</Text></View> : null}
+            {pwSuccess ? <View style={st.succBox}><Text style={st.succText}>{pwSuccess}</Text></View> : null}
+            <Text style={st.inputLabel}>Current Password</Text>
+            <TextInput style={st.input} value={curPw} onChangeText={setCurPw} secureTextEntry placeholder="Enter current password" placeholderTextColor={Colors.textTertiary} />
+            <Text style={st.inputLabel}>New Password</Text>
+            <TextInput style={st.input} value={newPw} onChangeText={setNewPw} secureTextEntry placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} />
+            <Text style={st.inputLabel}>Confirm New Password</Text>
+            <TextInput style={st.input} value={confirmPw} onChangeText={setConfirmPw} secureTextEntry placeholder="Confirm new password" placeholderTextColor={Colors.textTertiary} />
             <TouchableOpacity onPress={handleChangePw} disabled={pwLoading} activeOpacity={0.8}>
-              <LinearGradient colors={[Colors.green, Colors.greenDark]} style={styles.pwButton}>
-                {pwLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.pwButtonText}>Change Password</Text>}
-              </LinearGradient>
+              <LinearGradient colors={[Colors.green, Colors.greenDark]} style={st.modalBtn}><Text style={st.modalBtnText}>{pwLoading ? 'Changing...' : 'Change Password'}</Text></LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ===== EDIT PROFILE MODAL ===== */}
+      <Modal visible={showEditProfile} transparent animationType="slide">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={st.modalOverlay}>
+            <View style={[st.modalContent, Shadow.lg]}>
+              <View style={st.modalHeader}>
+                <Text style={st.modalTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setShowEditProfile(false)}><Ionicons name="close" size={24} color={Colors.textPrimary} /></TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={st.inputLabel}>Full Name</Text>
+                <TextInput style={st.input} value={editName} onChangeText={setEditName} placeholder="Your name" placeholderTextColor={Colors.textTertiary} />
+                <Text style={st.inputLabel}>Phone</Text>
+                <TextInput style={st.input} value={editPhone} onChangeText={setEditPhone} placeholder="Phone number" placeholderTextColor={Colors.textTertiary} keyboardType="phone-pad" />
+                <Text style={st.inputLabel}>Address</Text>
+                <TextInput style={st.input} value={editAddress} onChangeText={setEditAddress} placeholder="Your address" placeholderTextColor={Colors.textTertiary} />
+                <Text style={st.inputLabel}>Date of Birth</Text>
+                <TextInput style={st.input} value={editDob} onChangeText={setEditDob} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textTertiary} />
+                <TouchableOpacity onPress={handleEditProfile} disabled={editLoading} activeOpacity={0.8}>
+                  <LinearGradient colors={[Colors.green, Colors.greenDark]} style={st.modalBtn}><Text style={st.modalBtnText}>{editLoading ? 'Saving...' : 'Save Changes'}</Text></LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ===== CREATE RECIPE MODAL ===== */}
+      <Modal visible={showCreateRecipe} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={st.createHeader}>
+              <TouchableOpacity onPress={() => { setShowCreateRecipe(false); resetRecipeForm(); }}>
+                <Text style={st.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={st.createTitle}>New Recipe</Text>
+              <TouchableOpacity onPress={handleCreateRecipe} disabled={creatingRecipe}>
+                <View style={[st.saveBtn, (!rTitle.trim() || !rIngredients.trim()) && { opacity: 0.5 }]}>
+                  {creatingRecipe ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={st.saveBtnText}>Save</Text>}
+                </View>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              <Text style={st.inputLabel}>Title *</Text>
+              <TextInput style={st.input} value={rTitle} onChangeText={setRTitle} placeholder="Recipe name" placeholderTextColor={Colors.textTertiary} />
+
+              <Text style={st.inputLabel}>Description</Text>
+              <TextInput style={[st.input, { minHeight: 60 }]} value={rDesc} onChangeText={setRDesc} placeholder="Brief description" placeholderTextColor={Colors.textTertiary} multiline />
+
+              <Text style={st.inputLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+                {['custom', 'Healthy', 'Vegan', 'Keto', 'Mediterranean', 'High Protein', 'Balanced'].map(c => (
+                  <TouchableOpacity key={c} style={[st.catChip, rCategory === c && st.catChipActive]} onPress={() => setRCategory(c)}>
+                    <Text style={[st.catChipText, rCategory === c && st.catChipTextActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View style={st.macroRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>Calories</Text>
+                  <TextInput style={st.input} value={rCalories} onChangeText={setRCalories} placeholder="0" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>Protein (g)</Text>
+                  <TextInput style={st.input} value={rProteins} onChangeText={setRProteins} placeholder="0" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
+                </View>
+              </View>
+              <View style={st.macroRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>Fat (g)</Text>
+                  <TextInput style={st.input} value={rFat} onChangeText={setRFat} placeholder="0" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>Carbs (g)</Text>
+                  <TextInput style={st.input} value={rCarbs} onChangeText={setRCarbs} placeholder="0" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
+                </View>
+              </View>
+
+              <Text style={st.inputLabel}>Ingredients * (one per line, name - quantity)</Text>
+              <TextInput
+                style={[st.input, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={rIngredients}
+                onChangeText={setRIngredients}
+                placeholder={"Chicken breast - 200g\nOlive oil - 1 tbsp\nSalt - to taste"}
+                placeholderTextColor={Colors.textTertiary}
+                multiline
+              />
+
+              <Text style={st.inputLabel}>Directions</Text>
+              <TextInput
+                style={[st.input, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={rDirections}
+                onChangeText={setRDirections}
+                placeholder={"1. Preheat oven to 375F\n2. Season chicken\n3. Bake for 25 minutes"}
+                placeholderTextColor={Colors.textTertiary}
+                multiline
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { paddingBottom: 100 },
   profileHeader: { borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl, padding: Spacing.xl, paddingTop: Spacing.lg, alignItems: 'center' },
+  backBtn: { position: 'absolute', top: Spacing.md, left: Spacing.md, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
   avatarLargeText: { color: '#FFF', fontSize: 32, fontWeight: '800' },
   profileName: { color: '#FFF', fontSize: FontSize.h2, fontWeight: '800' },
   profileEmail: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.small, marginTop: 2 },
-  subscriptionBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.sm, backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill },
-  subscriptionText: { color: '#FFF', fontSize: FontSize.caption, fontWeight: '700' },
+  subBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.sm, backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill },
+  subBadgeText: { color: '#FFF', fontSize: FontSize.caption, fontWeight: '700' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md, backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: Radius.pill },
+  editBtnText: { color: '#FFF', fontSize: FontSize.small, fontWeight: '600' },
+
   statsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: -20, paddingHorizontal: Spacing.md },
   statBox: { flex: 1, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center' },
   statNum: { fontSize: FontSize.h3, fontWeight: '800' },
   statSub: { color: Colors.textTertiary, fontSize: FontSize.caption, marginTop: 2 },
+
   section: { paddingHorizontal: Spacing.md, marginTop: Spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.h4, fontWeight: '700', marginBottom: Spacing.sm },
+  sectionCount: { fontSize: FontSize.caption, color: Colors.textTertiary, fontWeight: '600' },
+
+  // Badges
+  badgeCard: { width: 100, borderRadius: Radius.lg, padding: Spacing.sm, alignItems: 'center', gap: 6 },
+  badgeIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  badgeName: { fontSize: 11, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', lineHeight: 14 },
+
+  // Recipes
+  addRecipeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.greenLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: Radius.pill },
+  addRecipeText: { fontSize: FontSize.small, color: Colors.green, fontWeight: '700' },
+  emptyRecipes: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
+  emptyRecipesText: { fontSize: FontSize.body, color: Colors.textTertiary },
+  createRecipeLink: { fontSize: FontSize.small, color: Colors.green, fontWeight: '700' },
+  recipeCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm },
+  recipeTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  recipeMeta: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 2 },
+
+  // Personal Details
+  detailsCard: { backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
+  detailBorder: { borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  detailIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  detailLabel: { fontSize: FontSize.caption, color: Colors.textTertiary, fontWeight: '600' },
+  detailValue: { fontSize: FontSize.body, color: Colors.textPrimary, marginTop: 1 },
+
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   goalChip: { borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: Spacing.md },
   goalChipText: { color: Colors.green, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'capitalize' },
-  dietChip: { backgroundColor: Colors.socialSurface, borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: Spacing.md },
-  dietChipText: { color: Colors.socialTeal, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'capitalize' },
-  bodyGrid: { flexDirection: 'row', gap: Spacing.sm },
-  bodyItem: { flex: 1, borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center' },
-  bodyVal: { fontSize: FontSize.h3, fontWeight: '800', marginTop: Spacing.xs },
-  bodyLbl: { color: Colors.textTertiary, fontSize: FontSize.caption, marginTop: 2 },
+
   settingsCard: { backgroundColor: '#FFF', borderRadius: Radius.xl, margin: Spacing.md, marginTop: Spacing.lg, padding: Spacing.md },
   menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   menuLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   menuIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   menuLabel: { color: Colors.textPrimary, fontSize: FontSize.body, fontWeight: '500' },
-  upgradeBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, margin: Spacing.md, borderRadius: Radius.xl, padding: Spacing.lg },
-  upgradeIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'center' },
-  upgradeTitle: { color: Colors.textPrimary, fontSize: FontSize.h4, fontWeight: '800' },
-  upgradeSub: { color: 'rgba(10,26,18,0.6)', fontSize: FontSize.caption, marginTop: 2 },
+
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.lg, marginTop: Spacing.sm },
   logoutText: { color: Colors.danger, fontSize: FontSize.body, fontWeight: '600' },
+
+  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: Colors.bgBase, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.lg, paddingBottom: 40 },
+  modalContent: { backgroundColor: Colors.bgBase, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.lg, paddingBottom: 40, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
   modalTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary },
-  pwErrorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
-  pwErrorText: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
-  pwSuccessBox: { backgroundColor: Colors.greenLight, borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
-  pwSuccessText: { color: Colors.green, fontSize: FontSize.small, textAlign: 'center', fontWeight: '700' },
-  pwLabel: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase' as const, letterSpacing: 1 },
-  pwInput: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, outlineStyle: 'none' as any },
-  pwButton: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
-  pwButtonText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
+  errBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  errText: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
+  succBox: { backgroundColor: Colors.greenLight, borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  succText: { color: Colors.green, fontSize: FontSize.small, textAlign: 'center', fontWeight: '700' },
+  inputLabel: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.md, textTransform: 'uppercase' as const, letterSpacing: 1 },
+  input: { backgroundColor: '#F5F5F5', borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body },
+  modalBtn: { borderRadius: Radius.lg, paddingVertical: 18, alignItems: 'center', marginTop: Spacing.xl },
+  modalBtnText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },
+
+  // Create recipe modal
+  createHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  cancelText: { color: Colors.textSecondary, fontSize: FontSize.body, fontWeight: '600' },
+  createTitle: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary },
+  saveBtn: { backgroundColor: Colors.green, borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 20 },
+  saveBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  macroRow: { flexDirection: 'row', gap: Spacing.md },
+  catChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: Radius.pill, backgroundColor: '#F5F5F5', marginRight: Spacing.sm },
+  catChipActive: { backgroundColor: Colors.green },
+  catChipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+  catChipTextActive: { color: '#FFF' },
 });
