@@ -139,12 +139,12 @@ export default function HomeScreen() {
   };
 
   const QUICK_ADDS = [
-    { icon: 'sunny-outline', label: 'Breakfast', color: '#FFB74D' },
-    { icon: 'restaurant-outline', label: 'Lunch', color: Colors.green },
-    { icon: 'moon-outline', label: 'Dinner', color: Colors.waterBlue },
-    { icon: 'cafe-outline', label: 'Snack', color: Colors.fitnessPurple },
-    { icon: 'water-outline', label: 'Water', color: Colors.waterBlue },
-    { icon: 'barbell-outline', label: 'Exercise', color: Colors.nutritionOrange },
+    { icon: 'sunny-outline', label: 'Breakfast', color: '#FFB74D', zone: 'meals', slot: 'breakfast' },
+    { icon: 'restaurant-outline', label: 'Lunch', color: Colors.green, zone: 'meals', slot: 'lunch' },
+    { icon: 'moon-outline', label: 'Dinner', color: Colors.waterBlue, zone: 'meals', slot: 'dinner' },
+    { icon: 'cafe-outline', label: 'Snack', color: Colors.fitnessPurple, zone: 'meals', slot: 'snack' },
+    { icon: 'water-outline', label: 'Water', color: Colors.waterBlue, zone: 'trackers', slot: 'water' },
+    { icon: 'barbell-outline', label: 'Exercise', color: Colors.nutritionOrange, zone: 'workouts', slot: '' },
   ];
 
   return (
@@ -267,8 +267,10 @@ export default function HomeScreen() {
             <Animated.View entering={FadeInDown.duration(300)}>
               <View style={s.quickAddGrid}>
                 {QUICK_ADDS.map((qa, i) => (
-                  <TouchableOpacity key={i} style={s.qaItem} activeOpacity={0.7} onPress={() => router.push('/(tabs)/quick-adds')}>
-                    <View style={[s.qaIcon, { backgroundColor: qa.color + '15' }]}>
+                  <TouchableOpacity key={i} style={s.qaItem} activeOpacity={0.7} onPress={() => {
+                    setShowQuickAdd(false);
+                    router.push(`/(tabs)/quick-adds?zone=${qa.zone}&slot=${qa.slot}` as any);
+                  }}>                    <View style={[s.qaIcon, { backgroundColor: qa.color + '15' }]}>
                       <Ionicons name={qa.icon as any} size={22} color={qa.color} />
                     </View>
                     <Text style={s.qaLabel}>{qa.label}</Text>

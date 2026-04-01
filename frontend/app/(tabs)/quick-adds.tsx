@@ -6,7 +6,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInDown, FadeIn, FadeInUp, FadeOut, SlideInDown, SlideOutDown,
@@ -238,7 +238,8 @@ const ms = StyleSheet.create({
 // ============ MAIN SCREEN ============
 export default function QuickAddsScreen() {
   const { user } = useAuth();
-  const [activeZone, setActiveZone] = useState('meals');
+  const params = useLocalSearchParams<{ zone?: string; slot?: string }>();
+  const [activeZone, setActiveZone] = useState(params.zone || 'meals');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -303,6 +304,27 @@ export default function QuickAddsScreen() {
   const walkDurRef = useRef<TextInput>(null);
 
   useFocusEffect(useCallback(() => { loadAllData(); }, []));
+
+  // Auto-open modals based on deep link params
+  useEffect(() => {
+    if (params.zone) {
+      setActiveZone(params.zone);
+      const zoneIdx = ZONES.findIndex(z => z.key === params.zone);
+      if (zoneIdx >= 0) zoneUnderline.value = withTiming(zoneIdx, { duration: 250, easing: Easing.out(Easing.quad) });
+    }
+    if (params.slot && params.zone === 'meals') {
+      const slot = MEAL_SLOTS.find(s => s.type === params.slot);
+      if (slot) {
+        setTimeout(() => openMealSlot(slot), 500);
+      }
+    }
+    if (params.slot === 'water' && params.zone === 'trackers') {
+      setTimeout(() => addWater(), 300);
+    }
+    if (params.zone === 'workouts') {
+      setTimeout(() => setShowWorkoutModal(true), 500);
+    }
+  }, [params.zone, params.slot]);
 
   const loadAllData = async () => {
     setLoading(true);

@@ -95,11 +95,18 @@ async def get_featured_meal(category: Optional[str] = None):
 
 # ============ RESTAURANTS ============
 @sprint2_router.get("/restaurants")
-async def list_restaurants(page: int = 1, limit: int = 10, sort: str = "rating"):
+async def list_restaurants(page: int = 1, limit: int = 10, sort: str = "rating", search: str = ""):
     pg, lim, skip = paginate_params(page, limit)
+    query = {"is_active": True}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"cuisines": {"$regex": search, "$options": "i"}},
+            {"cuisine": {"$regex": search, "$options": "i"}},
+        ]
     sort_field = {"rating": ("average_rating", -1), "name": ("name", 1)}.get(sort, ("average_rating", -1))
-    total = await db.restaurants.count_documents({"is_active": True})
-    restaurants = await db.restaurants.find({"is_active": True}).sort(*sort_field).skip(skip).limit(lim).to_list(lim)
+    total = await db.restaurants.count_documents(query)
+    restaurants = await db.restaurants.find(query).sort(*sort_field).skip(skip).limit(lim).to_list(lim)
     total_pages = math.ceil(total / lim) if lim else 1
     return {
         "data": [serialize(r) for r in restaurants],
@@ -488,3 +495,55 @@ async def seed_sprint2():
     await db.restaurant_ratings.create_index([("user_id", 1), ("restaurant_id", 1)], unique=True)
     await db.restaurant_reviews.create_index([("restaurant_id", 1), ("created_at", -1)])
     await db.menu_items.create_index("restaurant_id")
+
+
+# ============ RESTAURANT CLAIMS ============
+
+class RestaurantClaimInput(BaseModel):
+    restaurant_id: str
+    owner_name: str
+    owner_email: str
+    owner_phone: str
+    business_document: Optional[str] = ""
+
+@sprint2_router.post("/v1/restaurants/claims")
+async def submit_claim(inp: RestaurantClaimInput, request: Request):
+    from server import get_current_user
+    user = await get_current_user(request)
+
+    # Check restaurant exists
+    restaurant = await db.restaurants.find_one({"_id": ObjectId(inp.restaurant_id)})
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Check if already claimed by this user
+    existing = await db.restaurant_claims.find_one({
+        "user_id": user["id"], "restaurant_id": inp.restaurant_id, "status": {"$in": ["pending", "approved"]}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a pending or approved claim for this restaurant")
+
+    claim = {
+        "user_id": user["id"],
+        "restaurant_id": inp.restaurant_id,
+        "restaurant_name": restaurant.get("name", ""),
+        "owner_name": inp.owner_name,
+        "owner_email": inp.owner_email,
+        "owner_phone": inp.owner_phone,
+        "business_document": inp.business_document,
+        "status": "pending",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
+    result = await db.restaurant_claims.insert_one(claim)
+    claim["id"] = str(result.inserted_id)
+    del claim["_id"]
+    return {"message": "Claim submitted successfully", "claim": claim}
+
+
+@sprint2_router.get("/v1/restaurants/claims/mine")
+async def get_my_claims(request: Request):
+    from server import get_current_user
+    user = await get_current_user(request)
+    claims = await db.restaurant_claims.find({"user_id": user["id"]}).sort("created_at", -1).to_list(50)
+    return {"claims": [serialize(c) for c in claims]}
