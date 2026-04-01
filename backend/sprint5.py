@@ -83,7 +83,7 @@ class SubscriptionInput(BaseModel):
 
 class NotifRegisterInput(BaseModel):
     pushToken: str
-    deviceId: str
+    deviceId: str = ""
     platform: str = "ios"
 
 class NotifPrefsInput(BaseModel):
@@ -539,8 +539,9 @@ async def get_transactions(request: Request, page: int = 1, limit: int = 20, sta
 @sprint5_router.post("/v1/notifications/register")
 async def register_push(inp: NotifRegisterInput, request: Request):
     user = await get_user(request)
+    device_id = inp.deviceId or inp.pushToken[:32]
     await db.push_tokens.update_one(
-        {"user_id": user["id"], "device_id": inp.deviceId},
+        {"user_id": user["id"], "device_id": device_id},
         {"$set": {"push_token": inp.pushToken, "platform": inp.platform, "updated_at": now_iso()}},
         upsert=True,
     )

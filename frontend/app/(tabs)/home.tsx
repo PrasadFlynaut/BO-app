@@ -1,19 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, RefreshControl, Modal, Alert,
-  KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
+  TextInput, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeIn, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
 import { boLogoColor } from '@/src/assets';
+import HappinessModal from '@/src/components/HappinessModal';
+import ProgramModal from '@/src/components/ProgramModal';
 
 const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
 
@@ -41,16 +42,7 @@ export default function HomeScreen() {
 
   // Happiness check-in
   const [showHappiness, setShowHappiness] = useState(false);
-  const [happinessLevel, setHappinessLevel] = useState(0);
-  const [happinessNote, setHappinessNote] = useState('');
-  const [happinessFactors, setHappinessFactors] = useState<string[]>([]);
-  const [savingHappiness, setSavingHappiness] = useState(false);
   const [happinessLogged, setHappinessLogged] = useState(false);
-
-  const MOOD_EMOJIS = ['\u{1F622}', '\u{1F610}', '\u{1F642}', '\u{1F60A}', '\u{1F929}'];
-  const MOOD_LABELS = ['Bad', 'Okay', 'Good', 'Great', 'Amazing'];
-  const MOOD_COLORS = ['#EF4444', '#F59E0B', '#3B82F6', '#22C55E', '#A855F7'];
-  const FACTORS = ['sleep', 'nutrition', 'exercise', 'social', 'work', 'family'];
 
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -92,28 +84,6 @@ export default function HomeScreen() {
       } catch {}
     } catch (e) { console.error(e); }
     setLoading(false);
-  };
-
-  const saveHappiness = async () => {
-    if (happinessLevel === 0) return;
-    setSavingHappiness(true);
-    try {
-      await api.post('/v1/happiness', {
-        level: happinessLevel,
-        note: happinessNote,
-        factors: happinessFactors,
-      });
-      setShowHappiness(false);
-      setHappinessLogged(true);
-      setHappinessLevel(0);
-      setHappinessNote('');
-      setHappinessFactors([]);
-    } catch (e) { console.error(e); }
-    setSavingHappiness(false);
-  };
-
-  const toggleFactor = (f: string) => {
-    setHappinessFactors(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
@@ -402,127 +372,20 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Program Detail Modal */}
-      <Modal visible={showProgramModal} animationType="fade" transparent onRequestClose={() => setShowProgramModal(false)}>
-        <TouchableWithoutFeedback onPress={() => setShowProgramModal(false)}>
-          <View style={s.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <Animated.View entering={SlideInDown.springify().damping(18)} style={s.programModalSheet}>
-                <View style={s.modalHandle} />
-                <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                  {selectedProgram && (
-                    <>
-                      <Image source={{ uri: selectedProgram.image_url }} style={s.programModalImg} />
-                      <View style={s.programModalBody}>
-                        <View style={s.programModalBadge}>
-                          <Ionicons name="time-outline" size={14} color={Colors.green} />
-                          <Text style={s.programModalBadgeText}>{selectedProgram.duration_days} Days Program</Text>
-                        </View>
-                        <Text style={s.programModalTitle}>{selectedProgram.name}</Text>
-                        <Text style={s.programModalDesc}>{selectedProgram.description}</Text>
-
-                        {/* What's included */}
-                        <Text style={s.programModalSection}>What's Included</Text>
-                        <View style={s.programFeatureList}>
-                          {['Daily guided activities', 'Progress tracking', 'Check-in reminders', 'Completion certificate'].map((f, i) => (
-                            <View key={i} style={s.programFeature}>
-                              <Ionicons name="checkmark-circle" size={18} color={Colors.green} />
-                              <Text style={s.programFeatureText}>{f}</Text>
-                            </View>
-                          ))}
-                        </View>
-
-                        {/* Enroll button */}
-                        <TouchableOpacity
-                          onPress={enrollInProgram}
-                          style={s.enrollBtn}
-                          activeOpacity={0.8}
-                          disabled={enrolling}
-                        >
-                          {enrolling ? (
-                            <ActivityIndicator size="small" color="#FFF" />
-                          ) : (
-                            <>
-                              <Ionicons name="rocket" size={20} color="#FFF" />
-                              <Text style={s.enrollBtnText}>Start Program</Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setShowProgramModal(false)} style={s.cancelBtn}>
-                          <Text style={s.cancelBtnText}>Maybe Later</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  )}
-                </ScrollView>
-              </Animated.View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+      <ProgramModal
+        visible={showProgramModal}
+        program={selectedProgram}
+        enrolling={enrolling}
+        onClose={() => setShowProgramModal(false)}
+        onEnroll={enrollInProgram}
+      />
 
       {/* Happiness Check-in Modal */}
-      <Modal visible={showHappiness} transparent animationType="slide">
-        <View style={s.happyOverlay}>
-          <View style={s.happySheet}>
-            <View style={s.happyHandle} />
-            <Text style={s.happyTitle}>How are you feeling today?</Text>
-            <Text style={s.happySub}>Your daily wellness check-in</Text>
-
-            <View style={s.moodRow}>
-              {MOOD_EMOJIS.map((emoji, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => setHappinessLevel(i + 1)}
-                  style={[s.moodBtn, happinessLevel === i + 1 && { backgroundColor: MOOD_COLORS[i] + '20', borderColor: MOOD_COLORS[i], borderWidth: 2 }]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.moodEmoji}>{emoji}</Text>
-                  <Text style={[s.moodLabel, happinessLevel === i + 1 && { color: MOOD_COLORS[i], fontWeight: '700' }]}>{MOOD_LABELS[i]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {happinessLevel > 0 && (
-              <>
-                <Text style={s.factorTitle}>What influenced your mood?</Text>
-                <View style={s.factorRow}>
-                  {FACTORS.map(f => (
-                    <TouchableOpacity
-                      key={f}
-                      onPress={() => toggleFactor(f)}
-                      style={[s.factorChip, happinessFactors.includes(f) && s.factorChipActive]}
-                    >
-                      <Text style={[s.factorText, happinessFactors.includes(f) && s.factorTextActive]}>{f}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TextInput
-                  style={s.happyInput}
-                  placeholder="Add a note (optional)..."
-                  placeholderTextColor={Colors.textTertiary}
-                  value={happinessNote}
-                  onChangeText={setHappinessNote}
-                  multiline
-                />
-              </>
-            )}
-
-            <View style={s.happyActions}>
-              <TouchableOpacity onPress={() => { setShowHappiness(false); setHappinessLogged(true); }} style={s.happySkipBtn}>
-                <Text style={s.happySkipText}>Skip</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={saveHappiness}
-                style={[s.happySaveBtn, happinessLevel === 0 && { opacity: 0.4 }]}
-                disabled={happinessLevel === 0 || savingHappiness}
-              >
-                {savingHappiness ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.happySaveText}>Log Mood</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <HappinessModal
+        visible={showHappiness}
+        onClose={() => { setShowHappiness(false); setHappinessLogged(true); }}
+        onLogged={() => { setShowHappiness(false); setHappinessLogged(true); }}
+      />
     </SafeAreaView>
   );
 }
@@ -609,46 +472,6 @@ const s = StyleSheet.create({
   ratingCount: { fontSize: FontSize.caption, color: Colors.textTertiary },
   distRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   distText: { fontSize: FontSize.small, color: Colors.textSecondary },
-
-  // Program Detail Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  programModalSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2, alignSelf: 'center', marginTop: 10 },
-  programModalImg: { width: '100%', height: 200, marginTop: 8 },
-  programModalBody: { padding: Spacing.lg },
-  programModalBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.greenLight, borderRadius: Radius.pill, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start', marginBottom: 10 },
-  programModalBadgeText: { fontSize: FontSize.small, color: Colors.green, fontWeight: '600' },
-  programModalTitle: { fontSize: FontSize.h2, fontWeight: '800', color: Colors.textPrimary },
-  programModalDesc: { fontSize: FontSize.body, color: Colors.textSecondary, lineHeight: 22, marginTop: 10 },
-  programModalSection: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary, marginTop: Spacing.lg, marginBottom: Spacing.sm },
-  programFeatureList: { gap: 10 },
-  programFeature: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  programFeatureText: { fontSize: FontSize.body, color: Colors.textSecondary },
-  enrollBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.green, borderRadius: Radius.lg, paddingVertical: 16, marginTop: Spacing.lg },
-  enrollBtnText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
-  cancelBtn: { alignItems: 'center', paddingVertical: 14 },
-  cancelBtnText: { color: Colors.textTertiary, fontSize: FontSize.body },
-
-  // Happiness Modal
-  happyOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  happySheet: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.xl, paddingBottom: 40 },
-  happyHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
-  happyTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
-  happySub: { fontSize: FontSize.small, color: Colors.textTertiary, textAlign: 'center', marginTop: 4, marginBottom: Spacing.lg },
-  moodRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
-  moodBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: Radius.lg, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
-  moodEmoji: { fontSize: 28 },
-  moodLabel: { fontSize: 10, color: Colors.textTertiary, marginTop: 4, fontWeight: '500' },
-  factorTitle: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm },
-  factorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  factorChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.pill, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
-  factorChipActive: { backgroundColor: Colors.greenLight, borderColor: Colors.green },
-  factorText: { fontSize: FontSize.caption, color: Colors.textSecondary, textTransform: 'capitalize', fontWeight: '500' },
-  factorTextActive: { color: Colors.green, fontWeight: '700' },
-  happyInput: { backgroundColor: '#F9FAFB', borderRadius: Radius.lg, padding: 14, fontSize: FontSize.body, color: Colors.textPrimary, marginTop: Spacing.md, minHeight: 60, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E5E7EB' },
-  happyActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
-  happySkipBtn: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: '#F3F4F6' },
-  happySkipText: { color: Colors.textSecondary, fontWeight: '600', fontSize: FontSize.body },
-  happySaveBtn: { flex: 2, alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: Colors.green },
-  happySaveText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
+  headerQuote: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  headerQuoteAuthor: { fontSize: FontSize.caption, color: Colors.textTertiary },
 });

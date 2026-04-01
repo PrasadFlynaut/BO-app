@@ -817,6 +817,41 @@ async def startup():
 
 
 # ---------- Health Check ----------
+class PushBroadcastInput(BaseModel):
+    title: str
+    body: str
+    data: Optional[dict] = None
+
+class PushUserInput(BaseModel):
+    user_id: str
+    title: str
+    body: str
+    data: Optional[dict] = None
+
+@api_router.post("/v1/push/broadcast")
+async def push_broadcast(inp: PushBroadcastInput, user=Depends(get_current_user)):
+    """Admin: Send push notification to all registered devices"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(403, "Admin access required")
+    result = await send_to_all_users(inp.title, inp.body, inp.data)
+    return result
+
+@api_router.post("/v1/push/user")
+async def push_to_user(inp: PushUserInput, user=Depends(get_current_user)):
+    """Admin: Send push notification to a specific user"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(403, "Admin access required")
+    result = await send_to_user(inp.user_id, inp.title, inp.body, inp.data)
+    return result
+
+@api_router.post("/v1/push/happiness-reminder")
+async def trigger_happiness_reminder(user=Depends(get_current_user)):
+    """Admin: Trigger daily happiness reminder for users who haven't logged"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(403, "Admin access required")
+    result = await send_happiness_reminder()
+    return result
+
 @api_router.get("/v1/health")
 async def health_check():
     """Health check endpoint for production monitoring"""
@@ -850,6 +885,7 @@ from admin_panel import admin_panel_router
 from wearable import wearable_router, create_wearable_indexes
 from payment import payment_router
 from happiness import happiness_router, create_happiness_indexes
+from push_service import send_to_user, send_to_all_users, send_happiness_reminder
 
 app.include_router(happiness_router)
 app.include_router(payment_router)

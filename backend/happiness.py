@@ -1,6 +1,7 @@
 """Happiness & Progress Tracking API"""
 import os
 import math
+import random
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -213,3 +214,69 @@ async def create_happiness_indexes():
         await db.happiness_logs.create_index([("user_id", 1), ("date", 1)])
     except Exception:
         pass
+
+
+# ===================== Mood Quotes =====================
+
+MOOD_QUOTES = {
+    1: [
+        {"quote": "It's okay to not be okay. Tomorrow is a fresh start.", "author": "Unknown"},
+        {"quote": "Every storm runs out of rain. Hold on.", "author": "Maya Angelou"},
+        {"quote": "You are stronger than you think. This feeling is temporary.", "author": "Unknown"},
+        {"quote": "Be gentle with yourself. You're doing the best you can.", "author": "Unknown"},
+        {"quote": "Dark times don't last, but strong people do.", "author": "Robert H. Schuller"},
+        {"quote": "The sun will rise and we will try again.", "author": "Twenty One Pilots"},
+        {"quote": "Tough days build tough people. You've got this.", "author": "Unknown"},
+        {"quote": "It's okay to take a break. Rest is productive too.", "author": "Unknown"},
+    ],
+    2: [
+        {"quote": "Small steps still move you forward. Keep going.", "author": "Unknown"},
+        {"quote": "You don't have to be perfect, just be present.", "author": "Unknown"},
+        {"quote": "Progress, not perfection, is what matters.", "author": "Unknown"},
+        {"quote": "Even on your worst days, you are still worthy of love.", "author": "Unknown"},
+        {"quote": "A little progress each day adds up to big results.", "author": "Satya Nani"},
+        {"quote": "You're allowed to have a slow day. Just don't quit.", "author": "Unknown"},
+        {"quote": "Breathe. You're exactly where you need to be.", "author": "Unknown"},
+        {"quote": "One day at a time. That's all we can do.", "author": "Unknown"},
+    ],
+    3: [
+        {"quote": "You're doing great! Keep up the good work.", "author": "Unknown"},
+        {"quote": "Consistency is the key to transformation.", "author": "Unknown"},
+        {"quote": "Good vibes only! You're on the right path.", "author": "Unknown"},
+        {"quote": "Balance is not something you find, it's something you create.", "author": "Jana Kingsford"},
+        {"quote": "Every day may not be good, but there's good in every day.", "author": "Alice Morse Earle"},
+        {"quote": "Your wellness journey is unique. Own it!", "author": "Unknown"},
+        {"quote": "Happiness is a direction, not a destination.", "author": "Sydney J. Harris"},
+        {"quote": "You showed up today. That counts for something.", "author": "Unknown"},
+    ],
+    4: [
+        {"quote": "Your energy is contagious! Keep spreading positivity.", "author": "Unknown"},
+        {"quote": "What a wonderful day to be alive and thriving!", "author": "Unknown"},
+        {"quote": "You're glowing! Keep doing what makes you happy.", "author": "Unknown"},
+        {"quote": "Success is loving what you do every day.", "author": "Unknown"},
+        {"quote": "The best project you'll ever work on is you.", "author": "Unknown"},
+        {"quote": "You radiate positive energy. Never change!", "author": "Unknown"},
+        {"quote": "Great things happen to those who show up with a smile.", "author": "Unknown"},
+        {"quote": "Your mindset is your superpower!", "author": "Unknown"},
+    ],
+    5: [
+        {"quote": "You're on fire! Nothing can stop you today!", "author": "Unknown"},
+        {"quote": "This is your moment. Shine bright!", "author": "Unknown"},
+        {"quote": "The universe is celebrating your joy right now!", "author": "Unknown"},
+        {"quote": "You are proof that amazing things happen!", "author": "Unknown"},
+        {"quote": "Incredible energy! The world needs more of this.", "author": "Unknown"},
+        {"quote": "When you feel this good, anything is possible!", "author": "Unknown"},
+        {"quote": "You've unlocked peak happiness! Legendary!", "author": "Unknown"},
+        {"quote": "Today you're unstoppable. Ride this wave!", "author": "Unknown"},
+    ],
+}
+
+
+@happiness_router.get("/v1/happiness/quote")
+async def get_mood_quote(level: int = 3):
+    """Get a motivational quote based on mood level"""
+    if level < 1 or level > 5:
+        level = 3
+    quotes = MOOD_QUOTES.get(level, MOOD_QUOTES[3])
+    selected = random.choice(quotes)
+    return {"quote": selected["quote"], "author": selected["author"], "level": level}
