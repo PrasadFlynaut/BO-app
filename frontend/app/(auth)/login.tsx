@@ -7,6 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import api from '@/src/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Focus-aware input
 function FocusInput({ label, ...props }: any) {
@@ -29,6 +31,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const { login, user } = useAuth();
   const router = useRouter();
 
@@ -47,12 +50,24 @@ export default function LoginScreen() {
     } finally { setLoading(false); }
   };
 
+  const handleDemoLogin = async () => {
+    setDemoLoading(true); setError('');
+    try {
+      const { data } = await api.post('/v1/auth/demo-login');
+      await AsyncStorage.setItem('access_token', data.access_token);
+      await AsyncStorage.setItem('refresh_token', data.refresh_token);
+      await login('demo@bo.app', 'Demo1234!');
+    } catch (e: any) {
+      setError(e.response?.data?.detail || 'Demo login failed');
+    } finally { setDemoLoading(false); }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Animated.View entering={FadeInDown.duration(600)} style={styles.logoSection}>
-            <Image source={{ uri: 'https://customer-assets.emergentagent.com/job_78422c49-5348-441f-bc53-d90eaaac0909/artifacts/9yt4dytf_BO_Logo_Color.png' }} style={styles.logo} resizeMode="contain" />
+            <Image source={require('@/src/assets').boLogoColor} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to continue your wellness journey</Text>
           </Animated.View>
@@ -78,6 +93,23 @@ export default function LoginScreen() {
           <TouchableOpacity testID="go-to-register-button" onPress={() => router.push('/(auth)/register')} style={styles.linkWrap}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Sign Up</Text></Text>
           </TouchableOpacity>
+
+          <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(500).duration(500)}>
+            <TouchableOpacity onPress={handleDemoLogin} disabled={demoLoading} activeOpacity={0.8} style={[styles.demoBtn, Shadow.sm]}>
+              {demoLoading ? <ActivityIndicator color={Colors.green} /> : (
+                <>
+                  <Ionicons name="flash" size={18} color={Colors.green} />
+                  <Text style={styles.demoBtnText}>Try Demo Account</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
 
           <TouchableOpacity testID="forgot-password-link" onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotWrap}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
@@ -107,4 +139,9 @@ const styles = StyleSheet.create({
   linkBold: { color: Colors.green, fontWeight: '700' },
   forgotWrap: { alignItems: 'center', paddingBottom: Spacing.xl, paddingTop: Spacing.sm },
   forgotText: { color: Colors.nutritionOrange, fontSize: FontSize.small, fontWeight: '600' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: Spacing.md, gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.borderLight },
+  dividerText: { color: Colors.textTertiary, fontSize: FontSize.caption, fontWeight: '600' },
+  demoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 16, borderWidth: 1.5, borderColor: Colors.green + '40' },
+  demoBtnText: { color: Colors.green, fontSize: FontSize.body, fontWeight: '700' },
 });

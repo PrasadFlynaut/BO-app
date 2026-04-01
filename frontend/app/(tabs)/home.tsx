@@ -12,6 +12,7 @@ import Animated, { FadeInDown, FadeIn, SlideInDown, SlideOutDown, useSharedValue
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
+import { boLogoColor } from '@/src/assets';
 
 const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
 
@@ -155,9 +156,12 @@ export default function HomeScreen() {
       >
         {/* Greeting */}
         <View style={s.greetRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.greeting}>{greeting}, {firstName}!</Text>
-            <Text style={s.greetSub}>Let us find your healthiest meal today</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+            <Image source={boLogoColor} style={s.headerLogo} resizeMode="contain" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.greeting}>{greeting}, {firstName}!</Text>
+              <Text style={s.greetSub}>Let us find your healthiest meal today</Text>
+            </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
             <TouchableOpacity onPress={() => router.push('/notifications' as any)} style={s.bellBtn}>
@@ -418,6 +422,7 @@ const s = StyleSheet.create({
   content: { paddingBottom: 100 },
 
   greetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: 24 },
+  headerLogo: { width: 42, height: 42, borderRadius: 10 },
   greeting: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
   greetSub: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },

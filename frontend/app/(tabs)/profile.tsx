@@ -251,7 +251,7 @@ export default function ProfileScreen() {
             </View>
           ) : (
             recipes.map((recipe, i) => (
-              <View key={recipe.id} style={[st.recipeCard, Shadow.sm]}>
+              <TouchableOpacity key={recipe.id} style={[st.recipeCard, Shadow.sm]} onPress={() => router.push(`/recipe-detail?id=${recipe.id}` as any)} activeOpacity={0.7}>
                 <View style={{ flex: 1 }}>
                   <Text style={st.recipeTitle}>{recipe.title}</Text>
                   <Text style={st.recipeMeta}>
@@ -259,10 +259,13 @@ export default function ProfileScreen() {
                     {recipe.ingredients?.length ? ` · ${recipe.ingredients.length} ingredients` : ''}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => deleteRecipe(recipe.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                </TouchableOpacity>
-              </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); deleteRecipe(recipe.id); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                  </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={16} color="#CBD5E0" />
+                </View>
+              </TouchableOpacity>
             ))
           )}
         </Animated.View>

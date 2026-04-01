@@ -768,6 +768,8 @@ async def startup():
     await seed_sprint5_data()
     await setup_sprint6_indexes()
     await seed_sprint6_data()
+    await setup_sprint7_indexes()
+    await seed_sprint7_data()
     logger.info("BO Wellness App started")
 
 @app.on_event("shutdown")
@@ -779,7 +781,9 @@ from sprint3 import sprint3_router, setup_sprint3_indexes
 from sprint4 import sprint4_router, seed_sprint4_data, setup_sprint4_indexes
 from sprint5 import sprint5_router, seed_sprint5_data, setup_sprint5_indexes
 from sprint6 import sprint6_router, seed_sprint6_data, setup_sprint6_indexes
+from sprint7 import sprint7_router, seed_sprint7_data, setup_sprint7_indexes
 
+app.include_router(sprint7_router, prefix="/api")
 app.include_router(sprint6_router, prefix="/api")
 app.include_router(sprint5_router, prefix="/api")
 app.include_router(sprint4_router, prefix="/api")
