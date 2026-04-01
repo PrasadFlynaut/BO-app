@@ -108,6 +108,8 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
   }));
 
   const reached = current >= goal;
+  const fillPercent = goal > 0 ? current / goal : 0;
+  const highFill = fillPercent >= 0.5;
 
   return (
     <View style={ws.ringOuter}>
@@ -121,9 +123,9 @@ function AnimatedWaterRing({ current, goal }: { current: number; goal: number })
         {/* Center text */}
         <View style={ws.centerContent}>
           <Animated.View style={countStyle}>
-            <Text style={[ws.countText, reached && ws.countReached]}>{current}</Text>
+            <Text style={[ws.countText, highFill && ws.countHighFill]}>{current}</Text>
           </Animated.View>
-          <Text style={ws.goalText}>of {goal}</Text>
+          <Text style={[ws.goalText, highFill && ws.goalHighFill]}>of {goal}</Text>
         </View>
       </View>
 
@@ -167,8 +169,11 @@ const ws = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   countText: { fontSize: 30, fontWeight: '800', color: Colors.waterBlue },
-  countReached: { color: Colors.green },
+  countHighFill: { color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  countReached: { color: '#FFFFFF' },
   goalText: { fontSize: 11, color: '#6B7C93', marginTop: -2 },
+  goalHighFill: { color: 'rgba(255,255,255,0.85)' },
+  goalReached: { color: 'rgba(255,255,255,0.85)' },
   celebrationBadge: {
     position: 'absolute', top: -4, right: -4,
     backgroundColor: '#FFF', borderRadius: 12,
