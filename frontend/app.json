@@ -9,14 +9,20 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take photos to share in feed posts",
+        "NSPhotoLibraryUsageDescription": "Share photos from gallery in feed",
+        "NSMicrophoneUsageDescription": "Record video audio for feed posts"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO", "RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +31,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Share photos from gallery in feed",
+          "cameraPermission": "Take photos to share in feed posts"
+        }
+      ],
       [
         "expo-splash-screen",
         {

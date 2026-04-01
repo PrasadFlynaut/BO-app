@@ -1,13 +1,26 @@
-"""Sprint 5: Workouts, Badge Engine, Subscription, Notifications, Predictions"""
+"""Sprint 5: Workouts, Badge Engine, Subscription, Notifications, Predictions, Media Upload"""
 import os
 import math
-from fastapi import APIRouter, HTTPException, Request, Query
+import cloudinary
+import cloudinary.uploader
+from fastapi import APIRouter, HTTPException, Request, Query, UploadFile, File
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
 import jwt as pyjwt
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Cloudinary config
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME", ""),
+    api_key=os.environ.get("CLOUDINARY_API_KEY", ""),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET", ""),
+    secure=True,
+)
 
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 db_name = os.environ.get('DB_NAME', 'bo_wellness')
@@ -752,3 +765,52 @@ async def setup_sprint5_indexes():
     await db.push_tokens.create_index([("user_id", 1), ("device_id", 1)], unique=True)
     await db.notifications.create_index([("user_id", 1), ("is_read", 1), ("created_at", -1)])
     await db.notification_preferences.create_index("user_id", unique=True)
+
+
+# ============ MEDIA UPLOAD (Cloudinary) ============
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+@sprint5_router.post("/v1/upload")
+async def upload_media(request: Request, file: UploadFile = File(...)):
+    user = await get_user(request)
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # Validate content type
+    content_type = file.content_type or ""
+    if not content_type.startswith("image/") and not content_type.startswith("video/"):
+        raise HTTPException(status_code=400, detail="Only image and video files are allowed")
+
+    # Read file
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum 50MB.")
+
+    # Determine resource type
+    resource_type = "video" if content_type.startswith("video/") else "image"
+
+    try:
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            resource_type=resource_type,
+            folder="bo_wellness/feed",
+            public_id=f"{user['id']}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            overwrite=True,
+            transformation=[{"quality": "auto", "fetch_format": "auto"}] if resource_type == "image" else None,
+        )
+        url = result.get("secure_url", "")
+        logger.info(f"Upload success: {url} for user {user['id']}")
+        return {
+            "url": url,
+            "public_id": result.get("public_id", ""),
+            "resource_type": resource_type,
+            "format": result.get("format", ""),
+            "width": result.get("width"),
+            "height": result.get("height"),
+            "bytes": result.get("bytes"),
+            "duration": result.get("duration"),
+        }
+    except Exception as e:
+        logger.error(f"Cloudinary upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+

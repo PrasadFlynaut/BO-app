@@ -7,7 +7,9 @@ Tests all Sprint 5 endpoints: Workouts, Badge Engine, Subscription, Notification
 import requests
 import json
 import sys
+import io
 from datetime import datetime, timedelta
+from PIL import Image
 
 # API Configuration
 BASE_URL = "https://mobile-launch-45.preview.emergentagent.com/api"
@@ -459,6 +461,130 @@ class Sprint5Tester:
         except Exception as e:
             self.log_test("AI Predictions", False, f"Exception: {str(e)}")
     
+    def create_test_image(self):
+        """Create a 1x1 pixel PNG image for testing"""
+        img = Image.new('RGB', (1, 1), color='red')
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='PNG')
+        img_bytes.seek(0)
+        return img_bytes
+    
+    def create_test_text_file(self):
+        """Create a text file for testing invalid file type"""
+        text_content = "This is a test text file"
+        text_bytes = io.BytesIO(text_content.encode('utf-8'))
+        text_bytes.seek(0)
+        return text_bytes
+    
+    def test_cloudinary_upload(self):
+        """Test Cloudinary media upload endpoint"""
+        print("\n📤 Testing Cloudinary Upload Endpoint...")
+        
+        # Test 1: Successful upload with authentication
+        try:
+            test_image = self.create_test_image()
+            files = {'file': ('test_image.png', test_image, 'image/png')}
+            
+            response = requests.post(f"{BASE_URL}/v1/upload", 
+                                   files=files, 
+                                   headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify required fields are present
+                required_fields = ['url', 'public_id', 'resource_type', 'format']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Upload Success - Required Fields", False, 
+                                f"Missing fields: {missing_fields}")
+                else:
+                    self.log_test("Upload Success - Required Fields", True, 
+                                f"All required fields present")
+                
+                # Verify URL contains 'cloudinary'
+                url = data.get('url', '')
+                if 'cloudinary' in url:
+                    self.log_test("Upload Success - Cloudinary URL", True, 
+                                f"URL contains cloudinary: {url[:50]}...")
+                else:
+                    self.log_test("Upload Success - Cloudinary URL", False, 
+                                f"URL does not contain cloudinary: {url}")
+                
+                # Verify resource type is 'image'
+                if data.get('resource_type') == 'image':
+                    self.log_test("Upload Success - Resource Type", True, 
+                                f"Resource type is image")
+                else:
+                    self.log_test("Upload Success - Resource Type", False, 
+                                f"Resource type is {data.get('resource_type')}, expected image")
+                
+                # Verify format is present
+                if data.get('format'):
+                    self.log_test("Upload Success - Format", True, 
+                                f"Format: {data.get('format')}")
+                else:
+                    self.log_test("Upload Success - Format", False, 
+                                f"Format field missing")
+                    
+            else:
+                self.log_test("Upload Success", False, 
+                            f"Status: {response.status_code}, Response: {response.text}")
+                
+        except Exception as e:
+            self.log_test("Upload Success", False, f"Exception: {str(e)}")
+        
+        # Test 2: Upload without authentication (should return 401)
+        try:
+            test_image = self.create_test_image()
+            files = {'file': ('test_image.png', test_image, 'image/png')}
+            
+            response = requests.post(f"{BASE_URL}/v1/upload", files=files)
+            
+            if response.status_code == 401:
+                self.log_test("Upload Without Auth", True, 
+                            f"Correctly returned 401 Unauthorized")
+            else:
+                self.log_test("Upload Without Auth", False, 
+                            f"Expected 401, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Upload Without Auth", False, f"Exception: {str(e)}")
+        
+        # Test 3: Upload non-image/video file (should return 400)
+        try:
+            test_text = self.create_test_text_file()
+            files = {'file': ('test.txt', test_text, 'text/plain')}
+            
+            response = requests.post(f"{BASE_URL}/v1/upload", 
+                                   files=files, 
+                                   headers=self.headers)
+            
+            if response.status_code == 400:
+                self.log_test("Upload Invalid File Type", True, 
+                            f"Correctly returned 400 Bad Request")
+            else:
+                self.log_test("Upload Invalid File Type", False, 
+                            f"Expected 400, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Upload Invalid File Type", False, f"Exception: {str(e)}")
+        
+        # Test 4: Upload without file (should return 400 or 422)
+        try:
+            response = requests.post(f"{BASE_URL}/v1/upload", headers=self.headers)
+            
+            if response.status_code in [400, 422]:
+                self.log_test("Upload No File", True, 
+                            f"Correctly returned {response.status_code}")
+            else:
+                self.log_test("Upload No File", False, 
+                            f"Expected 400/422, got {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Upload No File", False, f"Exception: {str(e)}")
+
     def run_all_tests(self):
         """Run all Sprint 5 tests"""
         print("🚀 Starting Sprint 5 Backend API Testing...")
@@ -475,6 +601,7 @@ class Sprint5Tester:
         self.test_subscription()
         self.test_notifications()
         self.test_ai_predictions()
+        self.test_cloudinary_upload()
         
         # Summary
         print("\n" + "="*60)

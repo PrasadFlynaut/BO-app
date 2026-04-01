@@ -3,16 +3,18 @@ import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Image,
   TextInput, Modal, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform, ScrollView, Keyboard,
-  Dimensions,
+  Dimensions, Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn, FadeOut } from 'react-native-reanimated';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const AVATAR_COLORS = ['#26B50F', '#3A86FF', '#FF9F1C', '#8338EC', '#06D6A0', '#FF5252', '#E91E63', '#00BCD4'];
@@ -137,6 +139,9 @@ export default function FeedScreen() {
   const [postText, setPostText] = useState('');
   const [postImages, setPostImages] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [mediaItems, setMediaItems] = useState<{ uri: string; type: 'image' | 'video'; uploading: boolean; progress: number; cloudUrl?: string }[]>([]);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInputText, setUrlInputText] = useState('');
 
   // Post detail / comments
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -183,17 +188,162 @@ export default function FeedScreen() {
 
   // Create post
   const handleCreatePost = async () => {
-    if (!postText.trim() && postImages.length === 0) return;
+    if (!postText.trim() && postImages.length === 0 && mediaItems.length === 0) return;
     setCreating(true);
     try {
-      await api.post('/v1/feed', { text: postText.trim(), mediaUrls: postImages });
+      // Collect all media URLs (cloudinary uploaded + manually entered URLs)
+      const allUrls = [
+        ...mediaItems.filter(m => m.cloudUrl).map(m => m.cloudUrl!),
+        ...postImages,
+      ];
+      await api.post('/v1/feed', { text: postText.trim(), mediaUrls: allUrls });
       setPostText('');
       setPostImages([]);
+      setMediaItems([]);
       setShowCreate(false);
       await loadFeed(1, true);
     } catch (e) { console.error('Create post error:', e); }
     setCreating(false);
   };
+
+  // ============ MEDIA PICKER & UPLOAD ============
+  const uploadToCloudinary = async (uri: string, mimeType: string, idx: number) => {
+    try {
+      const token = await AsyncStorage.getItem('access_token');
+      const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+      // For web: fetch the blob; for native: use the local URI
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        const resp = await fetch(uri);
+        const blob = await resp.blob();
+        formData.append('file', blob, `upload.${mimeType.includes('video') ? 'mp4' : 'jpg'}`);
+      } else {
+        const ext = mimeType.includes('video') ? 'mp4' : 'jpg';
+        formData.append('file', { uri, type: mimeType, name: `upload.${ext}` } as any);
+      }
+
+      setMediaItems(prev => prev.map((m, i) => i === idx ? { ...m, uploading: true, progress: 10 } : m));
+
+      const xhr = new XMLHttpRequest();
+      const uploadPromise = new Promise<string>((resolve, reject) => {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 90) + 5;
+            setMediaItems(prev => prev.map((m, i) => i === idx ? { ...m, progress: pct } : m));
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data.url);
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status}`));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+        xhr.open('POST', `${BACKEND_URL}/api/v1/upload`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
+
+      const cloudUrl = await uploadPromise;
+      setMediaItems(prev => prev.map((m, i) => i === idx ? { ...m, uploading: false, progress: 100, cloudUrl } : m));
+      return cloudUrl;
+    } catch (err) {
+      console.error('Upload error:', err);
+      setMediaItems(prev => prev.map((m, i) => i === idx ? { ...m, uploading: false, progress: 0 } : m));
+      Alert.alert('Upload Failed', 'Could not upload media. Please try again.');
+      return null;
+    }
+  };
+
+  const pickFromGallery = async () => {
+    if (mediaItems.length + postImages.length >= 4) {
+      Alert.alert('Limit Reached', 'Maximum 4 media attachments per post.');
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsMultipleSelection: true,
+      selectionLimit: 4 - mediaItems.length - postImages.length,
+      quality: 0.8,
+      videoMaxDuration: 60,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const newItems = result.assets.map(a => ({
+        uri: a.uri,
+        type: (a.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        uploading: false,
+        progress: 0,
+      }));
+      const startIdx = mediaItems.length;
+      setMediaItems(prev => [...prev, ...newItems]);
+      // Upload each in parallel
+      newItems.forEach((item, i) => {
+        const mimeType = item.type === 'video' ? 'video/mp4' : 'image/jpeg';
+        uploadToCloudinary(item.uri, mimeType, startIdx + i);
+      });
+    }
+  };
+
+  const takePhoto = async () => {
+    if (mediaItems.length + postImages.length >= 4) {
+      Alert.alert('Limit Reached', 'Maximum 4 media attachments per post.');
+      return;
+    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow camera access.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
+      videoMaxDuration: 60,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const newItem = {
+        uri: asset.uri,
+        type: (asset.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        uploading: false,
+        progress: 0,
+      };
+      const idx = mediaItems.length;
+      setMediaItems(prev => [...prev, newItem]);
+      const mimeType = newItem.type === 'video' ? 'video/mp4' : 'image/jpeg';
+      uploadToCloudinary(newItem.uri, mimeType, idx);
+    }
+  };
+
+  const addUrlMedia = () => {
+    const url = urlInputText.trim();
+    if (!url) return;
+    if (mediaItems.length + postImages.length >= 4) {
+      Alert.alert('Limit Reached', 'Maximum 4 media attachments per post.');
+      return;
+    }
+    setPostImages(prev => [...prev, url]);
+    setUrlInputText('');
+    setShowUrlInput(false);
+  };
+
+  const removeMedia = (idx: number) => {
+    setMediaItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const removeUrlImage = (idx: number) => {
+    setPostImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const allUploaded = mediaItems.every(m => !m.uploading);
+  const hasContent = postText.trim() || mediaItems.length > 0 || postImages.length > 0;
 
   // Like toggle
   const handleLike = async (postId: string) => {
@@ -364,20 +514,20 @@ export default function FeedScreen() {
         <SafeAreaView style={s.createSafe}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={s.createHeader}>
-              <TouchableOpacity onPress={() => { setShowCreate(false); setPostText(''); setPostImages([]); }}>
+              <TouchableOpacity onPress={() => { setShowCreate(false); setPostText(''); setPostImages([]); setMediaItems([]); setShowUrlInput(false); }}>
                 <Text style={s.createCancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={s.createTitle}>New Post</Text>
               <TouchableOpacity
                 onPress={handleCreatePost}
-                disabled={creating || (!postText.trim() && postImages.length === 0)}
-                style={[s.postBtn, (!postText.trim() && postImages.length === 0) && { opacity: 0.5 }]}
+                disabled={creating || !hasContent || !allUploaded}
+                style={[s.postBtn, (!hasContent || !allUploaded) && { opacity: 0.5 }]}
               >
                 {creating ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.postBtnText}>Post</Text>}
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={s.createBody}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={s.createBody} keyboardShouldPersistTaps="handled">
               <View style={s.createUserRow}>
                 <View style={[s.avatar, { backgroundColor: getAvatarColor(user?.name || 'U') }]}>
                   <Text style={s.avatarText}>{getInitials(user?.name || 'U')}</Text>
@@ -396,8 +546,91 @@ export default function FeedScreen() {
                 autoFocus
               />
 
+              {/* Media Preview Grid */}
+              {(mediaItems.length > 0 || postImages.length > 0) && (
+                <View style={s.mediaGrid}>
+                  {mediaItems.map((item, idx) => (
+                    <View key={`m-${idx}`} style={s.mediaThumb}>
+                      <Image source={{ uri: item.uri }} style={s.mediaThumbImg} />
+                      {item.type === 'video' && (
+                        <View style={s.videoOverlay}>
+                          <Ionicons name="play-circle" size={28} color="#FFF" />
+                        </View>
+                      )}
+                      {item.uploading && (
+                        <View style={s.uploadOverlay}>
+                          <ActivityIndicator color="#FFF" size="small" />
+                          <Text style={s.uploadPct}>{item.progress}%</Text>
+                        </View>
+                      )}
+                      {item.cloudUrl && (
+                        <View style={s.uploadDone}>
+                          <Ionicons name="checkmark-circle" size={18} color="#26B50F" />
+                        </View>
+                      )}
+                      <TouchableOpacity style={s.mediaRemove} onPress={() => removeMedia(idx)}>
+                        <Ionicons name="close-circle" size={22} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {postImages.map((url, idx) => (
+                    <View key={`u-${idx}`} style={s.mediaThumb}>
+                      <Image source={{ uri: url }} style={s.mediaThumbImg} />
+                      <View style={s.uploadDone}>
+                        <Ionicons name="link" size={16} color={Colors.waterBlue} />
+                      </View>
+                      <TouchableOpacity style={s.mediaRemove} onPress={() => removeUrlImage(idx)}>
+                        <Ionicons name="close-circle" size={22} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* URL Input */}
+              {showUrlInput && (
+                <View style={s.urlInputRow}>
+                  <TextInput
+                    style={s.urlInput}
+                    placeholder="Paste image or video URL..."
+                    placeholderTextColor={Colors.textTertiary}
+                    value={urlInputText}
+                    onChangeText={setUrlInputText}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={addUrlMedia}
+                  />
+                  <TouchableOpacity style={s.urlAddBtn} onPress={addUrlMedia}>
+                    <Ionicons name="add-circle" size={28} color={Colors.green} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setShowUrlInput(false); setUrlInputText(''); }}>
+                    <Ionicons name="close" size={22} color={Colors.textTertiary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <Text style={s.charCount}>{postText.length}/1000</Text>
             </ScrollView>
+
+            {/* Media Toolbar */}
+            <View style={s.mediaToolbar}>
+              <TouchableOpacity style={s.toolbarBtn} onPress={takePhoto}>
+                <Ionicons name="camera-outline" size={24} color={Colors.green} />
+                <Text style={s.toolbarBtnText}>Camera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.toolbarBtn} onPress={pickFromGallery}>
+                <Ionicons name="images-outline" size={24} color={Colors.waterBlue} />
+                <Text style={s.toolbarBtnText}>Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.toolbarBtn} onPress={() => setShowUrlInput(!showUrlInput)}>
+                <Ionicons name="link-outline" size={24} color={Colors.nutritionOrange} />
+                <Text style={s.toolbarBtnText}>URL</Text>
+              </TouchableOpacity>
+              <View style={s.mediaCounter}>
+                <Text style={s.mediaCounterText}>{mediaItems.length + postImages.length}/4</Text>
+              </View>
+            </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
@@ -613,4 +846,22 @@ const s = StyleSheet.create({
   likesTitle: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },
   likeUserRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 10 },
   likeUserName: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary },
+
+  // Media upload
+  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.md },
+  mediaThumb: { width: (SCREEN_WIDTH - Spacing.md * 2 - 24) / 4, aspectRatio: 1, borderRadius: Radius.md, overflow: 'hidden', position: 'relative' },
+  mediaThumbImg: { width: '100%', height: '100%' },
+  videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+  uploadOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  uploadPct: { color: '#FFF', fontSize: 10, fontWeight: '700', marginTop: 2 },
+  uploadDone: { position: 'absolute', bottom: 4, left: 4, backgroundColor: '#FFF', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  mediaRemove: { position: 'absolute', top: 2, right: 2 },
+  urlInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm, backgroundColor: '#F7F8FA', borderRadius: Radius.lg, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.borderLight },
+  urlInput: { flex: 1, fontSize: FontSize.small, color: Colors.textPrimary, paddingVertical: 8 },
+  urlAddBtn: { padding: 4 },
+  mediaToolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.borderLight, backgroundColor: '#FFF', gap: Spacing.md },
+  toolbarBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.lg, backgroundColor: '#F5F5F5' },
+  toolbarBtnText: { fontSize: FontSize.caption, fontWeight: '600', color: Colors.textSecondary },
+  mediaCounter: { marginLeft: 'auto', backgroundColor: Colors.greenLight, borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  mediaCounterText: { fontSize: FontSize.caption, fontWeight: '700', color: Colors.green },
 });

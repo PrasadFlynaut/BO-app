@@ -596,6 +596,21 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: AI Predictions endpoint working correctly. GET /predictions analyzes user data and returns appropriate response - either predictions object with weekly calories, sleep trends, happiness projections, workout frequency when sufficient data exists, or helpful message requesting more tracking data (currently 2 data points, needs 7+ for predictions). Prediction logic functional."
 
+  - task: "Sprint 5 - Cloudinary Upload API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/upload - Accepts multipart file upload (images + videos, max 50MB), uploads to Cloudinary cloud 'dwivdu2h4' with folder 'bo_wellness/feed', returns URL and metadata. Uses python-cloudinary SDK with server-side signed upload."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Cloudinary upload endpoint working perfectly. POST /api/v1/upload accepts multipart file uploads with 'file' field name, validates image/video content types, uploads to Cloudinary cloud, returns secure URL with metadata (url, public_id, resource_type, format, width, height, bytes). Auth validation working (401 without token), file type validation working (400 for non-image/video), file requirement validation working (422 for missing file). Tested with both admin@bo.com and test@bo.com credentials. All upload scenarios working correctly."
+
 test_plan: "Test all Sprint 5 backend API endpoints in sprint5.py. Focus on: Workout CRUD (create/list/get/update/delete), goal-workout linkage, badge engine (check/progress), subscription (plans/purchase/get/cancel/transactions), notification (register/list/read/read-all/delete/preferences/broadcast), and predictions. Use test credentials from /app/memory/test_credentials.md."
 
 agent_communication:
@@ -615,3 +630,7 @@ agent_communication:
     message: "Sprint 5 backend implemented: Created sprint5.py with 26+ new API endpoints. Workout CRUD with MET-based auto-calorie calculation, goal-workout linkage, automated badge earning engine (evaluates 12 badges across 9 action types), badge progress tracking, subscription plans (3 plans seeded: Basic/Pro Monthly/Pro Annual), subscription purchase (SIMULATED IAP), cancel, transactions, notification register/inbox/read/read-all/delete/preferences/broadcast, AI predictions endpoint. Seed data: 3 subscription plans, 20 sample notifications. Please test all Sprint 5 backend endpoints."
   - agent: "testing"
     message: "✅ SPRINT 5 BACKEND TESTING COMPLETE: All 6 Sprint 5 API endpoint groups tested with 100% success rate (25 total tests passed). Workout CRUD with auto-calorie calculation working perfectly, goal-workout linkage operational, badge engine earning badges automatically, subscription system with simulated IAP functional, comprehensive notification system with push tokens/preferences/broadcast working, AI predictions endpoint responding appropriately. All Sprint 5 backend APIs fully operational."
+  - agent: "main"
+    message: "Added Cloudinary media upload endpoint POST /api/v1/upload to sprint5.py. Accepts multipart file upload (images + videos, max 50MB), uploads to Cloudinary cloud 'dwivdu2h4' with folder 'bo_wellness/feed', returns URL and metadata. Uses python-cloudinary SDK with server-side signed upload. Please test the upload endpoint with a sample image file."
+  - agent: "testing"
+    message: "✅ CLOUDINARY UPLOAD TESTING COMPLETE: POST /api/v1/upload endpoint working perfectly. Successfully tested all required scenarios: (1) Login with test@bo.com credentials successful, (2) Created 1x1 pixel PNG test image, (3) Multipart file upload with 'file' field name working, (4) Response contains Cloudinary URL (https://res.cloudinary.com/dwivdu2h4/...), (5) All required fields present (url, public_id, resource_type, format), (6) Auth validation working (401 without token), (7) File type validation working (400 for non-image/video files). Tested with both admin@bo.com and test@bo.com credentials. Upload endpoint fully functional and ready for production use."
