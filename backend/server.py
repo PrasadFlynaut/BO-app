@@ -7,6 +7,15 @@ load_dotenv(ROOT_DIR / '.env')
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from middleware import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    RequestSizeLimitMiddleware,
+    sanitize_string,
+    validate_password_strength,
+    cache,
+    optimize_cloudinary_url,
+)
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 import os
@@ -37,6 +46,9 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
 app = FastAPI(title="BO Wellness API", version="1.0.0")
 app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
 api_router = APIRouter(prefix="/api")
 
 # --- Password Hashing ---
@@ -195,10 +207,15 @@ class PermissionsInput(BaseModel):
 @api_router.post("/auth/register")
 async def register(input: RegisterInput):
     email = input.email.lower().strip()
+    # Validate password strength
+    is_valid, err_msg = validate_password_strength(input.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=err_msg)
+    # Sanitize inputs
+    display_name = sanitize_string(input.name or f"{input.first_name} {input.last_name}".strip() or "User")
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    display_name = input.name or f"{input.first_name} {input.last_name}".strip() or "User"
     user_doc = {
         "email": email,
         "password_hash": hash_password(input.password),
