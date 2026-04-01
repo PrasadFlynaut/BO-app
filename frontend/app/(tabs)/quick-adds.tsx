@@ -13,6 +13,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withRepeat,
   withSequence, Easing, interpolate, withDelay,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
@@ -1421,4 +1422,33 @@ const s = StyleSheet.create({
   calViewTimelineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 8 },
   calViewTimelineText: { fontSize: FontSize.small, color: Colors.green, fontWeight: '700' },
   timelineDateRow: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+
+  // Workout zone
+  summaryCard: { marginHorizontal: Spacing.md, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 16, marginBottom: Spacing.md },
+  sectionTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.md },
+  addWorkoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: Spacing.md, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 14, marginBottom: Spacing.sm },
+  addWorkoutText: { color: Colors.green, fontWeight: '700', fontSize: FontSize.body },
+  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyText: { fontSize: FontSize.small, color: Colors.textTertiary },
+  workoutCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 14 },
+  workoutIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  workoutType: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  workoutMeta: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 2 },
+
+  // Bottom sheet (workout modal)
+  bsTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.sm },
+  bsLabel: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6, marginTop: 10 },
+  bsInput: { backgroundColor: '#F7F8FA', borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 16, fontSize: FontSize.body, color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.borderLight },
+  bsBtn: { borderRadius: Radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: Spacing.md },
+  bsBtnText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
+
+  // Workout type chips
+  wkTypeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: Colors.borderLight, marginRight: 8 },
+  wkTypeText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+
+  // Workout intensity chips
+  wkIntChip: { flex: 1, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.borderLight, alignItems: 'center' },
+  wkIntChipActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
+  wkIntText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+  wkIntTextActive: { color: Colors.green },
 });
