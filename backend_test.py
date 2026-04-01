@@ -1,471 +1,508 @@
 #!/usr/bin/env python3
 """
-BO Wellness App - Backend API Testing
-Tests all Sprint 1 backend endpoints for auth and onboarding functionality
+Sprint 5 Backend API Testing
+Tests all Sprint 5 endpoints: Workouts, Badge Engine, Subscription, Notifications, Predictions
 """
 
 import requests
 import json
 import sys
-import time
-from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
 
-# Backend URL from frontend .env
+# API Configuration
 BASE_URL = "https://mobile-launch-45.preview.emergentagent.com/api"
-
-# Test credentials from /app/memory/test_credentials.md
 ADMIN_EMAIL = "admin@bo.com"
 ADMIN_PASSWORD = "BoAdmin2026!"
 
-class BackendTester:
+class Sprint5Tester:
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        })
-        self.admin_token = None
-        self.test_user_token = None
-        self.reset_code = None
+        self.access_token = None
+        self.headers = {}
         self.test_results = []
         
-    def log_test(self, test_name: str, success: bool, details: str = ""):
+    def log_test(self, test_name, success, details=""):
         """Log test result"""
         status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if details:
-            print(f"   Details: {details}")
-        self.test_results.append({
-            'test': test_name,
-            'success': success,
-            'details': details
-        })
+        self.test_results.append(f"{status}: {test_name} - {details}")
+        print(f"{status}: {test_name} - {details}")
         
-    def make_request(self, method: str, endpoint: str, data: Dict = None, headers: Dict = None) -> tuple:
-        """Make HTTP request and return (success, response_data, status_code)"""
-        url = f"{BASE_URL}{endpoint}"
+    def login(self):
+        """Login and get access token"""
         try:
-            req_headers = self.session.headers.copy()
-            if headers:
-                req_headers.update(headers)
-                
-            if method.upper() == 'GET':
-                response = self.session.get(url, headers=req_headers)
-            elif method.upper() == 'POST':
-                response = self.session.post(url, json=data, headers=req_headers)
-            elif method.upper() == 'PUT':
-                response = self.session.put(url, json=data, headers=req_headers)
-            else:
-                return False, f"Unsupported method: {method}", 0
-                
-            try:
-                response_data = response.json()
-            except:
-                response_data = {"text": response.text}
-                
-            return response.status_code < 400, response_data, response.status_code
+            response = requests.post(f"{BASE_URL}/auth/login", json={
+                "email": ADMIN_EMAIL,
+                "password": ADMIN_PASSWORD
+            })
             
+            if response.status_code == 200:
+                data = response.json()
+                self.access_token = data.get("access_token")
+                self.headers = {"Authorization": f"Bearer {self.access_token}"}
+                self.log_test("Admin Login", True, f"Token obtained")
+                return True
+            else:
+                self.log_test("Admin Login", False, f"Status: {response.status_code}, Response: {response.text}")
+                return False
+                
         except Exception as e:
-            return False, f"Request failed: {str(e)}", 0
-    
-    def test_forgot_password(self):
-        """Test POST /api/auth/forgot-password"""
-        print("\n=== Testing Forgot Password API ===")
-        
-        success, data, status = self.make_request('POST', '/auth/forgot-password', {
-            "email": ADMIN_EMAIL
-        })
-        
-        if success and status == 200:
-            if 'code' in data:
-                self.reset_code = data['code']
-                self.log_test("Forgot Password API", True, f"Reset code generated: {self.reset_code}")
-                return True
-            else:
-                self.log_test("Forgot Password API", False, "No reset code in response")
-                return False
-        else:
-            self.log_test("Forgot Password API", False, f"Status: {status}, Data: {data}")
+            self.log_test("Admin Login", False, f"Exception: {str(e)}")
             return False
     
-    def test_reset_password(self):
-        """Test POST /api/auth/reset-password"""
-        print("\n=== Testing Reset Password API ===")
+    def test_workout_crud(self):
+        """Test Workout CRUD operations"""
+        print("\n=== TESTING WORKOUT CRUD ===")
         
-        if not self.reset_code:
-            self.log_test("Reset Password API", False, "No reset code available from forgot password test")
-            return False
-            
-        new_password = "NewPass123!"
-        success, data, status = self.make_request('POST', '/auth/reset-password', {
-            "email": ADMIN_EMAIL,
-            "code": self.reset_code,
-            "new_password": new_password
-        })
-        
-        if success and status == 200:
-            self.log_test("Reset Password API", True, "Password reset successfully")
-            
-            # Test login with new password
-            login_success, login_data, login_status = self.make_request('POST', '/auth/login', {
-                "email": ADMIN_EMAIL,
-                "password": new_password
-            })
-            
-            if login_success and 'access_token' in login_data:
-                self.log_test("Login with New Password", True, "Login successful with reset password")
-                
-                # Reset password back to original
-                reset_back_success, _, _ = self.make_request('POST', '/auth/reset-password', {
-                    "email": ADMIN_EMAIL,
-                    "code": self.reset_code,
-                    "new_password": ADMIN_PASSWORD
-                })
-                
-                if not reset_back_success:
-                    # Try forgot password again to get new code
-                    forgot_success, forgot_data, _ = self.make_request('POST', '/auth/forgot-password', {
-                        "email": ADMIN_EMAIL
-                    })
-                    if forgot_success and 'code' in forgot_data:
-                        self.make_request('POST', '/auth/reset-password', {
-                            "email": ADMIN_EMAIL,
-                            "code": forgot_data['code'],
-                            "new_password": ADMIN_PASSWORD
-                        })
-                
-                return True
-            else:
-                self.log_test("Login with New Password", False, f"Login failed: {login_data}")
-                return False
-        else:
-            self.log_test("Reset Password API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_admin_login(self):
-        """Test admin login and get token"""
-        print("\n=== Testing Admin Login ===")
-        
-        success, data, status = self.make_request('POST', '/auth/login', {
-            "email": ADMIN_EMAIL,
-            "password": ADMIN_PASSWORD
-        })
-        
-        if success and 'access_token' in data:
-            self.admin_token = data['access_token']
-            self.log_test("Admin Login", True, "Admin logged in successfully")
-            return True
-        else:
-            self.log_test("Admin Login", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_change_password(self):
-        """Test PUT /api/auth/change-password"""
-        print("\n=== Testing Change Password API ===")
-        
-        if not self.admin_token:
-            self.log_test("Change Password API", False, "No admin token available")
-            return False
-            
-        new_password = "Changed123!"
-        success, data, status = self.make_request('PUT', '/auth/change-password', {
-            "current_password": ADMIN_PASSWORD,
-            "new_password": new_password
-        }, headers={'Authorization': f'Bearer {self.admin_token}'})
-        
-        if success and status == 200:
-            self.log_test("Change Password API", True, "Password changed successfully")
-            
-            # Test login with new password
-            login_success, login_data, _ = self.make_request('POST', '/auth/login', {
-                "email": ADMIN_EMAIL,
-                "password": new_password
-            })
-            
-            if login_success and 'access_token' in login_data:
-                # Change password back
-                change_back_success, _, _ = self.make_request('PUT', '/auth/change-password', {
-                    "current_password": new_password,
-                    "new_password": ADMIN_PASSWORD
-                }, headers={'Authorization': f'Bearer {login_data["access_token"]}'})
-                
-                if change_back_success:
-                    self.log_test("Password Change Verification", True, "Password change verified and reverted")
-                    return True
-                else:
-                    self.log_test("Password Change Verification", False, "Could not revert password")
-                    return False
-            else:
-                self.log_test("Password Change Verification", False, "Could not login with new password")
-                return False
-        else:
-            self.log_test("Change Password API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_enhanced_registration(self):
-        """Test POST /api/auth/register with enhanced fields"""
-        print("\n=== Testing Enhanced Registration API ===")
-        
-        # Use timestamp to ensure unique email
-        timestamp = int(time.time())
-        test_email = f"newuser{timestamp}@test.com"
-        
-        success, data, status = self.make_request('POST', '/auth/register', {
-            "email": test_email,
-            "password": "Test1234!",
-            "name": "John Doe",
-            "first_name": "John",
-            "last_name": "Doe",
-            "phone": "1234567890",
-            "date_of_birth": "1990-01-15"
-        })
-        
-        if success and 'access_token' in data and 'user' in data:
-            user = data['user']
-            self.test_user_token = data['access_token']
-            
-            # Verify all fields are present
-            required_fields = ['first_name', 'last_name', 'phone', 'date_of_birth']
-            missing_fields = [field for field in required_fields if not user.get(field)]
-            
-            if not missing_fields:
-                self.log_test("Enhanced Registration API", True, f"User registered with all fields: {user.get('first_name')} {user.get('last_name')}")
-                return True
-            else:
-                self.log_test("Enhanced Registration API", False, f"Missing fields: {missing_fields}")
-                return False
-        else:
-            self.log_test("Enhanced Registration API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_activities(self):
-        """Test POST /api/onboarding/activities"""
-        print("\n=== Testing Onboarding Activities API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Activities API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('POST', '/onboarding/activities', {
-            "activities": ["walking", "cycling"],
-            "fitness_goals": ["tone"]
-        }, headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Activities API", True, "Activities saved successfully")
-            return True
-        else:
-            self.log_test("Onboarding Activities API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_preferences(self):
-        """Test PUT /api/onboarding/preferences"""
-        print("\n=== Testing Onboarding Preferences API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Preferences API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('PUT', '/onboarding/preferences', {
-            "meal_preferences": ["keto", "vegan"],
-            "allergies": ["nuts"]
-        }, headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Preferences API", True, "Preferences saved successfully")
-            return True
-        else:
-            self.log_test("Onboarding Preferences API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_questionnaire(self):
-        """Test PUT /api/onboarding/questionnaire"""
-        print("\n=== Testing Onboarding Questionnaire API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Questionnaire API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('PUT', '/onboarding/questionnaire', {
-            "favorite_fast_food": "Pizza",
-            "dietary_restriction": True,
-            "under_nutritionist": False,
-            "health_info": "Generally healthy",
-            "lifestyle_busyness": 4,
-            "sleep_hours": 7.5,
-            "current_workout_plan": "3x per week gym",
-            "best_meal": "Breakfast",
-            "height_cm": 175.0,
-            "weight_kg": 70.0,
-            "target_weight_kg": 65.0,
-            "gender": "male",
-            "activity_level": "moderate"
-        }, headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Questionnaire API", True, "Questionnaire saved successfully")
-            return True
-        else:
-            self.log_test("Onboarding Questionnaire API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_life_goals(self):
-        """Test PUT /api/onboarding/life-goals"""
-        print("\n=== Testing Onboarding Life Goals API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Life Goals API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('PUT', '/onboarding/life-goals', {
-            "life_goals": ["stay_fit", "eat_healthy"],
-            "happiness_level": 8,
-            "review_text": "Feeling great about my health journey!"
-        }, headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Life Goals API", True, "Life goals saved successfully")
-            return True
-        else:
-            self.log_test("Onboarding Life Goals API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_permissions(self):
-        """Test PUT /api/onboarding/permissions"""
-        print("\n=== Testing Onboarding Permissions API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Permissions API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('PUT', '/onboarding/permissions', {
-            "push_notifications": True,
-            "gallery_access": False,
-            "location_sharing": True,
-            "data_personalization_consent": True,
-            "privacy_policy_accepted": True
-        }, headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Permissions API", True, "Permissions saved successfully")
-            return True
-        else:
-            self.log_test("Onboarding Permissions API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_onboarding_complete(self):
-        """Test POST /api/onboarding/complete"""
-        print("\n=== Testing Onboarding Complete API ===")
-        
-        if not self.test_user_token:
-            self.log_test("Onboarding Complete API", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('POST', '/onboarding/complete', {}, 
-                                                headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and status == 200:
-            self.log_test("Onboarding Complete API", True, "Onboarding marked as complete")
-            return True
-        else:
-            self.log_test("Onboarding Complete API", False, f"Status: {status}, Data: {data}")
-            return False
-    
-    def test_user_profile_verification(self):
-        """Test GET /api/auth/me to verify all fields are populated"""
-        print("\n=== Testing User Profile Verification ===")
-        
-        if not self.test_user_token:
-            self.log_test("User Profile Verification", False, "No test user token available")
-            return False
-            
-        success, data, status = self.make_request('GET', '/auth/me', 
-                                                headers={'Authorization': f'Bearer {self.test_user_token}'})
-        
-        if success and 'user' in data:
-            user = data['user']
-            
-            # Check for key fields that should be populated
-            expected_fields = {
-                'first_name': 'John',
-                'last_name': 'Doe',
-                'phone': '1234567890',
-                'date_of_birth': '1990-01-15',
-                'activities': ['walking', 'cycling'],
-                'fitness_goals': ['tone'],
-                'meal_preferences': ['keto', 'vegan'],
-                'allergies': ['nuts'],
-                'life_goals': ['stay_fit', 'eat_healthy'],
-                'happiness_level': 8,
-                'onboarding_complete': True,
-                'privacy_policy_accepted': True
+        # 1. Create workout
+        try:
+            workout_data = {
+                "type": "running",
+                "duration": 30,
+                "intensity": "medium",
+                "notes": "Morning run in the park"
             }
             
-            missing_or_incorrect = []
-            for field, expected_value in expected_fields.items():
-                actual_value = user.get(field)
-                if actual_value != expected_value:
-                    missing_or_incorrect.append(f"{field}: expected {expected_value}, got {actual_value}")
+            response = requests.post(f"{BASE_URL}/v1/workouts", 
+                                   json=workout_data, headers=self.headers)
             
-            if not missing_or_incorrect:
-                self.log_test("User Profile Verification", True, "All fields populated correctly")
-                return True
+            if response.status_code == 200:
+                workout = response.json().get("workout", {})
+                workout_id = workout.get("id")
+                calories = workout.get("calories_burned", 0)
+                self.log_test("POST /v1/workouts", True, 
+                            f"Created workout ID: {workout_id}, Auto-calc calories: {calories}")
+                
+                # 2. Get workout list with pagination
+                response = requests.get(f"{BASE_URL}/v1/workouts?page=1&limit=10", 
+                                      headers=self.headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    workouts = data.get("data", [])
+                    summary = data.get("summary", {})
+                    pagination = data.get("pagination", {})
+                    
+                    self.log_test("GET /v1/workouts", True, 
+                                f"Found {len(workouts)} workouts, Weekly summary: {summary.get('totalWorkouts', 0)} workouts, {summary.get('totalCalories', 0)} calories")
+                else:
+                    self.log_test("GET /v1/workouts", False, f"Status: {response.status_code}")
+                
+                # 3. Get single workout
+                if workout_id:
+                    response = requests.get(f"{BASE_URL}/v1/workouts/{workout_id}", 
+                                          headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        workout_detail = response.json().get("workout", {})
+                        self.log_test("GET /v1/workouts/:id", True, 
+                                    f"Retrieved workout: {workout_detail.get('type')} - {workout_detail.get('duration_minutes')}min")
+                    else:
+                        self.log_test("GET /v1/workouts/:id", False, f"Status: {response.status_code}")
+                
+                # 4. Update workout
+                if workout_id:
+                    update_data = {
+                        "type": "cycling",
+                        "duration": 45,
+                        "intensity": "high",
+                        "notes": "Updated to cycling session"
+                    }
+                    
+                    response = requests.put(f"{BASE_URL}/v1/workouts/{workout_id}", 
+                                          json=update_data, headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        updated_workout = response.json().get("workout", {})
+                        new_calories = updated_workout.get("calories_burned", 0)
+                        self.log_test("PUT /v1/workouts/:id", True, 
+                                    f"Updated to {updated_workout.get('type')} - {updated_workout.get('duration_minutes')}min, New calories: {new_calories}")
+                    else:
+                        self.log_test("PUT /v1/workouts/:id", False, f"Status: {response.status_code}")
+                
+                # 5. Delete workout (save for last)
+                if workout_id:
+                    response = requests.delete(f"{BASE_URL}/v1/workouts/{workout_id}", 
+                                             headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        self.log_test("DELETE /v1/workouts/:id", True, "Workout deleted successfully")
+                    else:
+                        self.log_test("DELETE /v1/workouts/:id", False, f"Status: {response.status_code}")
+                        
             else:
-                self.log_test("User Profile Verification", False, f"Field mismatches: {missing_or_incorrect}")
-                return False
-        else:
-            self.log_test("User Profile Verification", False, f"Status: {status}, Data: {data}")
-            return False
+                self.log_test("POST /v1/workouts", False, f"Status: {response.status_code}, Response: {response.text}")
+                
+        except Exception as e:
+            self.log_test("Workout CRUD", False, f"Exception: {str(e)}")
+    
+    def test_goal_workout_linkage(self):
+        """Test Goal-Workout linkage"""
+        print("\n=== TESTING GOAL-WORKOUT LINKAGE ===")
+        
+        try:
+            # First create a workout to link
+            workout_data = {"type": "walking", "duration": 20, "intensity": "low"}
+            response = requests.post(f"{BASE_URL}/v1/workouts", 
+                                   json=workout_data, headers=self.headers)
+            
+            if response.status_code == 200:
+                workout_id = response.json().get("workout", {}).get("id")
+                
+                # 1. Link workout to goal
+                link_data = {
+                    "workoutId": workout_id,
+                    "goalId": "test-goal-1"
+                }
+                
+                response = requests.post(f"{BASE_URL}/v1/goal_workout", 
+                                       json=link_data, headers=self.headers)
+                
+                if response.status_code == 200:
+                    link = response.json().get("link", {})
+                    self.log_test("POST /v1/goal_workout", True, 
+                                f"Linked workout {workout_id} to goal test-goal-1")
+                    
+                    # 2. Get goal-workout links
+                    response = requests.get(f"{BASE_URL}/v1/goal_workout", headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        links = response.json().get("links", [])
+                        self.log_test("GET /v1/goal_workout", True, 
+                                    f"Found {len(links)} goal-workout links")
+                    else:
+                        self.log_test("GET /v1/goal_workout", False, f"Status: {response.status_code}")
+                        
+                else:
+                    self.log_test("POST /v1/goal_workout", False, f"Status: {response.status_code}")
+                    
+        except Exception as e:
+            self.log_test("Goal-Workout Linkage", False, f"Exception: {str(e)}")
+    
+    def test_badge_engine(self):
+        """Test Badge Engine"""
+        print("\n=== TESTING BADGE ENGINE ===")
+        
+        try:
+            # 1. Check for new badges
+            response = requests.get(f"{BASE_URL}/v1/badges/check", headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                new_badges = data.get("newBadges", [])
+                self.log_test("GET /v1/badges/check", True, 
+                            f"Badge check completed, {len(new_badges)} new badges earned")
+            else:
+                self.log_test("GET /v1/badges/check", False, f"Status: {response.status_code}")
+            
+            # 2. Get badge progress
+            response = requests.get(f"{BASE_URL}/v1/badges/progress", headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                progress = data.get("progress", [])
+                earned_count = sum(1 for p in progress if p.get("earned", False))
+                total_badges = len(progress)
+                
+                self.log_test("GET /v1/badges/progress", True, 
+                            f"Found {total_badges} badges, {earned_count} earned. Progress tracking working")
+                
+                # Show sample badge progress
+                if progress:
+                    sample = progress[0]
+                    self.log_test("Badge Progress Detail", True, 
+                                f"Sample: {sample.get('name')} - {sample.get('current')}/{sample.get('requirement_value')} ({sample.get('percentage')}%)")
+            else:
+                self.log_test("GET /v1/badges/progress", False, f"Status: {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Badge Engine", False, f"Exception: {str(e)}")
+    
+    def test_subscription(self):
+        """Test Subscription system"""
+        print("\n=== TESTING SUBSCRIPTION ===")
+        
+        try:
+            # 1. Get subscription plans
+            response = requests.get(f"{BASE_URL}/v1/subscription/plans", headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                plans = data.get("plans", [])
+                plan_names = [p.get("name") for p in plans]
+                
+                self.log_test("GET /v1/subscription/plans", True, 
+                            f"Found {len(plans)} plans: {', '.join(plan_names)}")
+                
+                # Find pro monthly plan for purchase test
+                pro_plan = next((p for p in plans if p.get("name") == "pro_monthly"), None)
+                
+                if pro_plan:
+                    plan_id = pro_plan.get("id")
+                    
+                    # 2. Purchase subscription (simulated)
+                    purchase_data = {
+                        "planId": plan_id,
+                        "receipt": "test-receipt-12345",
+                        "platform": "ios"
+                    }
+                    
+                    response = requests.post(f"{BASE_URL}/v1/subscription", 
+                                           json=purchase_data, headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        subscription = response.json().get("subscription", {})
+                        self.log_test("POST /v1/subscription", True, 
+                                    f"Purchased {subscription.get('plan_name')} subscription, Status: {subscription.get('status')}")
+                        
+                        # 3. Get current subscription
+                        response = requests.get(f"{BASE_URL}/v1/subscription", headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            sub_data = response.json()
+                            plan = sub_data.get("plan", "basic")
+                            status = sub_data.get("status", "inactive")
+                            features = sub_data.get("features", {})
+                            
+                            self.log_test("GET /v1/subscription", True, 
+                                        f"Current plan: {plan}, Status: {status}, Features: {len(features)} enabled")
+                        else:
+                            self.log_test("GET /v1/subscription", False, f"Status: {response.status_code}")
+                        
+                        # 4. Cancel subscription
+                        response = requests.put(f"{BASE_URL}/v1/subscription/cancel", headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            cancelled_sub = response.json().get("subscription", {})
+                            self.log_test("PUT /v1/subscription/cancel", True, 
+                                        f"Subscription cancelled, Status: {cancelled_sub.get('status')}")
+                        else:
+                            self.log_test("PUT /v1/subscription/cancel", False, f"Status: {response.status_code}")
+                        
+                        # 5. Get transaction history
+                        response = requests.get(f"{BASE_URL}/v1/subscription/transactions?page=1", 
+                                              headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            transactions = data.get("data", [])
+                            pagination = data.get("pagination", {})
+                            
+                            self.log_test("GET /v1/subscription/transactions", True, 
+                                        f"Found {len(transactions)} transactions, Total: {pagination.get('total', 0)}")
+                        else:
+                            self.log_test("GET /v1/subscription/transactions", False, f"Status: {response.status_code}")
+                            
+                    else:
+                        self.log_test("POST /v1/subscription", False, f"Status: {response.status_code}, Response: {response.text}")
+                        
+            else:
+                self.log_test("GET /v1/subscription/plans", False, f"Status: {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Subscription", False, f"Exception: {str(e)}")
+    
+    def test_notifications(self):
+        """Test Notification system"""
+        print("\n=== TESTING NOTIFICATIONS ===")
+        
+        try:
+            # 1. Register push token
+            register_data = {
+                "pushToken": "ExponentPushToken[test-token-12345]",
+                "deviceId": "device-test-1",
+                "platform": "ios"
+            }
+            
+            response = requests.post(f"{BASE_URL}/v1/notifications/register", 
+                                   json=register_data, headers=self.headers)
+            
+            if response.status_code == 200:
+                self.log_test("POST /v1/notifications/register", True, 
+                            "Push token registered successfully")
+            else:
+                self.log_test("POST /v1/notifications/register", False, f"Status: {response.status_code}")
+            
+            # 2. Get notifications with pagination
+            response = requests.get(f"{BASE_URL}/v1/notifications?page=1&limit=10", 
+                                  headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                notifications = data.get("data", [])
+                unread_count = data.get("unreadCount", 0)
+                pagination = data.get("pagination", {})
+                
+                self.log_test("GET /v1/notifications", True, 
+                            f"Found {len(notifications)} notifications, {unread_count} unread, Total: {pagination.get('total', 0)}")
+                
+                # Get a notification ID for testing read/delete
+                notification_id = None
+                if notifications:
+                    notification_id = notifications[0].get("id")
+                    
+                    # 3. Mark notification as read
+                    if notification_id:
+                        response = requests.put(f"{BASE_URL}/v1/notifications/{notification_id}/read", 
+                                              headers=self.headers)
+                        
+                        if response.status_code == 200:
+                            self.log_test("PUT /v1/notifications/:id/read", True, 
+                                        f"Notification {notification_id} marked as read")
+                        else:
+                            self.log_test("PUT /v1/notifications/:id/read", False, f"Status: {response.status_code}")
+                
+                # 4. Mark all as read
+                response = requests.put(f"{BASE_URL}/v1/notifications/read-all", headers=self.headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    count = data.get("count", 0)
+                    self.log_test("PUT /v1/notifications/read-all", True, 
+                                f"Marked {count} notifications as read")
+                else:
+                    self.log_test("PUT /v1/notifications/read-all", False, f"Status: {response.status_code}")
+                
+                # 5. Delete notification
+                if notification_id:
+                    response = requests.delete(f"{BASE_URL}/v1/notifications/{notification_id}", 
+                                             headers=self.headers)
+                    
+                    if response.status_code == 200:
+                        self.log_test("DELETE /v1/notifications/:id", True, 
+                                    f"Notification {notification_id} deleted")
+                    else:
+                        self.log_test("DELETE /v1/notifications/:id", False, f"Status: {response.status_code}")
+                        
+            else:
+                self.log_test("GET /v1/notifications", False, f"Status: {response.status_code}")
+            
+            # 6. Get notification preferences
+            response = requests.get(f"{BASE_URL}/v1/notifications/preferences", headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                preferences = data.get("preferences", {})
+                enabled_count = sum(1 for k, v in preferences.items() if isinstance(v, bool) and v)
+                
+                self.log_test("GET /v1/notifications/preferences", True, 
+                            f"Retrieved preferences, {enabled_count} notification types enabled")
+            else:
+                self.log_test("GET /v1/notifications/preferences", False, f"Status: {response.status_code}")
+            
+            # 7. Update notification preferences
+            prefs_update = {
+                "mealReminders": False,
+                "waterReminders": True,
+                "quietHoursStart": "23:00",
+                "quietHoursEnd": "07:00"
+            }
+            
+            response = requests.put(f"{BASE_URL}/v1/notifications/preferences", 
+                                  json=prefs_update, headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                updated_prefs = data.get("preferences", {})
+                self.log_test("PUT /v1/notifications/preferences", True, 
+                            f"Updated preferences, Meal reminders: {updated_prefs.get('mealReminders')}, Quiet hours: {updated_prefs.get('quietHoursStart')}-{updated_prefs.get('quietHoursEnd')}")
+            else:
+                self.log_test("PUT /v1/notifications/preferences", False, f"Status: {response.status_code}")
+            
+            # 8. Broadcast notification (admin only)
+            broadcast_data = {
+                "title": "Test Broadcast",
+                "body": "This is a test broadcast notification from the admin",
+                "targetSegment": "all"
+            }
+            
+            response = requests.post(f"{BASE_URL}/v1/notifications/broadcast", 
+                                   json=broadcast_data, headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                sent_count = data.get("count", 0)
+                self.log_test("POST /v1/notifications/broadcast", True, 
+                            f"Broadcast sent to {sent_count} users")
+            else:
+                self.log_test("POST /v1/notifications/broadcast", False, f"Status: {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("Notifications", False, f"Exception: {str(e)}")
+    
+    def test_ai_predictions(self):
+        """Test AI Predictions"""
+        print("\n=== TESTING AI PREDICTIONS ===")
+        
+        try:
+            response = requests.get(f"{BASE_URL}/v1/predictions", headers=self.headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                predictions = data.get("predictions")
+                message = data.get("message", "")
+                data_points = data.get("dataPoints", 0)
+                
+                if predictions:
+                    weekly_cal = predictions.get("projectedWeeklyCalories", 0)
+                    sleep_trend = predictions.get("sleepQualityTrend", 0)
+                    happiness_trend = predictions.get("happinessTrend", 0)
+                    workout_freq = predictions.get("workoutFrequency", 0)
+                    
+                    self.log_test("GET /v1/predictions", True, 
+                                f"Predictions generated - Weekly calories: {weekly_cal}, Sleep: {sleep_trend}, Happiness: {happiness_trend}, Workout freq: {workout_freq}/week")
+                else:
+                    self.log_test("GET /v1/predictions", True, 
+                                f"Insufficient data message: {message}, Data points: {data_points}")
+                    
+            else:
+                self.log_test("GET /v1/predictions", False, f"Status: {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("AI Predictions", False, f"Exception: {str(e)}")
     
     def run_all_tests(self):
-        """Run all backend tests"""
-        print("🚀 Starting BO Wellness App Backend API Tests")
-        print(f"Backend URL: {BASE_URL}")
-        print(f"Admin Email: {ADMIN_EMAIL}")
+        """Run all Sprint 5 tests"""
+        print("🚀 Starting Sprint 5 Backend API Testing...")
+        print(f"Testing against: {BASE_URL}")
         
-        # Test sequence
-        tests = [
-            self.test_forgot_password,
-            self.test_reset_password,
-            self.test_admin_login,
-            self.test_change_password,
-            self.test_enhanced_registration,
-            self.test_onboarding_activities,
-            self.test_onboarding_preferences,
-            self.test_onboarding_questionnaire,
-            self.test_onboarding_life_goals,
-            self.test_onboarding_permissions,
-            self.test_onboarding_complete,
-            self.test_user_profile_verification
-        ]
+        if not self.login():
+            print("❌ Login failed. Cannot proceed with tests.")
+            return False
         
-        passed = 0
-        failed = 0
+        # Run all test suites
+        self.test_workout_crud()
+        self.test_goal_workout_linkage()
+        self.test_badge_engine()
+        self.test_subscription()
+        self.test_notifications()
+        self.test_ai_predictions()
         
-        for test in tests:
-            try:
-                if test():
-                    passed += 1
-                else:
-                    failed += 1
-            except Exception as e:
-                print(f"❌ FAIL {test.__name__} - Exception: {str(e)}")
-                failed += 1
+        # Summary
+        print("\n" + "="*60)
+        print("SPRINT 5 BACKEND TEST SUMMARY")
+        print("="*60)
         
-        print(f"\n📊 Test Results Summary:")
-        print(f"✅ Passed: {passed}")
-        print(f"❌ Failed: {failed}")
-        print(f"📈 Success Rate: {(passed/(passed+failed)*100):.1f}%")
+        total_tests = len(self.test_results)
+        passed_tests = len([r for r in self.test_results if "✅ PASS" in r])
+        failed_tests = total_tests - passed_tests
         
-        if failed > 0:
-            print(f"\n🔍 Failed Tests:")
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests}")
+        print(f"Failed: {failed_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        if failed_tests > 0:
+            print("\n❌ FAILED TESTS:")
             for result in self.test_results:
-                if not result['success']:
-                    print(f"   - {result['test']}: {result['details']}")
+                if "❌ FAIL" in result:
+                    print(f"  {result}")
         
-        return failed == 0
+        print("\n✅ ALL TEST RESULTS:")
+        for result in self.test_results:
+            print(f"  {result}")
+            
+        return failed_tests == 0
 
 if __name__ == "__main__":
-    tester = BackendTester()
+    tester = Sprint5Tester()
     success = tester.run_all_tests()
     sys.exit(0 if success else 1)

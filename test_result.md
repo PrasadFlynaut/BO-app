@@ -506,7 +506,97 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: Seed Data verified successfully. Confirmed 40 meals across all meal types and categories with complete nutritional information, 12 badges properly categorized, and sample feed posts with comments. All seed data accessible through respective APIs and properly structured for application use."
 
-test_plan: "Test all Sprint 4 backend API endpoints in sprint4.py. Focus on: Feed CRUD (create/read/update/delete posts), likes toggle, comments CRUD, enhanced meals listing with filters and pagination, meal search, favorites toggle, meal plan CRUD, user recipes CRUD with ownership, badges listing, profile update, subscription status. Use test credentials from /app/memory/test_credentials.md. All endpoints require Bearer token auth."
+  - task: "Sprint 5 - Workout CRUD API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST/GET/PUT/DELETE /api/v1/workouts - Full CRUD with MET-based auto-calorie calculation, workout types (walking, cycling, swimming, running, yoga, strength, hiit, custom), intensity levels, pagination, weekly summary."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Workout CRUD working perfectly. POST creates workouts with auto-calculated calories (294 for 30min running), GET returns paginated list with weekly summary, GET/:id retrieves single workout, PUT updates with recalculated calories (429 for 45min cycling), DELETE removes workout successfully. All CRUD operations functional with proper MET-based calorie calculations."
+
+  - task: "Sprint 5 - Goal-Workout Linkage API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST/GET /api/v1/goal_workout - Links workouts to goals, prevents duplicates, supports filtering by goalId."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Goal-Workout linkage working correctly. POST links workouts to goals with duplicate prevention, GET retrieves all goal-workout links with optional goalId filtering. Linkage system operational for connecting workouts to user goals."
+
+  - task: "Sprint 5 - Badge Engine API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/badges/check, GET /api/v1/badges/progress - Automated badge evaluation across 9 action types (WORKOUT_LOGGED, MEAL_LOGGED, etc.), 12 badges with progress tracking, real-time earning notifications."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Badge Engine working excellently. GET /badges/check evaluates all action types and earned 2 new badges automatically, GET /badges/progress returns 12 badges with current progress (3 earned), percentage completion, and requirement tracking. Automated badge earning system fully functional."
+
+  - task: "Sprint 5 - Subscription API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/subscription/plans, POST /api/v1/subscription, GET /api/v1/subscription, PUT /api/v1/subscription/cancel, GET /api/v1/subscription/transactions - 3 plans (Basic/Pro Monthly/Pro Annual), simulated IAP, transaction history."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Subscription system working perfectly. GET /plans returns 3 plans (basic, pro_monthly, pro_annual), POST /subscription successfully purchases pro_monthly with simulated IAP, GET /subscription shows active pro status with 4 features enabled, PUT /cancel changes status to cancelling, GET /transactions shows purchase history. Complete subscription lifecycle functional."
+
+  - task: "Sprint 5 - Notifications API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/notifications/register, GET /api/v1/notifications, PUT /api/v1/notifications/:id/read, PUT /api/v1/notifications/read-all, DELETE /api/v1/notifications/:id, GET/PUT /api/v1/notifications/preferences, POST /api/v1/notifications/broadcast - Full notification system with push token registration, inbox management, preferences, admin broadcast."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Notification system working comprehensively. POST /register successfully registers push tokens, GET /notifications returns paginated inbox (8 notifications, 6 unread), PUT /:id/read marks individual notifications read, PUT /read-all marks 5 notifications read, DELETE removes notifications, GET/PUT /preferences manages 7 notification types with quiet hours, POST /broadcast sends to 8 users (admin only). Complete notification management system operational."
+
+  - task: "Sprint 5 - AI Predictions API"
+    implemented: true
+    working: true
+    file: "sprint5.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/predictions - Analyzes 30-day user data (workouts, meals, sleep, water, happiness) to generate predictive insights for calories, sleep quality, happiness trends, workout frequency."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: AI Predictions endpoint working correctly. GET /predictions analyzes user data and returns appropriate response - either predictions object with weekly calories, sleep trends, happiness projections, workout frequency when sufficient data exists, or helpful message requesting more tracking data (currently 2 data points, needs 7+ for predictions). Prediction logic functional."
+
+test_plan: "Test all Sprint 5 backend API endpoints in sprint5.py. Focus on: Workout CRUD (create/list/get/update/delete), goal-workout linkage, badge engine (check/progress), subscription (plans/purchase/get/cancel/transactions), notification (register/list/read/read-all/delete/preferences/broadcast), and predictions. Use test credentials from /app/memory/test_credentials.md."
 
 agent_communication:
   - agent: "main"
@@ -516,8 +606,12 @@ agent_communication:
   - agent: "main"
     message: "Sprint 3 Phase 1 implemented: Created sprint3.py with 30+ API endpoints covering meal logging, water/sleep/walking/MET trackers, happiness tracker, summary, timeline, journal CRUD with likes, goals with progress, wellness enrollment with checkin/progress, and report generation. All endpoints manually tested via curl. Also built Quick Adds tab and My Goals tab frontend. Please test all Sprint 3 backend endpoints."
   - agent: "testing"
-    message: "✅ SPRINT 3 BACKEND TESTING COMPLETE: All 12 Sprint 3 API endpoint groups tested with 100% success rate. Comprehensive testing of meal logging (CRUD), water/sleep/walking/MET/happiness trackers, summary aggregation, timeline, journal CRUD with likes, goals with progress tracking, wellness enrollment with checkin system, and 30-day report generation. Fixed database consistency issue between Sprint 2 and Sprint 3. All endpoints working correctly with proper auth, data validation, calculations, and MongoDB persistence. Created sprint3_test.py for comprehensive testing. All Sprint 3 backend APIs are production-ready."
+    message: "✅ SPRINT 3 BACKEND TESTING COMPLETE: All 12 Sprint 3 API endpoint groups tested with 100% success rate."
   - agent: "main"
-    message: "Sprint 4 backend implemented: Created sprint4.py with 25+ new API endpoints covering Community Feed (CRUD + likes + comments), Enhanced Meals (search, filters, favorites, pagination), Meal Plans (add/view/delete), User Recipes (full CRUD with ownership), Badges (12 seeded), Profile updates, and Subscription status. Seed data: 40 meals, 12 badges, 5 sample feed posts. Please test all Sprint 4 backend endpoints."
+    message: "Sprint 4 backend implemented: Created sprint4.py with 25+ new API endpoints covering Community Feed (CRUD + likes + comments), Enhanced Meals (search, filters, favorites, pagination), Meal Plans (add/view/delete), User Recipes (full CRUD with ownership), Badges (12 seeded), Profile updates, and Subscription status."
   - agent: "testing"
-    message: "✅ SPRINT 4 BACKEND TESTING COMPLETE: All 7 Sprint 4 API endpoint groups tested with 100% success rate (33 total tests passed). Comprehensive testing of Community Feed CRUD with likes/comments, Enhanced Meals API with search/favorites/pagination (40 meals verified), Meal Plan CRUD, User Recipes CRUD with ownership enforcement, Badges API (12 badges confirmed), Profile & Subscription APIs, and Seed Data verification. Additional testing confirmed delete operations and ownership enforcement working correctly. All endpoints handle authentication, pagination, data validation, and business logic properly. Created sprint4_test.py and sprint4_additional_test.py for comprehensive testing. All Sprint 4 backend APIs are production-ready."
+    message: "✅ SPRINT 4 BACKEND TESTING COMPLETE: All 7 Sprint 4 API endpoint groups tested with 100% success rate (33 total tests passed)."
+  - agent: "main"
+    message: "Sprint 5 backend implemented: Created sprint5.py with 26+ new API endpoints. Workout CRUD with MET-based auto-calorie calculation, goal-workout linkage, automated badge earning engine (evaluates 12 badges across 9 action types), badge progress tracking, subscription plans (3 plans seeded: Basic/Pro Monthly/Pro Annual), subscription purchase (SIMULATED IAP), cancel, transactions, notification register/inbox/read/read-all/delete/preferences/broadcast, AI predictions endpoint. Seed data: 3 subscription plans, 20 sample notifications. Please test all Sprint 5 backend endpoints."
+  - agent: "testing"
+    message: "✅ SPRINT 5 BACKEND TESTING COMPLETE: All 6 Sprint 5 API endpoint groups tested with 100% success rate (25 total tests passed). Workout CRUD with auto-calorie calculation working perfectly, goal-workout linkage operational, badge engine earning badges automatically, subscription system with simulated IAP functional, comprehensive notification system with push tokens/preferences/broadcast working, AI predictions endpoint responding appropriately. All Sprint 5 backend APIs fully operational."
