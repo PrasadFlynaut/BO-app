@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<any>(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
 
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -60,6 +61,11 @@ export default function HomeScreen() {
         setActiveProgram(null);
         setActiveProgramData(null);
       }
+      // Load unread notifications count
+      try {
+        const { data: notifData } = await api.get('/v1/notifications?page=1&limit=1');
+        setUnreadNotifs(notifData.unreadCount || 0);
+      } catch {}
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -149,13 +155,23 @@ export default function HomeScreen() {
       >
         {/* Greeting */}
         <View style={s.greetRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={s.greeting}>{greeting}, {firstName}!</Text>
             <Text style={s.greetSub}>Let us find your healthiest meal today</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
-            <Ionicons name="person" size={20} color={Colors.green} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+            <TouchableOpacity onPress={() => router.push('/notifications' as any)} style={s.bellBtn}>
+              <Ionicons name="notifications-outline" size={22} color={Colors.textSecondary} />
+              {unreadNotifs > 0 && (
+                <View style={s.notifBadge}>
+                  <Text style={s.notifBadgeText}>{unreadNotifs > 9 ? '9+' : unreadNotifs}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
+              <Ionicons name="person" size={20} color={Colors.green} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Active Program Widget */}
@@ -405,6 +421,9 @@ const s = StyleSheet.create({
   greeting: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
   greetSub: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
+  bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
+  notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
   // Active Program Widget
   activeProgramCard: { marginHorizontal: Spacing.lg, marginTop: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden' },

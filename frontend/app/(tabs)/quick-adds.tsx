@@ -21,6 +21,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ZONES = [
   { key: 'meals', icon: 'restaurant', label: 'Quick Add' },
+  { key: 'workouts', icon: 'barbell', label: 'Workouts' },
   { key: 'journal', icon: 'book', label: 'Journal' },
   { key: 'trackers', icon: 'notifications', label: 'Trackers' },
   { key: 'calendar', icon: 'time', label: 'Timeline' },
@@ -264,6 +265,16 @@ export default function QuickAddsScreen() {
   const [walkSteps, setWalkSteps] = useState('');
   const [walkDuration, setWalkDuration] = useState('');
 
+  // Workouts
+  const [workoutList, setWorkoutList] = useState<any[]>([]);
+  const [workoutSummary, setWorkoutSummary] = useState<any>(null);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [wkType, setWkType] = useState('running');
+  const [wkDuration, setWkDuration] = useState('');
+  const [wkIntensity, setWkIntensity] = useState('medium');
+  const [wkCalories, setWkCalories] = useState('');
+  const [wkNotes, setWkNotes] = useState('');
+
   // MET
   const [metLogs, setMetLogs] = useState<any[]>([]);
   const [showMetModal, setShowMetModal] = useState(false);
@@ -314,6 +325,12 @@ export default function QuickAddsScreen() {
       setMetLogs(metRes.data.logs || []);
       setJournals(journalRes.data.data || []);
       setTimelineEvents(timelineRes.data.events || []);
+      // Load workouts
+      try {
+        const wkRes = await api.get('/v1/workouts?limit=10');
+        setWorkoutList(wkRes.data.data || []);
+        setWorkoutSummary(wkRes.data.summary || null);
+      } catch {}
 
       // Build activity dates map from all logs
       const datesMap: Record<string, string[]> = {};
@@ -444,6 +461,102 @@ export default function QuickAddsScreen() {
   const filteredJournals = journalSearch
     ? journals.filter((j: any) => j.title?.toLowerCase().includes(journalSearch.toLowerCase()) || j.description?.toLowerCase().includes(journalSearch.toLowerCase()))
     : journals;
+
+  // ============ WORKOUT HANDLERS ============
+  const WK_TYPES = [
+    { key: 'walking', icon: 'walk-outline', label: 'Walking', color: Colors.green },
+    { key: 'running', icon: 'fitness-outline', label: 'Running', color: '#E53E3E' },
+    { key: 'cycling', icon: 'bicycle-outline', label: 'Cycling', color: Colors.waterBlue },
+    { key: 'swimming', icon: 'water-outline', label: 'Swimming', color: '#00BCD4' },
+    { key: 'yoga', icon: 'body-outline', label: 'Yoga', color: Colors.fitnessPurple },
+    { key: 'strength', icon: 'barbell-outline', label: 'Strength', color: Colors.nutritionOrange },
+    { key: 'hiit', icon: 'flash-outline', label: 'HIIT', color: '#FF5252' },
+    { key: 'custom', icon: 'ellipsis-horizontal-outline', label: 'Custom', color: Colors.textTertiary },
+  ];
+
+  const handleCreateWorkout = async () => {
+    if (!wkDuration || parseInt(wkDuration) <= 0) { Alert.alert('Error', 'Duration required'); return; }
+    try {
+      await api.post('/v1/workouts', {
+        type: wkType, duration: parseInt(wkDuration), intensity: wkIntensity,
+        calories: wkCalories ? parseInt(wkCalories) : undefined, notes: wkNotes || undefined,
+      });
+      setShowWorkoutModal(false);
+      setWkType('running'); setWkDuration(''); setWkIntensity('medium'); setWkCalories(''); setWkNotes('');
+      loadAllData();
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed'); }
+  };
+
+  const deleteWorkout = async (id: string) => {
+    Alert.alert('Delete Workout', 'Remove this workout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/workouts/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
+    ]);
+  };
+
+  const renderWorkouts = () => (
+    <View>
+      {/* Weekly Summary */}
+      {workoutSummary && (
+        <Animated.View entering={FadeInDown.duration(350)} style={[s.summaryCard, Shadow.sm]}>
+          <Text style={s.sectionTitle}>This Week</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm }}>
+            {[
+              { val: workoutSummary.totalWorkouts || 0, label: 'Workouts', color: Colors.green },
+              { val: workoutSummary.totalDuration || 0, label: 'Minutes', color: Colors.waterBlue },
+              { val: workoutSummary.totalCalories || 0, label: 'Calories', color: Colors.nutritionOrange },
+            ].map((s2, i) => (
+              <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: s2.color }}>{s2.val}</Text>
+                <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 2 }}>{s2.label}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Log Button */}
+      <TouchableOpacity
+        style={[s.addWorkoutBtn, Shadow.sm]}
+        onPress={() => setShowWorkoutModal(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add-circle" size={24} color={Colors.green} />
+        <Text style={s.addWorkoutText}>Log a Workout</Text>
+      </TouchableOpacity>
+
+      {/* Recent workouts */}
+      <Text style={[s.sectionTitle, { marginTop: Spacing.lg }]}>Recent Workouts</Text>
+      {workoutList.length === 0 ? (
+        <View style={s.emptyBox}>
+          <Ionicons name="barbell-outline" size={36} color={Colors.textTertiary} />
+          <Text style={s.emptyText}>No workouts logged yet</Text>
+        </View>
+      ) : (
+        workoutList.slice(0, 5).map((w: any, i: number) => {
+          const wkCfg = WK_TYPES.find(t => t.key === w.type) || WK_TYPES[7];
+          return (
+            <Animated.View key={w.id || i} entering={FadeInDown.delay(i * 50).duration(350)}>
+              <TouchableOpacity style={[s.workoutCard, Shadow.sm]} onLongPress={() => deleteWorkout(w.id)} activeOpacity={0.85}>
+                <View style={[s.workoutIcon, { backgroundColor: wkCfg.color + '15' }]}>
+                  <Ionicons name={wkCfg.icon as any} size={24} color={wkCfg.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.workoutType}>{wkCfg.label}</Text>
+                  <Text style={s.workoutMeta}>
+                    {w.duration_minutes}min · {w.intensity} · {w.calories_burned} cal
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => deleteWorkout(w.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close-circle-outline" size={18} color={Colors.textTertiary} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })
+      )}
+    </View>
+  );
 
   // ============ RENDER ZONES ============
   const renderMeals = () => (
@@ -861,7 +974,7 @@ export default function QuickAddsScreen() {
   };
 
   const underlineStyle = useAnimatedStyle(() => ({
-    left: (SCREEN_WIDTH / 4) * zoneUnderline.value + (SCREEN_WIDTH / 4 - 30) / 2,
+    left: (SCREEN_WIDTH / 5) * zoneUnderline.value + (SCREEN_WIDTH / 5 - 30) / 2,
   }));
 
   return (
@@ -898,6 +1011,7 @@ export default function QuickAddsScreen() {
         ) : (
           <>
             {activeZone === 'meals' && renderMeals()}
+            {activeZone === 'workouts' && renderWorkouts()}
             {activeZone === 'trackers' && renderTrackers()}
             {activeZone === 'journal' && renderJournal()}
             {activeZone === 'calendar' && renderCalendarTimeline()}
@@ -1092,6 +1206,47 @@ export default function QuickAddsScreen() {
         </TouchableOpacity>
         <TouchableOpacity onPress={() => { setShowJournalModal(false); Keyboard.dismiss(); }} style={s.modalCancelBtn}>
           <Text style={s.modalCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      {/* Workout Modal */}
+      <BottomSheet visible={showWorkoutModal} onClose={() => { setShowWorkoutModal(false); Keyboard.dismiss(); }}>
+        <Text style={s.bsTitle}>Log Workout</Text>
+        <Text style={s.bsLabel}>Type</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+          {WK_TYPES.map(t => (
+            <TouchableOpacity
+              key={t.key}
+              style={[s.wkTypeChip, wkType === t.key && { backgroundColor: t.color, borderColor: t.color }]}
+              onPress={() => setWkType(t.key)}
+            >
+              <Ionicons name={t.icon as any} size={16} color={wkType === t.key ? '#FFF' : t.color} />
+              <Text style={[s.wkTypeText, wkType === t.key && { color: '#FFF' }]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <Text style={s.bsLabel}>Duration (minutes)</Text>
+        <TextInput style={s.bsInput} value={wkDuration} onChangeText={setWkDuration} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textTertiary} />
+        <Text style={s.bsLabel}>Intensity</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          {['low', 'medium', 'high'].map(int => (
+            <TouchableOpacity
+              key={int}
+              style={[s.wkIntChip, wkIntensity === int && s.wkIntChipActive]}
+              onPress={() => setWkIntensity(int)}
+            >
+              <Text style={[s.wkIntText, wkIntensity === int && s.wkIntTextActive]}>
+                {int.charAt(0).toUpperCase() + int.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={s.bsLabel}>Calories (optional, auto-calculated)</Text>
+        <TextInput style={s.bsInput} value={wkCalories} onChangeText={setWkCalories} keyboardType="numeric" placeholder="Auto" placeholderTextColor={Colors.textTertiary} />
+        <Text style={s.bsLabel}>Notes</Text>
+        <TextInput style={[s.bsInput, { minHeight: 50 }]} value={wkNotes} onChangeText={setWkNotes} multiline placeholder="How did it go?" placeholderTextColor={Colors.textTertiary} />
+        <TouchableOpacity onPress={handleCreateWorkout} activeOpacity={0.8}>
+          <LinearGradient colors={[Colors.green, Colors.greenDark]} style={s.bsBtn}><Text style={s.bsBtnText}>Log Workout</Text></LinearGradient>
         </TouchableOpacity>
       </BottomSheet>
     </SafeAreaView>

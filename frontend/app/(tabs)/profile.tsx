@@ -308,6 +308,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(350).duration(350)} style={[st.settingsCard, Shadow.sm]}>
           <Text style={st.sectionTitle}>Settings</Text>
           {[
+            { icon: 'diamond-outline', label: 'Subscription', color: Colors.green, bg: Colors.greenLight },
             { icon: 'lock-closed-outline', label: 'Change Password', color: '#FF5252', bg: '#FFF0F0' },
             { icon: 'notifications-outline', label: 'Notifications', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
             { icon: 'people-outline', label: 'Invite Friends', color: Colors.waterBlue, bg: Colors.waterSurface },
@@ -316,6 +317,8 @@ export default function ProfileScreen() {
           ].map((item, i) => (
             <TouchableOpacity key={i} style={st.menuItem} onPress={() => {
               if (item.label === 'Change Password') { setShowChangePw(true); setPwError(''); setPwSuccess(''); setCurPw(''); setNewPw(''); setConfirmPw(''); }
+              else if (item.label === 'Subscription') { router.push('/subscription' as any); }
+              else if (item.label === 'Notifications') { router.push('/notifications' as any); }
               else if (item.label === 'Privacy Policy') { router.push('/(auth)/privacy-policy'); }
             }} activeOpacity={0.7}>
               <View style={st.menuLeft}>
