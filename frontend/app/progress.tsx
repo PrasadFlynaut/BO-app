@@ -39,9 +39,12 @@ export default function ProgressScreen() {
         api.get(`/v1/happiness/history?days=${period}`),
         api.get(`/v1/progress/overview?days=${period}`),
       ]);
-      setHappiness(hRes.data.happiness || hRes.data);
+      // History endpoint returns { entries, stats, pagination }
+      // Overview endpoint returns { happiness: { by_day, average, trend, total_logs }, ... }
+      const overviewData = oRes.data;
+      setHappiness(overviewData.happiness || { by_day: [], average: 0, trend: [] });
       setStats(hRes.data.stats || null);
-      setOverview(oRes.data);
+      setOverview(overviewData);
     } catch (e) { console.error('Load progress:', e); }
     setLoading(false);
   };
