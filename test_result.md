@@ -806,7 +806,112 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: Admin Panel HTML working correctly. GET /api/admin-panel returns complete HTML admin interface (33,603 chars) with all required elements: BO Admin Portal, Two-Factor Verification, Dashboard, User Management, Restaurant Management, Distributor Management. JavaScript functions adminLogin() and verify2FA() present. HubSpot-style enterprise admin dashboard fully functional."
 
-test_plan: "Test Sprint 7 backend API endpoints. Focus on: Demo Login (POST /api/v1/auth/demo-login), Admin Login with 2FA (POST /api/v1/admin/login, POST /api/v1/admin/verify-2fa), Admin Dashboard (GET /api/v1/admin/dashboard), Admin User Management (GET /api/v1/admin/users), Admin Restaurant CRUD (GET/POST/PUT/DELETE /api/v1/admin/restaurants), Admin Distributor CRUD (GET/POST/PUT/DELETE /api/v1/admin/distributors), Admin Panel HTML (GET /api/admin-panel). Use test credentials from /app/memory/test_credentials.md. Admin: admin@bo.com / BoAdmin2026!. Demo: demo@bo.app / Demo1234!. For admin endpoints, first login at /api/v1/admin/login to get pre_token and _demo_code, then verify-2fa to get admin_token."
+  - task: "Sprint 8 - Meal CRUD API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET/POST/PUT/DELETE /api/v1/admin/meal - Full CRUD with filters (category, menuType, source, search), meal approval/rejection workflow, ingredient auto-calculation. Requires admin 2FA token."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Meal CRUD API working perfectly. GET /api/v1/admin/meal lists 3 seeded meals with filters (category, menuType, search) working correctly. POST creates meals with auto-calculated carbs, PUT updates meals, PUT /approve and /reject workflows functional. DELETE soft-deletes meals. All CRUD operations tested successfully with admin 2FA authentication."
+
+  - task: "Sprint 8 - Ingredient Suggestions API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/admin/ingredients/suggest - Auto-suggest ingredients based on usage from meal creation, minimum 2 chars query."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Ingredient suggestions working correctly. GET /api/v1/admin/ingredients/suggest?q=let returns 1 suggestion. Short queries (< 2 chars) return empty results as expected. Suggestions based on ingredient usage from meal creation."
+
+  - task: "Sprint 8 - Quotes CRUD API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET/POST/PUT/DELETE /api/v1/admin/quotes - Full CRUD with filters, quote selection toggle, selected quote retrieval. 30 wellness quotes seeded."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Quotes CRUD API working perfectly. GET lists 25 quotes with pagination, POST creates quotes, PUT updates quotes, DELETE removes quotes. POST /api/v1/admin/select/quotes/:id toggles selection (only one selected at a time), GET /api/v1/admin/selected retrieves currently selected quote. Full CRUD cycle tested successfully."
+
+  - task: "Sprint 8 - Public Quote API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/quotes/today - Public endpoint (no auth) returns today's selected quote or fallback quote."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Public Quote API working correctly. GET /api/v1/quotes/today returns quote without authentication required. Returns fallback quote 'Every day is a chance to be better than yesterday' when no selected quote available. Public endpoint accessible and functional."
+
+  - task: "Sprint 8 - Admin Posts CRUD API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET/POST/PUT/DELETE /api/v1/admin/post(s) - Admin posts CRUD with optional broadcast notifications, 3 admin posts seeded."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Admin Posts CRUD API working perfectly. GET /api/v1/admin/posts lists 3 seeded admin posts with pagination. POST /api/v1/admin/post creates posts with optional broadcast notifications. PUT updates posts, DELETE soft-deletes posts. All admin posts marked with is_admin_post=true and admin_badge='BO Team'. Full CRUD operations functional."
+
+  - task: "Sprint 8 - Subscription Plans CRUD API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET/POST/PUT/DELETE /api/v1/admin/subscription-plan(s) - Full CRUD with subscriber counts, default plan protection (Basic plan cannot be deleted)."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Subscription Plans CRUD API working perfectly. GET lists 3 plans with subscriber counts, POST creates new plans, PUT updates plans, DELETE removes plans with protection for default Basic plan (returns 400 error). Plans with active subscribers are deactivated instead of deleted. Full CRUD operations with proper business logic protection."
+
+  - task: "Sprint 8 - Plan Analytics API"
+    implemented: true
+    working: true
+    file: "sprint8.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/admin/subscription-plans/analytics - Returns plan analytics with subscriber counts, churn rates, MRR/ARR calculations."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Plan Analytics API working correctly. GET /api/v1/admin/subscription-plans/analytics returns comprehensive analytics for 3 plans with summary containing totalProSubscribers, totalMRR ($0.0), totalARR ($0.0). Plan-level analytics include activeSubscribers, newThisMonth, churnRate, monthlyRevenue. All analytics calculations functional."
+
+test_plan: "Test Sprint 8 backend API endpoints. Focus on: Meal CRUD (GET/POST/PUT/DELETE /api/v1/admin/meal), Meal approval (PUT /api/v1/admin/meal/:id/approve, /reject), Ingredient suggestions (GET /api/v1/admin/ingredients/suggest), Quotes CRUD (GET/POST/PUT/DELETE /api/v1/admin/quotes), Quote select (POST /api/v1/admin/select/quotes/:id), Selected quote (GET /api/v1/admin/selected), Public quote (GET /api/v1/quotes/today), Admin Posts CRUD (GET/POST/PUT/DELETE /api/v1/admin/post(s)), Subscription Plans CRUD (GET/POST/PUT/DELETE /api/v1/admin/subscription-plan(s)), Plan Analytics (GET /api/v1/admin/subscription-plans/analytics). Use admin 2FA token for admin endpoints. Admin: admin@bo.com / BoAdmin2026!. Public endpoint /api/v1/quotes/today requires no auth."
 
 agent_communication:
   - agent: "main"
@@ -835,3 +940,7 @@ agent_communication:
     message: "Sprint 7 backend implemented and verified. Fixed multiple bugs: (1) Demo user password field mismatch (password vs password_hash) - migrated existing user, (2) Admin login password_hash field check, (3) Admin Panel HTML JS syntax error from Python string escaping, (4) Timezone comparison error in verify-2fa, (5) Admin role was overwritten to 'pro', (6) Added admin_panel_router to server.py. Visually tested admin panel full 2FA login flow with screenshots - dashboard loads with stats, charts, and restaurant data. Frontend verified: login screen shows BO logo and Demo Account button. Please test all Sprint 7 backend endpoints: demo-login, admin login+2FA, dashboard, user management, restaurant CRUD, distributor CRUD."
   - agent: "testing"
     message: "✅ SPRINT 7 BACKEND TESTING COMPLETE: All 7 Sprint 7 API endpoint groups tested with 100% success rate (10 total tests passed). Demo Login API working with both /api/v1/auth/demo-login and regular /api/auth/login endpoints. Admin 2FA authentication flow fully operational (login → verify-2fa → admin_token). Admin Dashboard returning comprehensive stats (9 users, 20 restaurants). Admin User Management with pagination and search working. Admin Restaurant CRUD (create/read/update/delete) fully functional. Admin Distributor CRUD (5 seeded distributors) fully functional. Admin Panel HTML (33,603 chars) serving complete HubSpot-style interface. Authentication validation working correctly (401/403 for unauthorized access). All Sprint 7 backend APIs fully operational and ready for production."
+  - agent: "main"
+    message: "Sprint 8 backend implemented: Created sprint8.py with 23 API endpoints. MOD-022: Meal CRUD (GET/POST/PUT/DELETE /api/v1/admin/meal), meal approve/reject workflow, ingredient suggestions. MOD-023: Quotes CRUD (GET/POST/PUT/DELETE /api/v1/admin/quotes), quote selection toggle, selected quote, public quote (/api/v1/quotes/today). Admin Posts CRUD (GET/POST/PUT/DELETE /api/v1/admin/post(s)) with broadcast notifications. MOD-024: Subscription Plans CRUD (GET/POST/PUT/DELETE /api/v1/admin/subscription-plan(s)), plan analytics, default plan protection. Admin panel HTML extended with 4 new pages (Meals, Quotes, Posts, Plans) with full CRUD modals. Seed data: 30 quotes, 3 admin posts, 3 sample meals, Basic plan marked default. Visually verified all 4 admin pages via screenshots - all rendering correctly. For admin endpoints use 2FA: POST /api/v1/admin/login -> POST /api/v1/admin/verify-2fa -> use admin_token as Bearer."
+  - agent: "testing"
+    message: "✅ SPRINT 8 BACKEND TESTING COMPLETE: All 8 Sprint 8 API endpoint groups tested with 100% success rate (11 total tests passed). Admin 2FA authentication flow working perfectly. Meal CRUD API with filters, approval/rejection workflow, and ingredient suggestions fully functional (3 seeded meals). Quotes CRUD with selection toggle working correctly (25 quotes found). Public Quote endpoint accessible without auth. Admin Posts CRUD with broadcast notifications operational (3 seeded posts). Subscription Plans CRUD with analytics and default plan protection working (3 plans, Basic plan protected). Plan Analytics returning comprehensive metrics (MRR/ARR calculations). All Sprint 8 backend APIs fully operational and ready for production."

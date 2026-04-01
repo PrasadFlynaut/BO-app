@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-BO App Sprint 7 Backend API Testing
-Tests: Demo Login, Admin 2FA, Dashboard, User Management, Restaurant CRUD, Distributor CRUD, Admin Panel HTML
+BO App Sprint 8 Backend API Testing
+Tests: Admin 2FA + Meal CRUD, Quotes CRUD, Admin Posts CRUD, Subscription Plans CRUD, Plan Analytics, Ingredient Suggestions, Public Quote
 """
 
 import requests
@@ -391,27 +391,389 @@ def test_auth_validation(runner):
     
     runner.log("Authentication validation working correctly")
 
+# ===================== SPRINT 8 TEST FUNCTIONS =====================
+
+def test_admin_meals_list(runner):
+    """Test GET /api/v1/admin/meal - List meals with filters"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test basic list
+    response = requests.get(f"{BASE_URL}/v1/admin/meal", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["data", "pagination", "categories", "menuTypes"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    meals = data["data"]
+    if not isinstance(meals, list):
+        raise Exception("Meals data should be array")
+    
+    # Test with category filter
+    response = requests.get(f"{BASE_URL}/v1/admin/meal?category=Salads", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Category filter failed: {response.status_code}")
+    
+    # Test with menuType filter
+    response = requests.get(f"{BASE_URL}/v1/admin/meal?menuType=Lunch", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"MenuType filter failed: {response.status_code}")
+    
+    # Test with search
+    response = requests.get(f"{BASE_URL}/v1/admin/meal?search=chicken", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Search filter failed: {response.status_code}")
+    
+    runner.log(f"Meal list working: {len(meals)} meals found, filters working")
+
+def test_admin_meals_crud(runner):
+    """Test Meal CRUD operations"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test POST - Create meal
+    new_meal = {
+        "title": "Test Meal API",
+        "about": "Test meal for API testing",
+        "category": "Salads",
+        "menuType": "Lunch",
+        "calories": 300,
+        "proteins": 20,
+        "fat": 10,
+        "carbs": 30,
+        "servings": 1,
+        "ingredients": [
+            {"name": "Lettuce", "quantity": "100", "unit": "g"},
+            {"name": "Tomato", "quantity": "50", "unit": "g"}
+        ],
+        "directions": ["Step 1: Wash lettuce", "Step 2: Chop tomato", "Step 3: Mix together"]
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/meal", json=new_meal, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Create failed: {response.status_code}: {response.text}")
+    
+    create_data = response.json()
+    if "meal" not in create_data or "id" not in create_data["meal"]:
+        raise Exception("Missing meal or id in create response")
+    
+    meal_id = create_data["meal"]["id"]
+    
+    # Test PUT - Update meal
+    updated_meal = {**new_meal, "title": "Updated Test Meal", "calories": 350}
+    response = requests.put(f"{BASE_URL}/v1/admin/meal/{meal_id}", json=updated_meal, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Update failed: {response.status_code}: {response.text}")
+    
+    # Test approve meal
+    response = requests.put(f"{BASE_URL}/v1/admin/meal/{meal_id}/approve", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Approve failed: {response.status_code}: {response.text}")
+    
+    # Test reject meal
+    reject_data = {"reason": "Test rejection reason"}
+    response = requests.put(f"{BASE_URL}/v1/admin/meal/{meal_id}/reject", json=reject_data, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Reject failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE - Delete meal
+    response = requests.delete(f"{BASE_URL}/v1/admin/meal/{meal_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Delete failed: {response.status_code}: {response.text}")
+    
+    runner.log(f"Meal CRUD operations successful (created, updated, approved, rejected, deleted)")
+
+def test_ingredient_suggestions(runner):
+    """Test GET /api/v1/admin/ingredients/suggest"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test with query
+    response = requests.get(f"{BASE_URL}/v1/admin/ingredients/suggest?q=let", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    if "suggestions" not in data:
+        raise Exception("Missing suggestions field")
+    
+    if not isinstance(data["suggestions"], list):
+        raise Exception("Suggestions should be array")
+    
+    # Test with short query (should return empty)
+    response = requests.get(f"{BASE_URL}/v1/admin/ingredients/suggest?q=a", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Short query failed: {response.status_code}")
+    
+    short_data = response.json()
+    if len(short_data["suggestions"]) != 0:
+        raise Exception("Short query should return empty suggestions")
+    
+    runner.log(f"Ingredient suggestions working: {len(data['suggestions'])} suggestions for 'let'")
+
+def test_admin_quotes_crud(runner):
+    """Test Quotes CRUD operations"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test GET - List quotes
+    response = requests.get(f"{BASE_URL}/v1/admin/quotes", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"List failed: {response.status_code}: {response.text}")
+    
+    list_data = response.json()
+    if "data" not in list_data or "pagination" not in list_data:
+        raise Exception("Missing data or pagination in list response")
+    
+    quotes = list_data["data"]
+    initial_count = len(quotes)
+    
+    # Test POST - Create quote
+    new_quote = {
+        "text": "Test quote text for API testing",
+        "publishingDate": "2026-12-25"
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/quotes", json=new_quote, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Create failed: {response.status_code}: {response.text}")
+    
+    create_data = response.json()
+    if "quote" not in create_data or "id" not in create_data["quote"]:
+        raise Exception("Missing quote or id in create response")
+    
+    quote_id = create_data["quote"]["id"]
+    
+    # Test PUT - Update quote
+    updated_quote = {**new_quote, "text": "Updated test quote text"}
+    response = requests.put(f"{BASE_URL}/v1/admin/quotes/{quote_id}", json=updated_quote, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Update failed: {response.status_code}: {response.text}")
+    
+    # Test POST - Select quote (toggle)
+    response = requests.post(f"{BASE_URL}/v1/admin/select/quotes/{quote_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Select failed: {response.status_code}: {response.text}")
+    
+    select_data = response.json()
+    if "selected" not in select_data:
+        raise Exception("Missing selected field in select response")
+    
+    # Test GET - Get selected quote
+    response = requests.get(f"{BASE_URL}/v1/admin/selected", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Get selected failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE - Delete quote
+    response = requests.delete(f"{BASE_URL}/v1/admin/quotes/{quote_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Delete failed: {response.status_code}: {response.text}")
+    
+    runner.log(f"Quotes CRUD operations successful (found {initial_count} quotes, created, updated, selected, deleted)")
+
+def test_public_quote_today(runner):
+    """Test GET /api/v1/quotes/today - Public endpoint (no auth)"""
+    response = requests.get(f"{BASE_URL}/v1/quotes/today")
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    if "quote" not in data:
+        raise Exception("Missing quote field")
+    
+    quote = data["quote"]
+    required_fields = ["text"]
+    for field in required_fields:
+        if field not in quote:
+            raise Exception(f"Missing field in quote: {field}")
+    
+    runner.log(f"Public quote endpoint working: '{quote['text'][:50]}...'")
+
+def test_admin_posts_crud(runner):
+    """Test Admin Posts CRUD operations"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test GET - List admin posts
+    response = requests.get(f"{BASE_URL}/v1/admin/posts", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"List failed: {response.status_code}: {response.text}")
+    
+    list_data = response.json()
+    if "data" not in list_data or "pagination" not in list_data:
+        raise Exception("Missing data or pagination in list response")
+    
+    posts = list_data["data"]
+    initial_count = len(posts)
+    
+    # Test POST - Create admin post
+    new_post = {
+        "imageUrl": "https://example.com/test-image.jpg",
+        "description": "Test admin post content for API testing",
+        "sendNotification": False
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/post", json=new_post, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Create failed: {response.status_code}: {response.text}")
+    
+    create_data = response.json()
+    if "post" not in create_data or "id" not in create_data["post"]:
+        raise Exception("Missing post or id in create response")
+    
+    post_id = create_data["post"]["id"]
+    
+    # Test PUT - Update admin post
+    updated_post = {**new_post, "description": "Updated test admin post content"}
+    response = requests.put(f"{BASE_URL}/v1/admin/post/{post_id}", json=updated_post, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Update failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE - Delete admin post
+    response = requests.delete(f"{BASE_URL}/v1/admin/post/{post_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Delete failed: {response.status_code}: {response.text}")
+    
+    runner.log(f"Admin Posts CRUD operations successful (found {initial_count} posts, created, updated, deleted)")
+
+def test_subscription_plans_crud(runner):
+    """Test Subscription Plans CRUD operations"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test GET - List subscription plans
+    response = requests.get(f"{BASE_URL}/v1/admin/subscription-plans", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"List failed: {response.status_code}: {response.text}")
+    
+    list_data = response.json()
+    if "plans" not in list_data:
+        raise Exception("Missing plans in list response")
+    
+    plans = list_data["plans"]
+    initial_count = len(plans)
+    
+    # Find basic plan for testing default protection
+    basic_plan = None
+    for plan in plans:
+        if plan.get("isDefault"):
+            basic_plan = plan
+            break
+    
+    # Test POST - Create subscription plan
+    new_plan = {
+        "title": "Test Plan API",
+        "description": "Test plan for API testing",
+        "chargeType": "Paid",
+        "billingPeriod": "Monthly",
+        "currency": "USD",
+        "amountCents": 499,
+        "benefits": ["Benefit A", "Benefit B"],
+        "status": "active"
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/subscription-plan", json=new_plan, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Create failed: {response.status_code}: {response.text}")
+    
+    create_data = response.json()
+    if "plan" not in create_data or "id" not in create_data["plan"]:
+        raise Exception("Missing plan or id in create response")
+    
+    plan_id = create_data["plan"]["id"]
+    
+    # Test PUT - Update subscription plan
+    updated_plan = {**new_plan, "title": "Updated Test Plan", "amountCents": 599}
+    response = requests.put(f"{BASE_URL}/v1/admin/subscription-plan/{plan_id}", json=updated_plan, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Update failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE - Delete subscription plan
+    response = requests.delete(f"{BASE_URL}/v1/admin/subscription-plan/{plan_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Delete failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE on basic plan (should fail)
+    if basic_plan:
+        response = requests.delete(f"{BASE_URL}/v1/admin/subscription-plan/{basic_plan['id']}", headers=headers)
+        if response.status_code != 400:
+            raise Exception(f"Expected 400 for basic plan delete, got {response.status_code}")
+    
+    runner.log(f"Subscription Plans CRUD operations successful (found {initial_count} plans, created, updated, deleted, basic plan protected)")
+
+def test_plan_analytics(runner):
+    """Test GET /api/v1/admin/subscription-plans/analytics"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    response = requests.get(f"{BASE_URL}/v1/admin/subscription-plans/analytics", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["plans", "summary"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    # Verify summary structure
+    summary = data["summary"]
+    summary_fields = ["totalProSubscribers", "totalMRR", "totalARR"]
+    for field in summary_fields:
+        if field not in summary:
+            raise Exception(f"Missing summary field: {field}")
+        if not isinstance(summary[field], (int, float)):
+            raise Exception(f"Summary field {field} should be numeric")
+    
+    # Verify plans array
+    plans = data["plans"]
+    if not isinstance(plans, list):
+        raise Exception("Plans should be array")
+    
+    runner.log(f"Plan analytics working: {len(plans)} plans, MRR: ${summary['totalMRR']}, ARR: ${summary['totalARR']}")
+
 def main():
     runner = TestRunner()
-    runner.log("Starting BO App Sprint 7 Backend API Tests")
+    runner.log("Starting BO App Sprint 8 Backend API Tests")
     runner.log(f"Testing against: {BASE_URL}")
     
-    # Test Demo Login
-    runner.test("Demo Login API", lambda: test_demo_login(runner))
-    runner.test("Regular Login with Demo Credentials", lambda: test_regular_login_with_demo(runner))
-    
-    # Test Admin 2FA Flow
+    # Test Admin 2FA Flow (required for all admin endpoints)
     runner.test("Admin Login Step 1 (Get 2FA Code)", lambda: test_admin_login_step1(runner))
     runner.test("Admin Login Step 2 (Verify 2FA)", lambda: test_admin_verify_2fa(runner))
     
-    # Test Admin Endpoints (require 2FA token)
-    runner.test("Admin Dashboard", lambda: test_admin_dashboard(runner))
-    runner.test("Admin User Management", lambda: test_admin_users_list(runner))
-    runner.test("Admin Restaurant CRUD", lambda: test_admin_restaurants_crud(runner))
-    runner.test("Admin Distributor CRUD", lambda: test_admin_distributors_crud(runner))
+    # Test Sprint 8 Meal Management (MOD-022)
+    runner.test("Admin Meals List with Filters", lambda: test_admin_meals_list(runner))
+    runner.test("Admin Meals CRUD Operations", lambda: test_admin_meals_crud(runner))
+    runner.test("Ingredient Suggestions", lambda: test_ingredient_suggestions(runner))
     
-    # Test Admin Panel HTML
-    runner.test("Admin Panel HTML", lambda: test_admin_panel_html(runner))
+    # Test Sprint 8 Daily Quotes (MOD-023)
+    runner.test("Admin Quotes CRUD Operations", lambda: test_admin_quotes_crud(runner))
+    runner.test("Public Quote Today (No Auth)", lambda: test_public_quote_today(runner))
+    
+    # Test Sprint 8 Admin Posts
+    runner.test("Admin Posts CRUD Operations", lambda: test_admin_posts_crud(runner))
+    
+    # Test Sprint 8 Subscription Plans (MOD-024)
+    runner.test("Subscription Plans CRUD Operations", lambda: test_subscription_plans_crud(runner))
+    runner.test("Plan Analytics", lambda: test_plan_analytics(runner))
     
     # Test Authentication
     runner.test("Authentication Validation", lambda: test_auth_validation(runner))
