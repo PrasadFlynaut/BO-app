@@ -7,8 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
-import api from '@/src/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Focus-aware input
 function FocusInput({ label, ...props }: any) {
@@ -53,9 +51,6 @@ export default function LoginScreen() {
   const handleDemoLogin = async () => {
     setDemoLoading(true); setError('');
     try {
-      const { data } = await api.post('/v1/auth/demo-login');
-      await AsyncStorage.setItem('access_token', data.access_token);
-      await AsyncStorage.setItem('refresh_token', data.refresh_token);
       await login('demo@bo.app', 'Demo1234!');
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Demo login failed');

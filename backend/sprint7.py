@@ -108,7 +108,9 @@ async def admin_login(body: AdminLoginInput):
     if not user or user.get("role") != "admin":
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
-    stored_pw = user.get("password", "")
+    stored_pw = user.get("password_hash") or user.get("password", "")
+    if not stored_pw:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
     pw_bytes = stored_pw.encode() if isinstance(stored_pw, str) else stored_pw
     if not bcrypt.checkpw(body.password.encode(), pw_bytes):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
@@ -173,7 +175,7 @@ async def verify_2fa(request: Request, body: Verify2FAInput):
     if record.get("attempts", 0) >= 3:
         raise HTTPException(status_code=429, detail="Too many attempts. Request a new code.")
 
-    if record["expires_at"] < datetime.now(timezone.utc):
+    if record["expires_at"].replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="2FA code expired")
 
     if record["code"] != body.code:
@@ -402,12 +404,19 @@ async def admin_delete_distributor(request: Request, dist_id: str):
 # =========== SEED ===========
 async def seed_sprint7_data():
     # Demo account
-    if not await db.users.find_one({"email": "demo@bo.app"}):
+    existing_demo = await db.users.find_one({"email": "demo@bo.app"})
+    if existing_demo and "password_hash" not in existing_demo:
+        # Migrate old demo user: rename 'password' -> 'password_hash'
+        pw = existing_demo.get("password", "")
+        if pw:
+            await db.users.update_one({"email": "demo@bo.app"}, {"$set": {"password_hash": pw}, "$unset": {"password": ""}})
+            logger.info("Migrated demo account password field")
+    if not existing_demo:
         hashed = bcrypt.hashpw("Demo1234!".encode(), bcrypt.gensalt()).decode()
         await db.users.insert_one({
             "name": "Demo User",
             "email": "demo@bo.app",
-            "password": hashed,
+            "password_hash": hashed,
             "role": "user",
             "status": "active",
             "onboarding_complete": True,

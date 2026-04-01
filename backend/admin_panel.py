@@ -86,7 +86,7 @@ tr:hover td{background:#f7fafc}
 <div class="login-card">
 <div class="login-logo"><div class="icon">BO</div><h2 style="font-size:22px;font-weight:800">Admin Portal</h2><p style="color:#718096;font-size:14px;margin-top:4px">NIST 800-63B Compliant Authentication</p></div>
 <div id="loginStep1">
-<div class="form-group"><label class="form-label">Admin Email</label><input id="adminEmail" class="form-input" type="email" placeholder="admin@bo.app" value="admin@bo.app"></div>
+<div class="form-group"><label class="form-label">Admin Email</label><input id="adminEmail" class="form-input" type="email" placeholder="admin@bo.com" value="admin@bo.com"></div>
 <div class="form-group"><label class="form-label">Password</label><input id="adminPw" class="form-input" type="password" placeholder="Enter password" value="BoAdmin2026!"></div>
 <div id="loginError" style="color:#e53e3e;font-size:13px;margin-bottom:12px;display:none"></div>
 <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="adminLogin()"><i class="fas fa-shield-alt"></i> Authenticate</button>
@@ -273,7 +273,7 @@ function searchUsers(v){loadUsers(v)}
 
 async function loadRestaurants(search=''){
   try{const r=await fetch(API+'/v1/admin/restaurants?limit=50&search='+encodeURIComponent(search),{headers:hdr()});const d=await r.json();
-  document.getElementById('restBody').innerHTML=(d.data||[]).map(r=>'<tr><td><strong>'+r.name+'</strong></td><td>'+r.cuisine+'</td><td><i class="fas fa-star" style="color:#d69e2e;font-size:12px"></i> '+r.rating.toFixed(1)+'</td><td>'+(r.boVerified?'<span class="badge badge-green">Verified</span> ':'')+(r.boPartner?'<span class="badge badge-blue">Partner</span>':'<span class="badge badge-gray">Standard</span>')+'</td><td><button class="btn btn-outline btn-sm" onclick="editRestaurant(\''+r.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(\'restaurant\',\''+r.id+'\',\''+r.name.replace(/'/g,"\\'")+'\')"><i class="fas fa-trash"></i></button></td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No restaurants</td></tr>';
+  document.getElementById('restBody').innerHTML=(d.data||[]).map(function(r){var sn=r.name.replace(/'/g,"&#39;");return '<tr><td><strong>'+r.name+'</strong></td><td>'+r.cuisine+'</td><td><i class="fas fa-star" style="color:#d69e2e;font-size:12px"></i> '+r.rating.toFixed(1)+'</td><td>'+(r.boVerified?'<span class="badge badge-green">Verified</span> ':'')+(r.boPartner?'<span class="badge badge-blue">Partner</span>':'<span class="badge badge-gray">Standard</span>')+'</td><td><button class="btn btn-outline btn-sm" onclick="editRestaurant(&#39;'+r.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;restaurant&#39;,&#39;'+r.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No restaurants</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchRestaurants(v){loadRestaurants(v)}
@@ -304,8 +304,8 @@ async function saveRestaurant(){
 
 async function loadDistributors(search=''){
   try{const r=await fetch(API+'/v1/admin/distributors?limit=50&search='+encodeURIComponent(search),{headers:hdr()});const d=await r.json();
-  const planBadge=p=>p==='premium'?'badge-purple':p==='pro'?'badge-blue':'badge-gray';
-  document.getElementById('distBody').innerHTML=(d.data||[]).map(d=>'<tr><td><strong>'+d.name+'</strong></td><td>'+d.company+'</td><td><span class="badge '+planBadge(d.plan)+'">'+d.plan+'</span></td><td>'+d.region+'</td><td><span class="badge '+(d.status==='active'?'badge-green':'badge-red')+'">'+d.status+'</span></td><td><button class="btn btn-outline btn-sm" onclick="editDistributor(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(\'distributor\',\''+d.id+'\',\''+d.name.replace(/'/g,"\\'")+'\')"><i class="fas fa-trash"></i></button></td></tr>').join('')||'<tr><td colspan="6" style="text-align:center;color:#a0aec0;padding:40px">No distributors</td></tr>';
+  const planBadge=function(p){return p==='premium'?'badge-purple':p==='pro'?'badge-blue':'badge-gray'};
+  document.getElementById('distBody').innerHTML=(d.data||[]).map(function(d){var sn=d.name.replace(/'/g,"&#39;");return '<tr><td><strong>'+d.name+'</strong></td><td>'+d.company+'</td><td><span class="badge '+planBadge(d.plan)+'">'+d.plan+'</span></td><td>'+d.region+'</td><td><span class="badge '+(d.status==='active'?'badge-green':'badge-red')+'">'+d.status+'</span></td><td><button class="btn btn-outline btn-sm" onclick="editDistributor(&#39;'+d.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;distributor&#39;,&#39;'+d.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="6" style="text-align:center;color:#a0aec0;padding:40px">No distributors</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchDistributors(v){loadDistributors(v)}
