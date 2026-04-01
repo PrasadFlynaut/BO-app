@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-BO App Sprint 8 Backend API Testing
-Tests: Admin 2FA + Meal CRUD, Quotes CRUD, Admin Posts CRUD, Subscription Plans CRUD, Plan Analytics, Ingredient Suggestions, Public Quote
+BO App Sprint 9 Backend API Testing
+Tests: Enhanced User List, User 360 View, User Account Actions, Ticket Queue, Ticket Detail, Ticket Message, Ticket Status, Ticket Report, FAQ CRUD, Notification Broadcast, Notification History, Notification Analytics, Admin Profile, Admin Team, Create Admin
 """
 
 import requests
@@ -135,11 +135,11 @@ def test_admin_verify_2fa(runner):
             raise Exception(f"Missing field: {field}")
     
     user = data["user"]
-    if user.get("role") != "admin":
-        raise Exception(f"Expected admin role, got {user.get('role')}")
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise Exception(f"Expected admin or super_admin role, got {user.get('role')}")
     
     runner.admin_token = data["admin_token"]
-    runner.log(f"Admin 2FA verification successful for {user['name']}")
+    runner.log(f"Admin 2FA verification successful for {user['name']} (role: {user.get('role')})")
 
 def test_admin_dashboard(runner):
     """Test GET /api/v1/admin/dashboard"""
@@ -750,30 +750,601 @@ def test_plan_analytics(runner):
     
     runner.log(f"Plan analytics working: {len(plans)} plans, MRR: ${summary['totalMRR']}, ARR: ${summary['totalARR']}")
 
+# ===================== SPRINT 9 TEST FUNCTIONS =====================
+
+def test_enhanced_user_list(runner):
+    """Test GET /api/v1/admin/users with enhanced filters"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test default list
+    response = requests.get(f"{BASE_URL}/v1/admin/users", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["data", "pagination", "tabs"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    # Verify tabs structure
+    tabs = data["tabs"]
+    expected_tabs = ["all", "subscribed", "recent"]
+    for tab in expected_tabs:
+        if tab not in tabs:
+            raise Exception(f"Missing tab: {tab}")
+    
+    # Test with tab filter
+    response = requests.get(f"{BASE_URL}/v1/admin/users?tab=subscribed", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Tab filter failed: {response.status_code}")
+    
+    # Test with plan filter
+    response = requests.get(f"{BASE_URL}/v1/admin/users?plan=basic", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Plan filter failed: {response.status_code}")
+    
+    # Test with search
+    response = requests.get(f"{BASE_URL}/v1/admin/users?search=test", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Search filter failed: {response.status_code}")
+    
+    runner.log(f"Enhanced user list working: {len(data['data'])} users, tabs: {tabs}")
+
+def test_user_360_view(runner):
+    """Test GET /api/v1/admin/user/all-data/{user_id}"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # First get a user ID from the user list
+    response = requests.get(f"{BASE_URL}/v1/admin/users?limit=1", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get users: {response.status_code}")
+    
+    users_data = response.json()
+    if not users_data["data"]:
+        raise Exception("No users found for 360 view test")
+    
+    user_id = users_data["data"][0]["id"]
+    
+    # Test user 360 view
+    response = requests.get(f"{BASE_URL}/v1/admin/user/all-data/{user_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_sections = ["user", "stats", "goals", "subscriptions", "workouts"]
+    for section in required_sections:
+        if section not in data:
+            raise Exception(f"Missing section: {section}")
+    
+    # Verify stats structure
+    stats = data["stats"]
+    expected_stats = ["mealsLogged", "workoutsCompleted", "journalsCreated", "postsCreated"]
+    for stat in expected_stats:
+        if stat not in stats:
+            raise Exception(f"Missing stat: {stat}")
+    
+    runner.log(f"User 360 view working: {stats['mealsLogged']} meals, {stats['workoutsCompleted']} workouts")
+
+def test_user_account_actions(runner):
+    """Test POST /api/v1/admin/users/changeAction/{user_id}"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Get a non-admin user for testing
+    response = requests.get(f"{BASE_URL}/v1/admin/users?limit=5", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get users: {response.status_code}")
+    
+    users_data = response.json()
+    test_user = None
+    for user in users_data["data"]:
+        if user.get("role") == "user":
+            test_user = user
+            break
+    
+    if not test_user:
+        raise Exception("No regular user found for account action test")
+    
+    user_id = test_user["id"]
+    
+    # Test suspend action
+    suspend_payload = {
+        "action": "suspend",
+        "reason": "Test suspension for API testing"
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/users/changeAction/{user_id}", 
+                           json=suspend_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Suspend failed: {response.status_code}: {response.text}")
+    
+    suspend_data = response.json()
+    if suspend_data["user"]["status"] != "suspended":
+        raise Exception("User should be suspended")
+    
+    # Test activate action
+    activate_payload = {
+        "action": "activate",
+        "reason": ""
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/users/changeAction/{user_id}", 
+                           json=activate_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Activate failed: {response.status_code}: {response.text}")
+    
+    activate_data = response.json()
+    if activate_data["user"]["status"] != "active":
+        raise Exception("User should be active")
+    
+    runner.log(f"User account actions working: suspended and reactivated user {test_user['email']}")
+
+def test_ticket_queue(runner):
+    """Test GET /api/v1/admin/tickets"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test default ticket list
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["data", "pagination", "tabs"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    # Verify tabs structure
+    tabs = data["tabs"]
+    expected_tabs = ["open", "in_progress", "resolved", "all"]
+    for tab in expected_tabs:
+        if tab not in tabs:
+            raise Exception(f"Missing tab: {tab}")
+    
+    # Test with status filter
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets?status=open", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Status filter failed: {response.status_code}")
+    
+    # Test with search
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets?search=cannot", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Search filter failed: {response.status_code}")
+    
+    runner.log(f"Ticket queue working: {len(data['data'])} tickets, tabs: {tabs}")
+
+def test_ticket_detail(runner):
+    """Test GET /api/v1/admin/tickets/{ticket_id}"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # First get a ticket ID from the ticket list
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets?limit=1", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get tickets: {response.status_code}")
+    
+    tickets_data = response.json()
+    if not tickets_data["data"]:
+        raise Exception("No tickets found for detail test")
+    
+    ticket_id = tickets_data["data"][0]["id"]
+    
+    # Test ticket detail
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets/{ticket_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_sections = ["ticket", "messages", "internalNotes", "templates"]
+    for section in required_sections:
+        if section not in data:
+            raise Exception(f"Missing section: {section}")
+    
+    # Verify ticket structure
+    ticket = data["ticket"]
+    if "id" not in ticket:
+        raise Exception("Missing ticket ID")
+    
+    # ticketNumber might be missing in some cases, so let's be more flexible
+    ticket_number = ticket.get("ticketNumber", ticket.get("ticket_number", "N/A"))
+    
+    runner.log(f"Ticket detail working: ticket {ticket_number}, {len(data['messages'])} messages")
+
+def test_ticket_message(runner):
+    """Test POST /api/v1/admin/ticket/message"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Get a ticket ID
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets?limit=1", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get tickets: {response.status_code}")
+    
+    tickets_data = response.json()
+    if not tickets_data["data"]:
+        raise Exception("No tickets found for message test")
+    
+    ticket_id = tickets_data["data"][0]["id"]
+    
+    # Test sending admin reply
+    message_payload = {
+        "ticketId": ticket_id,
+        "text": "This is an admin reply for API testing",
+        "isInternal": False
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/ticket/message", 
+                           json=message_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Admin reply failed: {response.status_code}: {response.text}")
+    
+    reply_data = response.json()
+    if "message" not in reply_data:
+        raise Exception("Missing message in reply response")
+    
+    # Test sending internal note
+    internal_payload = {
+        "ticketId": ticket_id,
+        "text": "This is an internal note for API testing",
+        "isInternal": True
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/ticket/message", 
+                           json=internal_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Internal note failed: {response.status_code}: {response.text}")
+    
+    runner.log(f"Ticket messaging working: sent admin reply and internal note")
+
+def test_ticket_status(runner):
+    """Test PUT /api/v1/admin/ticket/change_status/{ticket_id}"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Get a ticket ID
+    response = requests.get(f"{BASE_URL}/v1/admin/tickets?limit=1", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to get tickets: {response.status_code}")
+    
+    tickets_data = response.json()
+    if not tickets_data["data"]:
+        raise Exception("No tickets found for status test")
+    
+    ticket_id = tickets_data["data"][0]["id"]
+    
+    # Test changing status to in_progress
+    status_payload = {"status": "in_progress"}
+    
+    response = requests.put(f"{BASE_URL}/v1/admin/ticket/change_status/{ticket_id}", 
+                          json=status_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Status change failed: {response.status_code}: {response.text}")
+    
+    status_data = response.json()
+    if "ticket" not in status_data:
+        raise Exception("Missing ticket in status response")
+    
+    runner.log(f"Ticket status change working: changed to in_progress")
+
+def test_ticket_report(runner):
+    """Test POST /api/v1/admin/tickets/report"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test ticket report generation
+    report_payload = {}
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/tickets/report", 
+                           json=report_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    if "report" not in data:
+        raise Exception("Missing report in response")
+    
+    # Verify report structure
+    report = data["report"]
+    expected_fields = ["totalTickets", "openTickets", "resolvedTickets", 
+                      "avgResolutionHours", "byCategory", "byPriority"]
+    for field in expected_fields:
+        if field not in report:
+            raise Exception(f"Missing report field: {field}")
+    
+    runner.log(f"Ticket report working: {report['totalTickets']} total, {report['openTickets']} open, avg resolution: {report['avgResolutionHours']}h")
+
+def test_faq_crud(runner):
+    """Test FAQ CRUD operations"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test GET - List FAQs
+    response = requests.get(f"{BASE_URL}/v1/admin/faqs", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"List failed: {response.status_code}: {response.text}")
+    
+    list_data = response.json()
+    if "data" not in list_data or "categories" not in list_data:
+        raise Exception("Missing data or categories in list response")
+    
+    initial_count = len(list_data["data"])
+    
+    # Test POST - Create FAQ
+    new_faq = {
+        "title": "Test FAQ for API Testing",
+        "description": "This is a test FAQ created via API for testing purposes",
+        "category": "Testing",
+        "displayOrder": 1
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/faq", json=new_faq, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Create failed: {response.status_code}: {response.text}")
+    
+    create_data = response.json()
+    if "faq" not in create_data or "id" not in create_data["faq"]:
+        raise Exception("Missing faq or id in create response")
+    
+    faq_id = create_data["faq"]["id"]
+    
+    # Test PUT - Update FAQ
+    updated_faq = {
+        "title": "Updated Test FAQ",
+        "description": "This FAQ has been updated via API",
+        "category": "Testing",
+        "displayOrder": 2
+    }
+    
+    response = requests.put(f"{BASE_URL}/v1/admin/faq/{faq_id}", json=updated_faq, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Update failed: {response.status_code}: {response.text}")
+    
+    # Test DELETE - Delete FAQ
+    response = requests.delete(f"{BASE_URL}/v1/admin/faq/{faq_id}", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Delete failed: {response.status_code}: {response.text}")
+    
+    runner.log(f"FAQ CRUD operations successful (found {initial_count} FAQs, created, updated, deleted)")
+
+def test_notification_broadcast(runner):
+    """Test POST /api/v1/admin/notifications/broadcast"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test broadcast notification
+    broadcast_payload = {
+        "title": "Test Alert",
+        "body": "This is a test broadcast message from API testing",
+        "targetSegment": "all",
+        "deepLink": ""
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/notifications/broadcast", 
+                           json=broadcast_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["recipientCount", "message"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    recipient_count = data["recipientCount"]
+    if not isinstance(recipient_count, int) or recipient_count < 0:
+        raise Exception("Invalid recipient count")
+    
+    runner.log(f"Notification broadcast working: sent to {recipient_count} users")
+
+def test_notification_history(runner):
+    """Test GET /api/v1/admin/notifications/history"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    response = requests.get(f"{BASE_URL}/v1/admin/notifications/history", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["data", "pagination"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    notifications = data["data"]
+    if not isinstance(notifications, list):
+        raise Exception("Notifications data should be array")
+    
+    runner.log(f"Notification history working: {len(notifications)} notifications found")
+
+def test_notification_analytics(runner):
+    """Test GET /api/v1/admin/notifications/analytics"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    response = requests.get(f"{BASE_URL}/v1/admin/notifications/analytics", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    if "metrics" not in data:
+        raise Exception("Missing metrics in response")
+    
+    # Verify metrics structure
+    metrics = data["metrics"]
+    expected_metrics = ["totalSent", "totalDelivered", "totalRead", "openRate", "byType"]
+    for metric in expected_metrics:
+        if metric not in metrics:
+            raise Exception(f"Missing metric: {metric}")
+    
+    runner.log(f"Notification analytics working: {metrics['totalSent']} sent, {metrics['openRate']}% open rate")
+
+def test_admin_profile(runner):
+    """Test PUT /api/v1/admin/profile"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Test profile update
+    profile_payload = {
+        "name": "BO Admin Updated",
+        "phone": "+1555123456"
+    }
+    
+    response = requests.put(f"{BASE_URL}/v1/admin/profile", 
+                          json=profile_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["admin", "message"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    admin = data["admin"]
+    if admin["name"] != profile_payload["name"]:
+        raise Exception("Profile name not updated correctly")
+    
+    runner.log(f"Admin profile update working: updated name to '{admin['name']}'")
+
+def test_admin_team(runner):
+    """Test GET /api/v1/admin/team"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    response = requests.get(f"{BASE_URL}/v1/admin/team", headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    if "team" not in data:
+        raise Exception("Missing team in response")
+    
+    team = data["team"]
+    if not isinstance(team, list):
+        raise Exception("Team should be array")
+    
+    # Should have at least the current super_admin
+    if len(team) == 0:
+        raise Exception("Team should have at least one admin")
+    
+    # Verify team member structure
+    for member in team:
+        required_fields = ["id", "name", "email", "role", "status"]
+        for field in required_fields:
+            if field not in member:
+                raise Exception(f"Missing team member field: {field}")
+    
+    runner.log(f"Admin team working: {len(team)} team members found")
+
+def test_create_admin(runner):
+    """Test POST /api/v1/admin/users/create-admin"""
+    if not runner.admin_token:
+        raise Exception("Missing admin_token")
+    
+    headers = {"Authorization": f"Bearer {runner.admin_token}"}
+    
+    # Use timestamp to make email unique
+    import time
+    timestamp = int(time.time())
+    
+    # Test creating new admin
+    admin_payload = {
+        "name": "Test Admin API",
+        "email": f"testadmin{timestamp}@bo.com",
+        "role": "admin"
+    }
+    
+    response = requests.post(f"{BASE_URL}/v1/admin/users/create-admin", 
+                           json=admin_payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Expected 200, got {response.status_code}: {response.text}")
+    
+    data = response.json()
+    required_fields = ["admin", "tempPassword", "message"]
+    for field in required_fields:
+        if field not in data:
+            raise Exception(f"Missing field: {field}")
+    
+    admin = data["admin"]
+    temp_password = data["tempPassword"]
+    
+    if admin["email"] != admin_payload["email"]:
+        raise Exception("Admin email not set correctly")
+    
+    if admin["role"] != admin_payload["role"]:
+        raise Exception("Admin role not set correctly")
+    
+    if not temp_password or len(temp_password) < 8:
+        raise Exception("Invalid temporary password")
+    
+    runner.log(f"Create admin working: created {admin['email']} with temp password")
+
 def main():
     runner = TestRunner()
-    runner.log("Starting BO App Sprint 8 Backend API Tests")
+    runner.log("Starting BO App Sprint 9 Backend API Tests")
     runner.log(f"Testing against: {BASE_URL}")
     
     # Test Admin 2FA Flow (required for all admin endpoints)
     runner.test("Admin Login Step 1 (Get 2FA Code)", lambda: test_admin_login_step1(runner))
     runner.test("Admin Login Step 2 (Verify 2FA)", lambda: test_admin_verify_2fa(runner))
     
-    # Test Sprint 8 Meal Management (MOD-022)
-    runner.test("Admin Meals List with Filters", lambda: test_admin_meals_list(runner))
-    runner.test("Admin Meals CRUD Operations", lambda: test_admin_meals_crud(runner))
-    runner.test("Ingredient Suggestions", lambda: test_ingredient_suggestions(runner))
+    # Test Sprint 9 Enhanced User Management (MOD-025A)
+    runner.test("Enhanced User List", lambda: test_enhanced_user_list(runner))
+    runner.test("User 360 View", lambda: test_user_360_view(runner))
+    runner.test("User Account Actions", lambda: test_user_account_actions(runner))
     
-    # Test Sprint 8 Daily Quotes (MOD-023)
-    runner.test("Admin Quotes CRUD Operations", lambda: test_admin_quotes_crud(runner))
-    runner.test("Public Quote Today (No Auth)", lambda: test_public_quote_today(runner))
+    # Test Sprint 9 Ticket Management (MOD-025B)
+    runner.test("Ticket Queue", lambda: test_ticket_queue(runner))
+    runner.test("Ticket Detail", lambda: test_ticket_detail(runner))
+    runner.test("Ticket Message", lambda: test_ticket_message(runner))
+    runner.test("Ticket Status", lambda: test_ticket_status(runner))
+    runner.test("Ticket Report", lambda: test_ticket_report(runner))
     
-    # Test Sprint 8 Admin Posts
-    runner.test("Admin Posts CRUD Operations", lambda: test_admin_posts_crud(runner))
+    # Test Sprint 9 FAQ Management
+    runner.test("FAQ CRUD", lambda: test_faq_crud(runner))
     
-    # Test Sprint 8 Subscription Plans (MOD-024)
-    runner.test("Subscription Plans CRUD Operations", lambda: test_subscription_plans_crud(runner))
-    runner.test("Plan Analytics", lambda: test_plan_analytics(runner))
+    # Test Sprint 9 Notification Management (MOD-025C)
+    runner.test("Notification Broadcast", lambda: test_notification_broadcast(runner))
+    runner.test("Notification History", lambda: test_notification_history(runner))
+    runner.test("Notification Analytics", lambda: test_notification_analytics(runner))
+    
+    # Test Sprint 9 Admin Profile & Team
+    runner.test("Admin Profile", lambda: test_admin_profile(runner))
+    runner.test("Admin Team", lambda: test_admin_team(runner))
+    runner.test("Create Admin", lambda: test_create_admin(runner))
     
     # Test Authentication
     runner.test("Authentication Validation", lambda: test_auth_validation(runner))

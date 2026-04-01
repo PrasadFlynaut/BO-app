@@ -127,6 +127,12 @@ tr:hover td{background:#f7fafc}
 </div>
 <div class="nav-section">
 <div class="nav-label">Support</div>
+<div class="nav-item" onclick="showPage('support')"><i class="fas fa-headset"></i>Help &amp; Support <span id="ticketBadge" class="badge badge-red" style="margin-left:auto;font-size:10px;display:none">0</span></div>
+<div class="nav-item" onclick="showPage('notifications')"><i class="fas fa-bell"></i>Notifications</div>
+<div class="nav-item" onclick="showPage('profile')"><i class="fas fa-user-shield"></i>My Profile</div>
+</div>
+<div class="nav-section">
+<div class="nav-label">Support</div>
 <div class="nav-item" onclick="showPage('tickets')"><i class="fas fa-ticket-alt"></i>Tickets</div>
 </div>
 <div class="nav-section" style="position:absolute;bottom:0;left:0;right:0;border-top:1px solid #2d3748">
@@ -204,6 +210,111 @@ tr:hover td{background:#f7fafc}
 <button class="btn btn-primary" onclick="openPlanModal()"><i class="fas fa-plus"></i> Add New Plan</button>
 </div>
 <div id="plansGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px"></div>
+</div>
+<!-- SUPPORT PAGE -->
+<div class="page" id="page-support">
+<div style="display:flex;gap:12px;margin-bottom:16px">
+<button class="btn btn-outline btn-sm" onclick="loadTickets('open')" id="tktTabOpen" style="font-weight:700">Open</button>
+<button class="btn btn-outline btn-sm" onclick="loadTickets('in_progress')" id="tktTabProg">In Progress</button>
+<button class="btn btn-outline btn-sm" onclick="loadTickets('resolved')" id="tktTabRes">Resolved</button>
+<button class="btn btn-outline btn-sm" onclick="loadTickets('')" id="tktTabAll">All</button>
+<button class="btn btn-outline btn-sm" onclick="showSupportTab('faqs')" id="tktTabFaq">FAQs</button>
+<button class="btn btn-outline btn-sm" onclick="showSupportTab('report')" id="tktTabReport">Reports</button>
+<div style="margin-left:auto"><div class="search-box"><i class="fas fa-search"></i><input placeholder="Search tickets..." oninput="searchTickets(this.value)"></div></div>
+</div>
+<div id="ticketListView"><div class="card"><table><thead><tr><th>Ticket</th><th>Subject</th><th>User</th><th>Priority</th><th>Status</th><th>SLA</th><th>Created</th><th style="width:120px">Actions</th></tr></thead><tbody id="ticketsBody"></tbody></table></div></div>
+<div id="ticketDetailView" style="display:none">
+<button class="btn btn-outline btn-sm" onclick="backToTicketList()" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Back to Queue</button>
+<div style="display:grid;grid-template-columns:3fr 2fr;gap:20px">
+<div class="card" style="padding:20px">
+<div id="ticketHeader" style="margin-bottom:16px"></div>
+<div id="ticketMessages" style="max-height:400px;overflow-y:auto;margin-bottom:16px;padding:12px;background:#f7fafc;border-radius:8px"></div>
+<div style="display:flex;gap:8px"><textarea id="ticketReplyText" class="form-input" rows="2" placeholder="Type your response..." style="flex:1"></textarea><button class="btn btn-primary" onclick="sendTicketReply(false)"><i class="fas fa-paper-plane"></i></button></div>
+</div>
+<div class="card" style="padding:20px">
+<h4 style="font-size:14px;font-weight:700;margin-bottom:12px">Ticket Details</h4>
+<div id="ticketMeta"></div>
+<h4 style="font-size:14px;font-weight:700;margin:16px 0 8px">Quick Templates</h4>
+<select id="templateSelect" class="form-select" onchange="applyTemplate(this.value)"><option value="">Select template...</option></select>
+<h4 style="font-size:14px;font-weight:700;margin:16px 0 8px">Internal Notes</h4>
+<div id="ticketNotes" style="max-height:150px;overflow-y:auto;margin-bottom:8px"></div>
+<div style="display:flex;gap:8px"><input id="internalNoteText" class="form-input" placeholder="Add internal note..."><button class="btn btn-outline btn-sm" onclick="sendTicketReply(true)"><i class="fas fa-sticky-note"></i></button></div>
+</div>
+</div>
+</div>
+<div id="faqView" style="display:none">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h3 style="font-size:16px;font-weight:700">FAQ Management</h3>
+<button class="btn btn-primary btn-sm" onclick="openFaqModal()"><i class="fas fa-plus"></i> Add FAQ</button>
+</div>
+<div class="card"><table><thead><tr><th>Question</th><th>Category</th><th>Order</th><th style="width:100px">Actions</th></tr></thead><tbody id="faqBody"></tbody></table></div>
+</div>
+<div id="reportView" style="display:none">
+<h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Ticket Reports</h3>
+<div id="ticketReportStats" class="stat-grid" style="margin-bottom:20px"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div class="card" style="padding:20px"><h4 style="margin-bottom:12px">By Category</h4><div id="reportCatList"></div></div><div class="card" style="padding:20px"><h4 style="margin-bottom:12px">By Priority</h4><div id="reportPriList"></div></div></div>
+</div>
+</div>
+<!-- NOTIFICATIONS PAGE -->
+<div class="page" id="page-notifications">
+<div style="display:flex;gap:12px;margin-bottom:16px">
+<button class="btn btn-primary btn-sm" onclick="showNotifTab('compose')" id="notifTabCompose" style="font-weight:700">Compose</button>
+<button class="btn btn-outline btn-sm" onclick="showNotifTab('history')" id="notifTabHistory">History</button>
+<button class="btn btn-outline btn-sm" onclick="showNotifTab('analytics')" id="notifTabAnalytics">Analytics</button>
+</div>
+<div id="notifCompose">
+<div class="card" style="padding:24px;max-width:700px">
+<h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Send Notification</h3>
+<div class="form-group"><label class="form-label">Title *</label><input id="notifTitle" class="form-input" maxlength="200" placeholder="Notification title"></div>
+<div class="form-group"><label class="form-label">Body *</label><textarea id="notifBody" class="form-input" rows="3" maxlength="500" placeholder="Notification message"></textarea></div>
+<div class="form-group"><label class="form-label">Target Audience</label><select id="notifTarget" class="form-select"><option value="all">All Users</option><option value="pro">Pro Subscribers Only</option><option value="basic">Basic Users Only</option></select></div>
+<div class="form-group"><label class="form-label">Deep Link (optional)</label><select id="notifDeepLink" class="form-select"><option value="">None</option><option value="/home">Home</option><option value="/feed">Feed</option><option value="/culinary">Culinary Blueprint</option><option value="/profile">Profile</option></select></div>
+<div id="notifPreview" style="background:#f7fafc;border-radius:12px;padding:16px;margin:16px 0;display:none">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:24px;height:24px;border-radius:6px;background:#26B50F;display:flex;align-items:center;justify-content:center"><i class="fas fa-bell" style="color:white;font-size:10px"></i></div><strong style="font-size:12px">BO Wellness</strong><span style="font-size:11px;color:#a0aec0;margin-left:auto">now</span></div>
+<div style="font-size:13px;font-weight:600" id="previewTitle"></div>
+<div style="font-size:12px;color:#4a5568" id="previewBody"></div>
+</div>
+<button class="btn btn-primary" onclick="sendNotification()"><i class="fas fa-paper-plane"></i> Send Notification</button>
+</div>
+</div>
+<div id="notifHistory" style="display:none"><div class="card"><table><thead><tr><th>Title</th><th>Body</th><th>Target</th><th>Recipients</th><th>Sent</th><th>Status</th></tr></thead><tbody id="notifHistBody"></tbody></table></div></div>
+<div id="notifAnalytics" style="display:none">
+<div id="notifAnalyticsStats" class="stat-grid" style="margin-bottom:20px"></div>
+<div class="card" style="padding:20px"><h4 style="margin-bottom:12px">Notifications by Type</h4><div id="notifTypeList"></div></div>
+</div>
+</div>
+<!-- PROFILE PAGE -->
+<div class="page" id="page-profile">
+<div style="display:flex;gap:12px;margin-bottom:16px">
+<button class="btn btn-primary btn-sm" onclick="showProfileTab('info')" id="profTabInfo" style="font-weight:700">Profile</button>
+<button class="btn btn-outline btn-sm" onclick="showProfileTab('password')" id="profTabPw">Change Password</button>
+<button class="btn btn-outline btn-sm" onclick="showProfileTab('team')" id="profTabTeam">Team</button>
+</div>
+<div id="profileInfo">
+<div class="card" style="padding:24px;max-width:600px">
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div id="profileAvatar" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#26B50F,#22a00d);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:white"></div><div><h3 id="profileName" style="font-size:18px;font-weight:700"></h3><p id="profileEmail" style="font-size:13px;color:#718096"></p><span class="badge badge-purple" id="profileRole"></span></div></div>
+<div class="form-group"><label class="form-label">Full Name</label><input id="profNameInput" class="form-input"></div>
+<div class="form-group"><label class="form-label">Phone</label><input id="profPhoneInput" class="form-input" placeholder="+1 (555) 123-4567"></div>
+<div class="form-group"><label class="form-label">Profile Image URL</label><input id="profImageInput" class="form-input" placeholder="https://..."></div>
+<button class="btn btn-primary" onclick="saveProfile()"><i class="fas fa-save"></i> Save Changes</button>
+</div>
+</div>
+<div id="profilePassword" style="display:none">
+<div class="card" style="padding:24px;max-width:500px">
+<h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Change Password</h3>
+<div class="form-group"><label class="form-label">Current Password</label><input id="profCurrPw" class="form-input" type="password"></div>
+<div class="form-group"><label class="form-label">New Password</label><input id="profNewPw" class="form-input" type="password" placeholder="Min 8 chars, 1 upper, 1 number, 1 special"></div>
+<div class="form-group"><label class="form-label">Confirm New Password</label><input id="profConfPw" class="form-input" type="password"></div>
+<button class="btn btn-primary" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+</div>
+</div>
+<div id="profileTeam" style="display:none">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h3 style="font-size:16px;font-weight:700">Admin Team</h3>
+<button class="btn btn-primary btn-sm" onclick="openAddAdminModal()"><i class="fas fa-plus"></i> Add Admin</button>
+</div>
+<div class="card"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead><tbody id="teamBody"></tbody></table></div>
+</div>
 </div>
 </div></div></div>
 </div>
@@ -304,8 +415,7 @@ tr:hover td{background:#f7fafc}
 
 <!-- PLAN MODAL -->
 <div class="modal-backdrop" id="planModal"><div class="modal" style="max-width:600px">
-<div class="modal-header"><h3 id="planModalTitle">Add New Plan</h3><button class="btn btn-outline btn-sm" onclick="closeModal('planModal')"><i class="fas fa-times"></i></button></div>
-<div class="modal-body">
+<div class="modal-header"><h3 id="planModalTitle">Add New Plan</h3><button class="btn btn-outline btn-sm" onclick="closeModal('planModal')"><i class="fas fa-times"></i></button></div><div class="modal-body">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 <div class="form-group" style="grid-column:span 2"><label class="form-label">Plan Title *</label><input id="planTitle" class="form-input" maxlength="100" placeholder="e.g. Pro Monthly"></div>
 <div class="form-group" style="grid-column:span 2"><label class="form-label">Description</label><textarea id="planDescription" class="form-input" rows="2" maxlength="500" placeholder="Plan description"></textarea></div>
@@ -320,11 +430,50 @@ tr:hover td{background:#f7fafc}
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('planModal')">Cancel</button><button class="btn btn-primary" onclick="savePlan()"><i class="fas fa-save"></i> Save Plan</button></div>
 </div></div>
 
+<!-- FAQ MODAL -->
+<div class="modal-backdrop" id="faqModal"><div class="modal" style="max-width:500px">
+<div class="modal-header"><h3 id="faqModalTitle">Add FAQ</h3><button class="btn btn-outline btn-sm" onclick="closeModal('faqModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body">
+<div class="form-group"><label class="form-label">Question *</label><input id="faqQuestion" class="form-input" maxlength="200"></div>
+<div class="form-group"><label class="form-label">Answer *</label><textarea id="faqAnswer" class="form-input" rows="4" maxlength="2000"></textarea></div>
+<div class="form-group"><label class="form-label">Category</label><input id="faqCategory" class="form-input" placeholder="e.g. Getting Started, Billing"></div>
+<div class="form-group"><label class="form-label">Display Order</label><input id="faqOrder" class="form-input" type="number" value="0"></div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('faqModal')">Cancel</button><button class="btn btn-primary" onclick="saveFaq()"><i class="fas fa-save"></i> Save</button></div>
+</div></div>
+
+<!-- ADD ADMIN MODAL -->
+<div class="modal-backdrop" id="addAdminModal"><div class="modal" style="max-width:450px">
+<div class="modal-header"><h3>Add Team Member</h3><button class="btn btn-outline btn-sm" onclick="closeModal('addAdminModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body">
+<div class="form-group"><label class="form-label">Full Name *</label><input id="newAdminName" class="form-input"></div>
+<div class="form-group"><label class="form-label">Email *</label><input id="newAdminEmail" class="form-input" type="email"></div>
+<div class="form-group"><label class="form-label">Role</label><select id="newAdminRole" class="form-select"><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select></div>
+<p style="font-size:12px;color:#d69e2e;margin-top:8px"><i class="fas fa-info-circle"></i> A temporary password will be generated.</p>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('addAdminModal')">Cancel</button><button class="btn btn-primary" onclick="createAdmin()"><i class="fas fa-user-plus"></i> Create</button></div>
+</div></div>
+
+<!-- USER DETAIL MODAL -->
+<div class="modal-backdrop" id="userDetailModal"><div class="modal" style="max-width:800px">
+<div class="modal-header"><h3 id="userDetailTitle">User Details</h3><button class="btn btn-outline btn-sm" onclick="closeModal('userDetailModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body">
+<div id="userDetailContent" style="max-height:500px;overflow-y:auto"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-outline" onclick="closeModal('userDetailModal')">Close</button>
+<button class="btn btn-sm" id="userSuspendBtn" style="background:#fed7d7;color:#742a2a" onclick="userAction('suspend')"><i class="fas fa-ban"></i> Suspend</button>
+<button class="btn btn-sm" id="userActivateBtn" style="background:#c6f6d5;color:#22543d;display:none" onclick="userAction('activate')"><i class="fas fa-check"></i> Activate</button>
+<button class="btn btn-danger btn-sm" id="userDeleteBtn" onclick="userAction('delete')"><i class="fas fa-trash"></i> Delete</button>
+</div>
+</div></div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const API=window.location.origin+'/api';
 let adminToken='',preToken='',editingRestId=null,editingDistId=null,deleteType='',deleteId='';
 let editingMealId=null,editingQuoteId=null,editingPostId=null,editingPlanId=null,mealCategories=[];
+let currentTicketId=null,editingFaqId=null,viewingUserId=null;
 
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.className='toast toast-'+type+' show';document.getElementById('toastMsg').textContent=msg;setTimeout(()=>t.classList.remove('show'),3000)}
 
@@ -344,7 +493,7 @@ async function verify2FA(){
   if(code.length!==6){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Enter all 6 digits';return}
   try{const r=await fetch(API+'/v1/admin/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+preToken},body:JSON.stringify({code})});
   const d=await r.json();if(!r.ok){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent=d.detail;return}
-  adminToken=d.admin_token;document.getElementById('loginPage').style.display='none';document.getElementById('dashboardPage').style.display='block';
+  adminToken=d.admin_token;sessionStorage.setItem('adminInfo',JSON.stringify(d.user));document.getElementById('loginPage').style.display='none';document.getElementById('dashboardPage').style.display='block';
   document.getElementById('adminName').textContent=d.user.name;document.getElementById('adminAvatar').textContent=d.user.name[0];
   loadDashboard();
   }catch(e){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Verification failed'}
@@ -354,9 +503,9 @@ function logout(){adminToken='';document.getElementById('dashboardPage').style.d
 
 function showPage(p){document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');
-const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',posts:'My Posts',plans:'Subscription Plans'};
+const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
 document.getElementById('pageTitle').textContent=titles[p]||p;
-if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans()}
+if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
 
 const hdr=()=>({'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'});
 
@@ -373,7 +522,8 @@ async function loadDashboard(){
 
 async function loadUsers(search=''){
   try{const r=await fetch(API+'/v1/admin/users?limit=50&search='+encodeURIComponent(search),{headers:hdr()});const d=await r.json();
-  document.getElementById('usersBody').innerHTML=(d.data||[]).map(u=>'<tr><td><strong>'+u.name+'</strong></td><td>'+u.email+'</td><td><span class="badge '+(u.role==='admin'?'badge-purple':'badge-blue')+'">'+u.role+'</span></td><td><span class="badge '+(u.status==='active'?'badge-green':'badge-red')+'">'+(u.status||'active')+'</span></td><td>'+(u.createdAt?new Date(u.createdAt).toLocaleDateString():'—')+'</td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No users found</td></tr>';
+  document.getElementById('usersBody').innerHTML=(d.data||[]).map(function(u){var planBadge=u.plan==='basic'||!u.plan?'badge-gray':'badge-blue';var statusBadge=u.status==='active'?'badge-green':u.status==='suspended'?'badge-red':'badge-gray';
+  return '<tr><td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#26B50F,#22a00d);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700">'+(u.name?u.name[0].toUpperCase():'U')+'</div><div><strong>'+u.name+'</strong><div style="font-size:12px;color:#718096">'+u.email+'</div></div></div></td><td><span class="badge '+planBadge+'">'+(u.plan||'basic')+'</span></td><td><span class="badge '+statusBadge+'">'+(u.status||'active')+'</span></td><td>'+(u.created_at?new Date(u.created_at).toLocaleDateString():'--')+'</td><td><button class="btn btn-outline btn-sm" onclick="openUserDetail(&#39;'+u.id+'&#39;)"><i class="fas fa-eye"></i> View</button></td></tr>'}).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No users found</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchUsers(v){loadUsers(v)}
@@ -443,7 +593,7 @@ async function saveDistributor(){
 function deleteItem(type,id,name){deleteType=type;deleteId=id;document.getElementById('deleteMsg').textContent='Are you sure you want to delete "'+name+'"? This action cannot be undone.';document.getElementById('deleteModal').classList.add('show')}
 
 async function confirmDelete(){
-  var urls={restaurant:'/v1/admin/restaurants/',distributor:'/v1/admin/distributors/',meal:'/v1/admin/meal/',quote:'/v1/admin/quotes/',post:'/v1/admin/post/',plan:'/v1/admin/subscription-plan/'};
+  var urls={restaurant:'/v1/admin/restaurants/',distributor:'/v1/admin/distributors/',meal:'/v1/admin/meal/',quote:'/v1/admin/quotes/',post:'/v1/admin/post/',plan:'/v1/admin/subscription-plan/',ticket:'/v1/admin/tickets/',faq:'/v1/admin/faq/'};
   var url=API+(urls[deleteType]||'/v1/admin/')+deleteId;
   var r=await fetch(url,{method:'DELETE',headers:hdr()});
   var d=await r.json();
@@ -454,6 +604,8 @@ async function confirmDelete(){
   else if(deleteType==='quote')loadQuotes();
   else if(deleteType==='post')loadPosts();
   else if(deleteType==='plan')loadPlans();
+  else if(deleteType==='ticket')loadTickets('');
+  else if(deleteType==='faq')loadFaqs();
   showToast(d.message||deleteType+' deleted successfully')}
   else{showToast(d.detail||'Delete failed','error')}
 }
@@ -658,6 +810,208 @@ async function savePlan(){
   var method=editingPlanId?'PUT':'POST';
   var r=await fetch(url,{method:method,headers:hdr(),body:JSON.stringify(body)});
   if(r.ok){closeModal('planModal');loadPlans();showToast('Plan saved.')}else{var d=await r.json();alert(d.detail||'Error')}
+}
+
+// ======== SPRINT 9: ENHANCED USERS ========
+function openUserDetail(userId){viewingUserId=userId;loadUserDetail(userId)}
+async function loadUserDetail(userId){
+  try{var r=await fetch(API+'/v1/admin/user/all-data/'+userId,{headers:hdr()});var d=await r.json();
+  var u=d.user;var s=d.stats;
+  document.getElementById('userDetailTitle').textContent=u.name||u.email;
+  var statusColor=u.status==='suspended'?'badge-red':'badge-green';
+  document.getElementById('userSuspendBtn').style.display=u.status==='suspended'?'none':'inline-flex';
+  document.getElementById('userActivateBtn').style.display=u.status==='suspended'?'inline-flex':'none';
+  document.getElementById('userDetailContent').innerHTML='<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e2e8f0"><div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#26B50F,#22a00d);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white">'+(u.name?u.name[0].toUpperCase():'U')+'</div><div><h3 style="font-weight:700">'+u.name+'</h3><p style="font-size:13px;color:#718096">'+u.email+'</p><div style="display:flex;gap:8px;margin-top:4px"><span class="badge '+statusColor+'">'+u.status+'</span><span class="badge badge-blue">'+(u.plan||'basic')+'</span>'+(u.phone?'<span style="font-size:12px;color:#718096"><i class="fas fa-phone"></i> '+u.phone+'</span>':'')+'</div></div></div>'+
+  '<div class="stat-grid" style="margin-bottom:20px"><div class="stat-card"><div class="stat-value">'+s.mealsLogged+'</div><div class="stat-label">Meals Logged</div></div><div class="stat-card"><div class="stat-value">'+s.workoutsCompleted+'</div><div class="stat-label">Workouts</div></div><div class="stat-card"><div class="stat-value">'+s.journalsCreated+'</div><div class="stat-label">Journals</div></div><div class="stat-card"><div class="stat-value">'+s.postsCreated+'</div><div class="stat-label">Posts</div></div></div>'+
+  (d.goals&&d.goals.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Goals</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">'+d.goals.map(function(g){return '<span class="badge badge-gray">'+g+'</span>'}).join('')+'</div>':'')+
+  (d.subscriptions&&d.subscriptions.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Subscriptions</h4><table style="margin-bottom:16px"><tr><th>Plan</th><th>Status</th><th>Started</th></tr>'+d.subscriptions.map(function(s){return '<tr><td>'+(s.display_name||s.plan_name||'--')+'</td><td><span class="badge '+(s.status==='active'?'badge-green':'badge-red')+'">'+s.status+'</span></td><td>'+(s.started_at?new Date(s.started_at).toLocaleDateString():'--')+'</td></tr>'}).join('')+'</table>':'')+
+  (d.workouts&&d.workouts.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Recent Workouts</h4><div style="margin-bottom:16px">'+d.workouts.map(function(w){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+w.type+'</span><span>'+w.duration+'min / '+w.calories+' cal</span></div>'}).join('')+'</div>':'');
+  document.getElementById('userDetailModal').classList.add('show');
+  }catch(e){console.error(e);showToast('Failed to load user details','error')}
+}
+async function userAction(action){
+  if(action==='delete'&&!confirm('PERMANENTLY delete this user and all their data? This cannot be undone.'))return;
+  var reason='';
+  if(action==='suspend'){reason=prompt('Reason for suspension:');if(!reason)return}
+  try{var r=await fetch(API+'/v1/admin/users/changeAction/'+viewingUserId,{method:'POST',headers:hdr(),body:JSON.stringify({action:action,reason:reason})});
+  var d=await r.json();if(r.ok){closeModal('userDetailModal');loadUsers();showToast(d.message)}else{showToast(d.detail||'Action failed','error')}}catch(e){showToast('Error','error')}
+}
+
+// ======== TICKETS ========
+async function loadTicketBadge(){try{var r=await fetch(API+'/v1/admin/tickets?status=open',{headers:hdr()});var d=await r.json();var c=(d.tabs||{}).open||0;var b=document.getElementById('ticketBadge');if(c>0){b.textContent=c;b.style.display='inline-flex'}else{b.style.display='none'}}catch(e){}}
+async function loadTickets(status){
+  try{document.getElementById('ticketListView').style.display='block';document.getElementById('ticketDetailView').style.display='none';document.getElementById('faqView').style.display='none';document.getElementById('reportView').style.display='none';
+  ['tktTabOpen','tktTabProg','tktTabRes','tktTabAll','tktTabFaq','tktTabReport'].forEach(function(id){document.getElementById(id).className='btn btn-outline btn-sm'});
+  if(status==='open')document.getElementById('tktTabOpen').classList.add('btn-primary');
+  else if(status==='in_progress')document.getElementById('tktTabProg').classList.add('btn-primary');
+  else if(status==='resolved')document.getElementById('tktTabRes').classList.add('btn-primary');
+  else document.getElementById('tktTabAll').classList.add('btn-primary');
+  var url=API+'/v1/admin/tickets?limit=50'+(status?'&status='+status:'');
+  var r=await fetch(url,{headers:hdr()});var d=await r.json();
+  var priorityColors={high:'badge-red',medium:'badge-yellow',low:'badge-gray',urgent:'badge-red'};
+  var statusColors={open:'badge-blue',in_progress:'badge-yellow',resolved:'badge-green',closed:'badge-gray'};
+  var slaColors={ok:'badge-green',warning:'badge-yellow',breach:'badge-red'};
+  document.getElementById('ticketsBody').innerHTML=(d.data||[]).map(function(t){
+  return '<tr style="cursor:pointer" onclick="openTicketDetail(&#39;'+t.id+'&#39;)"><td><strong>'+t.ticketNumber+'</strong></td><td>'+t.subject+'</td><td>'+t.userName+(t.unreadCount?' <span class="badge badge-red" style="font-size:10px">'+t.unreadCount+'</span>':'')+'</td><td><span class="badge '+(priorityColors[t.priority]||'badge-gray')+'">'+t.priority+'</span></td><td><span class="badge '+(statusColors[t.status]||'badge-gray')+'">'+t.status.replace('_',' ')+'</span></td><td><span class="badge '+(slaColors[t.sla]||'badge-green')+'">'+(t.sla==='breach'?'SLA Breach':t.sla==='warning'?'Warning':'OK')+'</span></td><td>'+(t.createdAt?new Date(t.createdAt).toLocaleDateString():'--')+'</td><td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteItem(&#39;ticket&#39;,&#39;'+t.id+'&#39;,&#39;'+t.ticketNumber+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:40px">No tickets found</td></tr>';
+  }catch(e){console.error(e)}
+}
+function searchTickets(v){var status=document.querySelector('#tktTabOpen.btn-primary')?'open':document.querySelector('#tktTabProg.btn-primary')?'in_progress':document.querySelector('#tktTabRes.btn-primary')?'resolved':'';loadTickets(status)}
+
+async function openTicketDetail(id){
+  currentTicketId=id;
+  try{var r=await fetch(API+'/v1/admin/tickets/'+id,{headers:hdr()});var d=await r.json();var t=d.ticket;
+  document.getElementById('ticketListView').style.display='none';document.getElementById('ticketDetailView').style.display='block';
+  document.getElementById('ticketHeader').innerHTML='<div style="display:flex;justify-content:space-between;align-items:start"><div><h3 style="font-weight:700">'+(t.ticket_number||t.ticketNumber||'Ticket')+'</h3><p style="font-size:14px;margin-top:4px">'+t.subject+'</p></div><div style="display:flex;gap:8px"><select class="form-select" style="width:130px" onchange="changeTicketStatus(&#39;'+id+'&#39;,this.value)"><option value="open"'+(t.status==='open'?' selected':'')+'>Open</option><option value="in_progress"'+(t.status==='in_progress'?' selected':'')+'>In Progress</option><option value="resolved"'+(t.status==='resolved'?' selected':'')+'>Resolved</option><option value="closed"'+(t.status==='closed'?' selected':'')+'>Closed</option></select></div></div>';
+  // Messages
+  var msgs=(d.messages||[]).map(function(m){
+  var isAdmin=m.senderType==='admin'||m.senderType==='system';
+  return '<div style="display:flex;flex-direction:column;align-items:'+(isAdmin?'flex-end':'flex-start')+';margin-bottom:12px"><div style="max-width:80%;padding:10px 14px;border-radius:12px;background:'+(isAdmin?'#26B50F':'#e2e8f0')+';color:'+(isAdmin?'white':'#1a202c')+';font-size:13px">'+m.text+'</div><span style="font-size:11px;color:#a0aec0;margin-top:2px">'+(m.senderType==='system'?'System':isAdmin?'Admin':'User')+' &middot; '+(m.createdAt?new Date(m.createdAt).toLocaleString():'')+'</span></div>'
+  }).join('');
+  document.getElementById('ticketMessages').innerHTML=msgs||'<p style="text-align:center;color:#a0aec0">No messages yet</p>';
+  document.getElementById('ticketMessages').scrollTop=999999;
+  // Meta
+  document.getElementById('ticketMeta').innerHTML='<div style="font-size:13px"><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>User</span><strong>'+(t.userName||'--')+'</strong></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>Email</span><strong>'+(t.userEmail||'--')+'</strong></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>Plan</span><span class="badge badge-blue">'+(t.userPlan||'basic')+'</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>Category</span><strong>'+(t.category||'--')+'</strong></div><div style="display:flex;justify-content:space-between;padding:6px 0"><span>Priority</span><strong>'+(t.priority||'medium')+'</strong></div></div>';
+  // Templates
+  var sel=document.getElementById('templateSelect');sel.innerHTML='<option value="">Select template...</option>';
+  (d.templates||[]).forEach(function(t){var o=document.createElement('option');o.value=t.body;o.textContent=t.name;sel.appendChild(o)});
+  // Notes
+  document.getElementById('ticketNotes').innerHTML=(d.internalNotes||[]).map(function(n){return '<div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px"><i class="fas fa-sticky-note" style="color:#d69e2e"></i> '+n.text+'<br><span style="color:#a0aec0;font-size:11px">'+(n.createdAt?new Date(n.createdAt).toLocaleString():'')+'</span></div>'}).join('')||'<p style="font-size:12px;color:#a0aec0">No notes</p>';
+  }catch(e){console.error(e);showToast('Failed to load ticket','error')}
+}
+function backToTicketList(){document.getElementById('ticketListView').style.display='block';document.getElementById('ticketDetailView').style.display='none';loadTickets('')}
+function applyTemplate(v){if(v)document.getElementById('ticketReplyText').value=v;document.getElementById('templateSelect').value=''}
+async function sendTicketReply(isInternal){
+  var textEl=isInternal?document.getElementById('internalNoteText'):document.getElementById('ticketReplyText');
+  var text=textEl.value.trim();if(!text)return;
+  try{var r=await fetch(API+'/v1/admin/ticket/message',{method:'POST',headers:hdr(),body:JSON.stringify({ticketId:currentTicketId,text:text,isInternal:isInternal})});
+  if(r.ok){textEl.value='';openTicketDetail(currentTicketId);showToast(isInternal?'Note added':'Reply sent')}else{var d=await r.json();showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+async function changeTicketStatus(id,status){
+  try{var r=await fetch(API+'/v1/admin/ticket/change_status/'+id,{method:'PUT',headers:hdr(),body:JSON.stringify({status:status})});
+  if(r.ok){openTicketDetail(id);showToast('Status updated')}else{var d=await r.json();showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+function showSupportTab(tab){
+  document.getElementById('ticketListView').style.display='none';document.getElementById('ticketDetailView').style.display='none';
+  document.getElementById('faqView').style.display=tab==='faqs'?'block':'none';
+  document.getElementById('reportView').style.display=tab==='report'?'block':'none';
+  ['tktTabOpen','tktTabProg','tktTabRes','tktTabAll','tktTabFaq','tktTabReport'].forEach(function(id){document.getElementById(id).className='btn btn-outline btn-sm'});
+  if(tab==='faqs'){document.getElementById('tktTabFaq').classList.add('btn-primary');loadFaqs()}
+  if(tab==='report'){document.getElementById('tktTabReport').classList.add('btn-primary');loadTicketReport()}
+}
+
+// ======== FAQs ========
+async function loadFaqs(){
+  try{var r=await fetch(API+'/v1/admin/faqs',{headers:hdr()});var d=await r.json();
+  document.getElementById('faqBody').innerHTML=(d.data||[]).map(function(f){return '<tr><td>'+f.title+'</td><td><span class="badge badge-gray">'+(f.category||'--')+'</span></td><td>'+f.displayOrder+'</td><td><button class="btn btn-outline btn-sm" onclick="editFaq(&#39;'+f.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;faq&#39;,&#39;'+f.id+'&#39;,&#39;'+f.title.replace(/'/g,'&#39;').substring(0,30)+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="4" style="text-align:center;color:#a0aec0;padding:40px">No FAQs</td></tr>';
+  }catch(e){console.error(e)}
+}
+function openFaqModal(id){editingFaqId=id||null;document.getElementById('faqModalTitle').textContent=id?'Edit FAQ':'Add FAQ';
+['faqQuestion','faqAnswer','faqCategory'].forEach(function(f){document.getElementById(f).value=''});document.getElementById('faqOrder').value='0';
+document.getElementById('faqModal').classList.add('show')}
+async function editFaq(id){
+  var r=await fetch(API+'/v1/admin/faqs',{headers:hdr()});var d=await r.json();
+  var f=(d.data||[]).find(function(x){return x.id===id});if(!f)return;
+  openFaqModal(id);editingFaqId=id;
+  document.getElementById('faqQuestion').value=f.title;document.getElementById('faqAnswer').value=f.description;
+  document.getElementById('faqCategory').value=f.category||'';document.getElementById('faqOrder').value=f.displayOrder||0;
+}
+async function saveFaq(){
+  var body={title:document.getElementById('faqQuestion').value,description:document.getElementById('faqAnswer').value,category:document.getElementById('faqCategory').value,displayOrder:parseInt(document.getElementById('faqOrder').value)||0};
+  if(!body.title){alert('Question is required');return}
+  var url=editingFaqId?API+'/v1/admin/faq/'+editingFaqId:API+'/v1/admin/faq';
+  var method=editingFaqId?'PUT':'POST';
+  var r=await fetch(url,{method:method,headers:hdr(),body:JSON.stringify(body)});
+  if(r.ok){closeModal('faqModal');loadFaqs();showToast('FAQ saved.')}else{var d=await r.json();alert(d.detail||'Error')}
+}
+async function loadTicketReport(){
+  try{var r=await fetch(API+'/v1/admin/tickets/report',{method:'POST',headers:hdr(),body:JSON.stringify({})});var d=await r.json();var rpt=d.report;
+  document.getElementById('ticketReportStats').innerHTML='<div class="stat-card"><div class="stat-value">'+rpt.totalTickets+'</div><div class="stat-label">Total Tickets</div></div><div class="stat-card"><div class="stat-value">'+rpt.openTickets+'</div><div class="stat-label">Open</div></div><div class="stat-card"><div class="stat-value">'+rpt.resolvedTickets+'</div><div class="stat-label">Resolved</div></div><div class="stat-card"><div class="stat-value">'+rpt.avgResolutionHours+'h</div><div class="stat-label">Avg Resolution</div></div>';
+  document.getElementById('reportCatList').innerHTML=Object.entries(rpt.byCategory||{}).map(function(e){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+e[0]+'</span><strong>'+e[1]+'</strong></div>'}).join('')||'<p style="color:#a0aec0">No data</p>';
+  document.getElementById('reportPriList').innerHTML=Object.entries(rpt.byPriority||{}).map(function(e){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+e[0]+'</span><strong>'+e[1]+'</strong></div>'}).join('')||'<p style="color:#a0aec0">No data</p>';
+  }catch(e){console.error(e)}
+}
+
+// ======== NOTIFICATIONS ========
+function showNotifTab(tab){
+  document.getElementById('notifCompose').style.display=tab==='compose'?'block':'none';
+  document.getElementById('notifHistory').style.display=tab==='history'?'block':'none';
+  document.getElementById('notifAnalytics').style.display=tab==='analytics'?'block':'none';
+  ['notifTabCompose','notifTabHistory','notifTabAnalytics'].forEach(function(id){document.getElementById(id).className='btn btn-outline btn-sm'});
+  document.getElementById('notifTab'+tab[0].toUpperCase()+tab.slice(1)).style.fontWeight='700';document.getElementById('notifTab'+tab[0].toUpperCase()+tab.slice(1)).classList.add('btn-primary');
+  if(tab==='history')loadNotifHistory();if(tab==='analytics')loadNotifAnalytics();
+  // Live preview
+  if(tab==='compose'){
+    document.getElementById('notifTitle').addEventListener('input',updateNotifPreview);
+    document.getElementById('notifBody').addEventListener('input',updateNotifPreview);
+  }
+}
+function updateNotifPreview(){var t=document.getElementById('notifTitle').value;var b=document.getElementById('notifBody').value;var p=document.getElementById('notifPreview');if(t||b){p.style.display='block';document.getElementById('previewTitle').textContent=t;document.getElementById('previewBody').textContent=b}else{p.style.display='none'}}
+async function sendNotification(){
+  var body={title:document.getElementById('notifTitle').value,body:document.getElementById('notifBody').value,targetSegment:document.getElementById('notifTarget').value,deepLink:document.getElementById('notifDeepLink').value};
+  if(!body.title||!body.body){alert('Title and body are required');return}
+  var target=body.targetSegment==='all'?'ALL users':body.targetSegment==='pro'?'Pro subscribers':'Basic users';
+  if(!confirm('Send notification to '+target+'?'))return;
+  try{var r=await fetch(API+'/v1/admin/notifications/broadcast',{method:'POST',headers:hdr(),body:JSON.stringify(body)});
+  var d=await r.json();if(r.ok){showToast('Sent to '+d.recipientCount+' users');document.getElementById('notifTitle').value='';document.getElementById('notifBody').value='';document.getElementById('notifPreview').style.display='none'}else{showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+async function loadNotifHistory(){
+  try{var r=await fetch(API+'/v1/admin/notifications/history',{headers:hdr()});var d=await r.json();
+  document.getElementById('notifHistBody').innerHTML=(d.data||[]).map(function(n){return '<tr><td><strong>'+n.title+'</strong></td><td>'+n.body.substring(0,80)+'</td><td><span class="badge badge-blue">'+(n.targetSegment||'all')+'</span></td><td>'+n.recipientCount+'</td><td>'+(n.sentAt?new Date(n.sentAt).toLocaleDateString():'--')+'</td><td><span class="badge badge-green">'+n.status+'</span></td></tr>'}).join('')||'<tr><td colspan="6" style="text-align:center;color:#a0aec0;padding:40px">No notifications sent yet</td></tr>';
+  }catch(e){console.error(e)}
+}
+async function loadNotifAnalytics(){
+  try{var r=await fetch(API+'/v1/admin/notifications/analytics',{headers:hdr()});var d=await r.json();var m=d.metrics;
+  document.getElementById('notifAnalyticsStats').innerHTML='<div class="stat-card"><div class="stat-value">'+m.totalSent+'</div><div class="stat-label">Campaigns Sent</div></div><div class="stat-card"><div class="stat-value">'+m.totalDelivered+'</div><div class="stat-label">Total Delivered</div></div><div class="stat-card"><div class="stat-value">'+m.totalRead+'</div><div class="stat-label">Read</div></div><div class="stat-card"><div class="stat-value">'+m.openRate+'%</div><div class="stat-label">Open Rate</div></div>';
+  document.getElementById('notifTypeList').innerHTML=Object.entries(m.byType||{}).map(function(e){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+e[0]+'</span><strong>'+e[1]+'</strong></div>'}).join('')||'<p style="color:#a0aec0">No data yet</p>';
+  }catch(e){console.error(e)}
+}
+
+// ======== PROFILE ========
+function showProfileTab(tab){
+  document.getElementById('profileInfo').style.display=tab==='info'?'block':'none';
+  document.getElementById('profilePassword').style.display=tab==='password'?'block':'none';
+  document.getElementById('profileTeam').style.display=tab==='team'?'block':'none';
+  ['profTabInfo','profTabPw','profTabTeam'].forEach(function(id){document.getElementById(id).className='btn btn-outline btn-sm'});
+  if(tab==='info'){document.getElementById('profTabInfo').classList.add('btn-primary');loadProfile()}
+  if(tab==='password')document.getElementById('profTabPw').classList.add('btn-primary');
+  if(tab==='team'){document.getElementById('profTabTeam').classList.add('btn-primary');loadTeam()}
+}
+async function loadProfile(){
+  try{var p=JSON.parse(sessionStorage.getItem('adminInfo')||'{}');
+  document.getElementById('profileAvatar').textContent=(p.name||'A')[0].toUpperCase();
+  document.getElementById('profileName').textContent=p.name||'Admin';
+  document.getElementById('profileEmail').textContent=p.email||'';
+  document.getElementById('profileRole').textContent=(p.role||'admin').replace('_',' ');
+  document.getElementById('profNameInput').value=p.name||'';
+  document.getElementById('profPhoneInput').value=p.phone||'';
+  document.getElementById('profImageInput').value=p.avatar||p.profile_image||'';
+  }catch(e){console.error(e)}
+}
+async function saveProfile(){
+  var body={name:document.getElementById('profNameInput').value,phone:document.getElementById('profPhoneInput').value,imageUrl:document.getElementById('profImageInput').value};
+  try{var r=await fetch(API+'/v1/admin/profile',{method:'PUT',headers:hdr(),body:JSON.stringify(body)});
+  if(r.ok){var d=await r.json();sessionStorage.setItem('adminInfo',JSON.stringify(d.admin));loadProfile();showToast('Profile updated')}else{var d=await r.json();showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+async function changePassword(){
+  var curr=document.getElementById('profCurrPw').value;var newPw=document.getElementById('profNewPw').value;var conf=document.getElementById('profConfPw').value;
+  if(!curr||!newPw){alert('Fill all fields');return}
+  if(newPw!==conf){alert('Passwords do not match');return}
+  if(newPw.length<8){alert('Min 8 characters required');return}
+  try{var r=await fetch(API+'/auth/change-password',{method:'POST',headers:hdr(),body:JSON.stringify({current_password:curr,new_password:newPw})});
+  if(r.ok){showToast('Password changed');['profCurrPw','profNewPw','profConfPw'].forEach(function(f){document.getElementById(f).value=''})}else{var d=await r.json();showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+async function loadTeam(){
+  try{var r=await fetch(API+'/v1/admin/team',{headers:hdr()});var d=await r.json();
+  document.getElementById('teamBody').innerHTML=(d.team||[]).map(function(a){return '<tr><td><strong>'+a.name+'</strong></td><td>'+a.email+'</td><td><span class="badge '+(a.role==='super_admin'?'badge-purple':'badge-blue')+'">'+a.role.replace('_',' ')+'</span></td><td><span class="badge '+(a.status==='active'?'badge-green':'badge-red')+'">'+(a.status||'active')+'</span></td><td>'+(a.lastLogin?new Date(a.lastLogin).toLocaleDateString():'Never')+'</td></tr>'}).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No team members</td></tr>';
+  }catch(e){console.error(e)}
+}
+function openAddAdminModal(){document.getElementById('newAdminName').value='';document.getElementById('newAdminEmail').value='';document.getElementById('newAdminRole').value='admin';document.getElementById('addAdminModal').classList.add('show')}
+async function createAdmin(){
+  var body={name:document.getElementById('newAdminName').value,email:document.getElementById('newAdminEmail').value,role:document.getElementById('newAdminRole').value};
+  if(!body.name||!body.email){alert('Name and email required');return}
+  try{var r=await fetch(API+'/v1/admin/users/create-admin',{method:'POST',headers:hdr(),body:JSON.stringify(body)});
+  var d=await r.json();if(r.ok){closeModal('addAdminModal');loadTeam();alert('Admin created!\\nTemp password: '+d.tempPassword+'\\n\\nPlease share this securely.')}else{showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
 }
 </script>
 </body></html>"""

@@ -56,7 +56,7 @@ async def require_admin(request: Request):
         if not payload.get("admin_2fa_verified"):
             raise HTTPException(status_code=403, detail="2FA not verified")
         user = await db.users.find_one({"_id": ObjectId(uid)})
-        if not user or user.get("role") != "admin":
+        if not user or user.get("role") not in ("admin", "super_admin"):
             raise HTTPException(status_code=403, detail="Admin access required")
         return {**user, "id": str(user["_id"])}
     except pyjwt.ExpiredSignatureError:
@@ -105,7 +105,7 @@ class AdminLoginInput(BaseModel):
 async def admin_login(body: AdminLoginInput):
     """Step 1: Admin login - validates credentials, generates 2FA code"""
     user = await db.users.find_one({"email": body.email.lower()})
-    if not user or user.get("role") != "admin":
+    if not user or user.get("role") not in ("admin", "super_admin"):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
     stored_pw = user.get("password_hash") or user.get("password", "")
@@ -184,8 +184,9 @@ async def verify_2fa(request: Request, body: Verify2FAInput):
         raise HTTPException(status_code=401, detail=f"Invalid code. {max(0, remaining)} attempts remaining.")
 
     # Code verified! Issue admin session token (8 hours)
+    user = await db.users.find_one({"_id": ObjectId(uid)})
     admin_token = pyjwt.encode(
-        {"sub": uid, "admin_2fa_verified": True, "role": "admin",
+        {"sub": uid, "admin_2fa_verified": True, "role": user.get("role", "admin") if user else "admin",
          "exp": datetime.now(timezone.utc) + timedelta(hours=8)},
         ADMIN_JWT_SECRET, algorithm="HS256"
     )
@@ -193,10 +194,9 @@ async def verify_2fa(request: Request, body: Verify2FAInput):
     # Clean up
     await db.admin_2fa.delete_one({"user_id": uid})
 
-    user = await db.users.find_one({"_id": ObjectId(uid)})
     return {
         "admin_token": admin_token,
-        "user": {"id": uid, "name": user.get("name", ""), "email": user.get("email", ""), "role": "admin"},
+        "user": {"id": uid, "name": user.get("name", ""), "email": user.get("email", ""), "role": user.get("role", "admin"), "phone": user.get("phone", ""), "avatar": user.get("avatar", user.get("profile_image", ""))},
         "expires_in": 28800,
     }
 
