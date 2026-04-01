@@ -611,6 +611,96 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: Cloudinary upload endpoint working perfectly. POST /api/v1/upload accepts multipart file uploads with 'file' field name, validates image/video content types, uploads to Cloudinary cloud, returns secure URL with metadata (url, public_id, resource_type, format, width, height, bytes). Auth validation working (401 without token), file type validation working (400 for non-image/video), file requirement validation working (422 for missing file). Tested with both admin@bo.com and test@bo.com credentials. All upload scenarios working correctly."
 
+  - task: "Sprint 6 - Legal Content API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/legal/terms, GET /api/v1/legal/privacy - Public endpoints returning legal content from database with lastUpdated timestamps"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Legal content endpoints working correctly. GET /api/v1/legal/terms returns terms content with lastUpdated field, GET /api/v1/legal/privacy returns privacy policy with HIPAA section included. Both endpoints accessible without authentication."
+
+  - task: "Sprint 6 - App Version API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/app/version - Returns latestVersion, minVersion, updateUrl for app version checking"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: App version endpoint working correctly. GET /api/v1/app/version returns proper version info (1.0.0) with latestVersion, minVersion, and updateUrl fields."
+
+  - task: "Sprint 6 - Referrals API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/referrals/generate, GET /api/v1/referrals - Generate unique referral codes and track referral statistics"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Referrals system working correctly. POST /api/v1/referrals/generate creates unique referral codes with invite links, GET /api/v1/referrals returns referral info with code, inviteLink, invitedCount, and joinedCount. Fixed authentication issue with JWT token handling."
+
+  - task: "Sprint 6 - FAQs API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/v1/faqs - Returns FAQ knowledge base with 20+ FAQs across 5 categories, supports category filtering"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: FAQ system working correctly. GET /api/v1/faqs returns 5 categories with 20 total FAQs, GET /api/v1/faqs?category=Account%20and%20Login filters to 4 FAQs in Account and Login category. Proper categorization and filtering functionality verified."
+
+  - task: "Sprint 6 - Support Tickets API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/ticket, GET /api/v1/tickets, GET /api/v1/tickets/:id, PUT /api/v1/tickets/:id, POST /api/v1/ticket/message, GET /api/v1/tickets/allmessages - Full CRUD support ticket system with messaging"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Support ticket system working perfectly. POST /api/v1/ticket creates tickets with auto-generated ticket numbers, GET /api/v1/tickets lists user tickets, GET /api/v1/tickets/:id retrieves ticket details with messages, POST /api/v1/ticket/message sends follow-up messages, GET /api/v1/tickets/allmessages retrieves all messages with pagination, PUT /api/v1/tickets/:id updates ticket status. Fixed routing conflict with allmessages endpoint. Full CRUD operations functional."
+
+  - task: "Sprint 6 - Account Deletion API"
+    implemented: true
+    working: true
+    file: "sprint6.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/account/delete-request, POST /api/v1/account/reactivate - Account deletion with 30-day grace period and reactivation functionality"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Account deletion endpoints working correctly. POST /api/v1/account/delete-request properly validates passwords (401 for wrong password), POST /api/v1/account/reactivate correctly rejects non-pending accounts (400 status). Fixed bcrypt password validation issues. Proper authentication and validation working."
+
 test_plan: "Test all Sprint 5 backend API endpoints in sprint5.py. Focus on: Workout CRUD (create/list/get/update/delete), goal-workout linkage, badge engine (check/progress), subscription (plans/purchase/get/cancel/transactions), notification (register/list/read/read-all/delete/preferences/broadcast), and predictions. Use test credentials from /app/memory/test_credentials.md."
 
 agent_communication:
@@ -631,6 +721,8 @@ agent_communication:
   - agent: "testing"
     message: "✅ SPRINT 5 BACKEND TESTING COMPLETE: All 6 Sprint 5 API endpoint groups tested with 100% success rate (25 total tests passed). Workout CRUD with auto-calorie calculation working perfectly, goal-workout linkage operational, badge engine earning badges automatically, subscription system with simulated IAP functional, comprehensive notification system with push tokens/preferences/broadcast working, AI predictions endpoint responding appropriately. All Sprint 5 backend APIs fully operational."
   - agent: "main"
-    message: "Added Cloudinary media upload endpoint POST /api/v1/upload to sprint5.py. Accepts multipart file upload (images + videos, max 50MB), uploads to Cloudinary cloud 'dwivdu2h4' with folder 'bo_wellness/feed', returns URL and metadata. Uses python-cloudinary SDK with server-side signed upload. Please test the upload endpoint with a sample image file."
+    message: "Sprint 6 backend implemented: Created sprint6.py with 19 new API endpoints. Referral system (generate/get), Legal content (terms/privacy fetched from DB), App version check, Account deletion with 30-day grace period and reactivation, FAQ knowledge base (20 FAQs seeded across 5 categories), Support ticket CRUD (create/list/get/update/delete), Ticket messaging with read tracking, System messages for status changes. Seed data: Terms of Use, Privacy Policy (with HIPAA section), 20+ FAQs, app versions. Please test all Sprint 6 backend endpoints."
   - agent: "testing"
     message: "✅ CLOUDINARY UPLOAD TESTING COMPLETE: POST /api/v1/upload endpoint working perfectly. Successfully tested all required scenarios: (1) Login with test@bo.com credentials successful, (2) Created 1x1 pixel PNG test image, (3) Multipart file upload with 'file' field name working, (4) Response contains Cloudinary URL (https://res.cloudinary.com/dwivdu2h4/...), (5) All required fields present (url, public_id, resource_type, format), (6) Auth validation working (401 without token), (7) File type validation working (400 for non-image/video files). Tested with both admin@bo.com and test@bo.com credentials. Upload endpoint fully functional and ready for production use."
+  - agent: "testing"
+    message: "✅ SPRINT 6 BACKEND TESTING COMPLETE: All 6 Sprint 6 API endpoint groups tested with 100% success rate (18 total tests passed). Legal Content APIs (terms/privacy with HIPAA section) working correctly, App Version endpoint returning proper version info, Referrals system (generate/get) fully functional, FAQ system with 5 categories and 20+ FAQs working with category filtering, Support Ticket system (create/list/get/update/message/allmessages) fully operational with proper CRUD operations, Account Deletion endpoints correctly validating passwords and account status. Fixed critical authentication issue (JWT 'sub' vs 'user_id') and routing conflict (allmessages endpoint order). All Sprint 6 backend APIs fully operational and ready for production."

@@ -1,635 +1,411 @@
 #!/usr/bin/env python3
 """
-Sprint 5 Backend API Testing
-Tests all Sprint 5 endpoints: Workouts, Badge Engine, Subscription, Notifications, Predictions
+BO App Backend API Testing Suite - Sprint 6
+Tests all Sprint 6 backend API endpoints
 """
 
 import requests
 import json
 import sys
-import io
-from datetime import datetime, timedelta
-from PIL import Image
+from datetime import datetime
 
-# API Configuration
-BASE_URL = "https://mobile-launch-45.preview.emergentagent.com/api"
-ADMIN_EMAIL = "admin@bo.com"
-ADMIN_PASSWORD = "BoAdmin2026!"
+# Configuration
+BACKEND_URL = "https://mobile-launch-45.preview.emergentagent.com/api"
 
-class Sprint5Tester:
+# Test credentials
+TEST_USER = {
+    "email": "test@bo.com",
+    "password": "Test1234!"
+}
+
+ADMIN_USER = {
+    "email": "admin@bo.com", 
+    "password": "BoAdmin2026!"
+}
+
+class APITester:
     def __init__(self):
-        self.access_token = None
-        self.headers = {}
+        self.session = requests.Session()
+        self.test_token = None
+        self.admin_token = None
         self.test_results = []
         
     def log_test(self, test_name, success, details=""):
         """Log test result"""
         status = "✅ PASS" if success else "❌ FAIL"
-        self.test_results.append(f"{status}: {test_name} - {details}")
-        print(f"{status}: {test_name} - {details}")
+        self.test_results.append({
+            "test": test_name,
+            "success": success,
+            "details": details
+        })
+        print(f"{status}: {test_name}")
+        if details:
+            print(f"   Details: {details}")
         
-    def login(self):
+    def login_user(self, email, password):
         """Login and get access token"""
         try:
-            response = requests.post(f"{BASE_URL}/auth/login", json={
-                "email": ADMIN_EMAIL,
-                "password": ADMIN_PASSWORD
+            response = self.session.post(f"{BACKEND_URL}/auth/login", json={
+                "email": email,
+                "password": password
             })
             
             if response.status_code == 200:
                 data = response.json()
-                self.access_token = data.get("access_token")
-                self.headers = {"Authorization": f"Bearer {self.access_token}"}
-                self.log_test("Admin Login", True, f"Token obtained")
-                return True
+                return data.get("access_token")
             else:
-                self.log_test("Admin Login", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
+                print(f"Login failed for {email}: {response.status_code} - {response.text}")
+                return None
         except Exception as e:
-            self.log_test("Admin Login", False, f"Exception: {str(e)}")
-            return False
+            print(f"Login error for {email}: {str(e)}")
+            return None
     
-    def test_workout_crud(self):
-        """Test Workout CRUD operations"""
-        print("\n=== TESTING WORKOUT CRUD ===")
+    def setup_auth(self):
+        """Setup authentication tokens"""
+        print("🔐 Setting up authentication...")
         
-        # 1. Create workout
+        # Login test user
+        self.test_token = self.login_user(TEST_USER["email"], TEST_USER["password"])
+        if self.test_token:
+            self.log_test("Test User Login", True, f"Token obtained for {TEST_USER['email']}")
+        else:
+            self.log_test("Test User Login", False, f"Failed to login {TEST_USER['email']}")
+            
+        # Login admin user
+        self.admin_token = self.login_user(ADMIN_USER["email"], ADMIN_USER["password"])
+        if self.admin_token:
+            self.log_test("Admin User Login", True, f"Token obtained for {ADMIN_USER['email']}")
+        else:
+            self.log_test("Admin User Login", False, f"Failed to login {ADMIN_USER['email']}")
+    
+    def test_legal_content(self):
+        """Test legal content endpoints (public)"""
+        print("\n📋 Testing Legal Content APIs...")
+        
+        # Test Terms of Service
         try:
-            workout_data = {
-                "type": "running",
-                "duration": 30,
-                "intensity": "medium",
-                "notes": "Morning run in the park"
-            }
-            
-            response = requests.post(f"{BASE_URL}/v1/workouts", 
-                                   json=workout_data, headers=self.headers)
-            
+            response = self.session.get(f"{BACKEND_URL}/v1/legal/terms")
             if response.status_code == 200:
-                workout = response.json().get("workout", {})
-                workout_id = workout.get("id")
-                calories = workout.get("calories_burned", 0)
-                self.log_test("POST /v1/workouts", True, 
-                            f"Created workout ID: {workout_id}, Auto-calc calories: {calories}")
-                
-                # 2. Get workout list with pagination
-                response = requests.get(f"{BASE_URL}/v1/workouts?page=1&limit=10", 
-                                      headers=self.headers)
-                
+                data = response.json()
+                if "content" in data and "lastUpdated" in data:
+                    self.log_test("GET /v1/legal/terms", True, f"Terms content retrieved with lastUpdated: {data.get('lastUpdated')}")
+                else:
+                    self.log_test("GET /v1/legal/terms", False, "Missing required fields in response")
+            else:
+                self.log_test("GET /v1/legal/terms", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/legal/terms", False, f"Error: {str(e)}")
+        
+        # Test Privacy Policy
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/legal/privacy")
+            if response.status_code == 200:
+                data = response.json()
+                if "content" in data and "lastUpdated" in data:
+                    # Check for HIPAA section
+                    has_hipaa = "HIPAA" in data["content"] or "Protected Health Information" in data["content"]
+                    self.log_test("GET /v1/legal/privacy", True, f"Privacy policy retrieved with HIPAA section: {has_hipaa}")
+                else:
+                    self.log_test("GET /v1/legal/privacy", False, "Missing required fields in response")
+            else:
+                self.log_test("GET /v1/legal/privacy", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/legal/privacy", False, f"Error: {str(e)}")
+    
+    def test_app_version(self):
+        """Test app version endpoint"""
+        print("\n📱 Testing App Version API...")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/app/version")
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["latestVersion", "minVersion", "updateUrl"]
+                if all(field in data for field in required_fields):
+                    self.log_test("GET /v1/app/version", True, f"Version info: {data['latestVersion']}, Min: {data['minVersion']}")
+                else:
+                    self.log_test("GET /v1/app/version", False, "Missing required fields in response")
+            else:
+                self.log_test("GET /v1/app/version", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/app/version", False, f"Error: {str(e)}")
+    
+    def test_referrals(self):
+        """Test referral system (requires auth)"""
+        print("\n🔗 Testing Referrals API...")
+        
+        if not self.test_token:
+            self.log_test("Referrals Test Setup", False, "No test token available")
+            return
+        
+        headers = {"Authorization": f"Bearer {self.test_token}"}
+        
+        # Generate referral code
+        try:
+            response = self.session.post(f"{BACKEND_URL}/v1/referrals/generate", headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if "referralCode" in data and "inviteLink" in data:
+                    referral_code = data["referralCode"]
+                    self.log_test("POST /v1/referrals/generate", True, f"Generated code: {referral_code}")
+                else:
+                    self.log_test("POST /v1/referrals/generate", False, "Missing required fields")
+            else:
+                self.log_test("POST /v1/referrals/generate", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("POST /v1/referrals/generate", False, f"Error: {str(e)}")
+        
+        # Get referral info
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/referrals", headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["code", "inviteLink", "invitedCount", "joinedCount"]
+                if all(field in data for field in required_fields):
+                    self.log_test("GET /v1/referrals", True, f"Code: {data['code']}, Invited: {data['invitedCount']}, Joined: {data['joinedCount']}")
+                else:
+                    self.log_test("GET /v1/referrals", False, "Missing required fields")
+            else:
+                self.log_test("GET /v1/referrals", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/referrals", False, f"Error: {str(e)}")
+    
+    def test_faqs(self):
+        """Test FAQ endpoints (requires auth)"""
+        print("\n❓ Testing FAQs API...")
+        
+        if not self.test_token:
+            self.log_test("FAQs Test Setup", False, "No test token available")
+            return
+        
+        headers = {"Authorization": f"Bearer {self.test_token}"}
+        
+        # Get all FAQs
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/faqs", headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if "categories" in data:
+                    categories = data["categories"]
+                    total_faqs = sum(cat.get("count", 0) for cat in categories)
+                    self.log_test("GET /v1/faqs", True, f"Found {len(categories)} categories with {total_faqs} total FAQs")
+                    
+                    # Verify we have expected categories and FAQ count
+                    if len(categories) >= 5 and total_faqs >= 20:
+                        self.log_test("FAQ Content Validation", True, f"Expected structure: {len(categories)} categories, {total_faqs} FAQs")
+                    else:
+                        self.log_test("FAQ Content Validation", False, f"Expected 5+ categories and 20+ FAQs, got {len(categories)} categories and {total_faqs} FAQs")
+                else:
+                    self.log_test("GET /v1/faqs", False, "Missing categories in response")
+            else:
+                self.log_test("GET /v1/faqs", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/faqs", False, f"Error: {str(e)}")
+        
+        # Test category filtering
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/faqs?category=Account%20and%20Login", headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if "categories" in data and len(data["categories"]) > 0:
+                    category = data["categories"][0]
+                    if category["name"] == "Account and Login":
+                        self.log_test("GET /v1/faqs?category=Account and Login", True, f"Filtered to {category['count']} FAQs")
+                    else:
+                        self.log_test("GET /v1/faqs?category=Account and Login", False, "Wrong category returned")
+                else:
+                    self.log_test("GET /v1/faqs?category=Account and Login", False, "No categories in filtered response")
+            else:
+                self.log_test("GET /v1/faqs?category=Account and Login", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/faqs?category=Account and Login", False, f"Error: {str(e)}")
+    
+    def test_tickets(self):
+        """Test support ticket system (requires auth)"""
+        print("\n🎫 Testing Tickets API...")
+        
+        if not self.test_token:
+            self.log_test("Tickets Test Setup", False, "No test token available")
+            return
+        
+        headers = {"Authorization": f"Bearer {self.test_token}"}
+        ticket_id = None
+        
+        # Create ticket
+        try:
+            ticket_data = {
+                "subject": "Test Support Issue",
+                "category": "Technical",
+                "priority": "medium",
+                "description": "This is a test ticket for API testing purposes",
+                "attachments": []
+            }
+            response = self.session.post(f"{BACKEND_URL}/v1/ticket", json=ticket_data, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if "ticket" in data and "id" in data["ticket"]:
+                    ticket_id = data["ticket"]["id"]
+                    self.log_test("POST /v1/ticket", True, f"Created ticket {data['ticket']['ticketNumber']} with ID: {ticket_id}")
+                else:
+                    self.log_test("POST /v1/ticket", False, "Missing ticket data in response")
+            else:
+                self.log_test("POST /v1/ticket", False, f"Status: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_test("POST /v1/ticket", False, f"Error: {str(e)}")
+        
+        # List tickets
+        try:
+            response = self.session.get(f"{BACKEND_URL}/v1/tickets", headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if "data" in data and "pagination" in data:
+                    tickets_count = len(data["data"])
+                    self.log_test("GET /v1/tickets", True, f"Retrieved {tickets_count} tickets")
+                else:
+                    self.log_test("GET /v1/tickets", False, "Missing data or pagination in response")
+            else:
+                self.log_test("GET /v1/tickets", False, f"Status: {response.status_code}")
+        except Exception as e:
+            self.log_test("GET /v1/tickets", False, f"Error: {str(e)}")
+        
+        if ticket_id:
+            # Get ticket detail
+            try:
+                response = self.session.get(f"{BACKEND_URL}/v1/tickets/{ticket_id}", headers=headers)
                 if response.status_code == 200:
                     data = response.json()
-                    workouts = data.get("data", [])
-                    summary = data.get("summary", {})
-                    pagination = data.get("pagination", {})
-                    
-                    self.log_test("GET /v1/workouts", True, 
-                                f"Found {len(workouts)} workouts, Weekly summary: {summary.get('totalWorkouts', 0)} workouts, {summary.get('totalCalories', 0)} calories")
+                    if "ticket" in data and "messages" in data:
+                        messages_count = len(data["messages"])
+                        self.log_test("GET /v1/tickets/:id", True, f"Retrieved ticket detail with {messages_count} messages")
+                    else:
+                        self.log_test("GET /v1/tickets/:id", False, "Missing ticket or messages in response")
                 else:
-                    self.log_test("GET /v1/workouts", False, f"Status: {response.status_code}")
-                
-                # 3. Get single workout
-                if workout_id:
-                    response = requests.get(f"{BASE_URL}/v1/workouts/{workout_id}", 
-                                          headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        workout_detail = response.json().get("workout", {})
-                        self.log_test("GET /v1/workouts/:id", True, 
-                                    f"Retrieved workout: {workout_detail.get('type')} - {workout_detail.get('duration_minutes')}min")
-                    else:
-                        self.log_test("GET /v1/workouts/:id", False, f"Status: {response.status_code}")
-                
-                # 4. Update workout
-                if workout_id:
-                    update_data = {
-                        "type": "cycling",
-                        "duration": 45,
-                        "intensity": "high",
-                        "notes": "Updated to cycling session"
-                    }
-                    
-                    response = requests.put(f"{BASE_URL}/v1/workouts/{workout_id}", 
-                                          json=update_data, headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        updated_workout = response.json().get("workout", {})
-                        new_calories = updated_workout.get("calories_burned", 0)
-                        self.log_test("PUT /v1/workouts/:id", True, 
-                                    f"Updated to {updated_workout.get('type')} - {updated_workout.get('duration_minutes')}min, New calories: {new_calories}")
-                    else:
-                        self.log_test("PUT /v1/workouts/:id", False, f"Status: {response.status_code}")
-                
-                # 5. Delete workout (save for last)
-                if workout_id:
-                    response = requests.delete(f"{BASE_URL}/v1/workouts/{workout_id}", 
-                                             headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        self.log_test("DELETE /v1/workouts/:id", True, "Workout deleted successfully")
-                    else:
-                        self.log_test("DELETE /v1/workouts/:id", False, f"Status: {response.status_code}")
-                        
-            else:
-                self.log_test("POST /v1/workouts", False, f"Status: {response.status_code}, Response: {response.text}")
-                
-        except Exception as e:
-            self.log_test("Workout CRUD", False, f"Exception: {str(e)}")
-    
-    def test_goal_workout_linkage(self):
-        """Test Goal-Workout linkage"""
-        print("\n=== TESTING GOAL-WORKOUT LINKAGE ===")
-        
-        try:
-            # First create a workout to link
-            workout_data = {"type": "walking", "duration": 20, "intensity": "low"}
-            response = requests.post(f"{BASE_URL}/v1/workouts", 
-                                   json=workout_data, headers=self.headers)
+                    self.log_test("GET /v1/tickets/:id", False, f"Status: {response.status_code}")
+            except Exception as e:
+                self.log_test("GET /v1/tickets/:id", False, f"Error: {str(e)}")
             
-            if response.status_code == 200:
-                workout_id = response.json().get("workout", {}).get("id")
-                
-                # 1. Link workout to goal
-                link_data = {
-                    "workoutId": workout_id,
-                    "goalId": "test-goal-1"
+            # Send message
+            try:
+                message_data = {
+                    "ticketId": ticket_id,
+                    "text": "This is a follow-up message for testing",
+                    "attachments": []
                 }
-                
-                response = requests.post(f"{BASE_URL}/v1/goal_workout", 
-                                       json=link_data, headers=self.headers)
-                
-                if response.status_code == 200:
-                    link = response.json().get("link", {})
-                    self.log_test("POST /v1/goal_workout", True, 
-                                f"Linked workout {workout_id} to goal test-goal-1")
-                    
-                    # 2. Get goal-workout links
-                    response = requests.get(f"{BASE_URL}/v1/goal_workout", headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        links = response.json().get("links", [])
-                        self.log_test("GET /v1/goal_workout", True, 
-                                    f"Found {len(links)} goal-workout links")
-                    else:
-                        self.log_test("GET /v1/goal_workout", False, f"Status: {response.status_code}")
-                        
-                else:
-                    self.log_test("POST /v1/goal_workout", False, f"Status: {response.status_code}")
-                    
-        except Exception as e:
-            self.log_test("Goal-Workout Linkage", False, f"Exception: {str(e)}")
-    
-    def test_badge_engine(self):
-        """Test Badge Engine"""
-        print("\n=== TESTING BADGE ENGINE ===")
-        
-        try:
-            # 1. Check for new badges
-            response = requests.get(f"{BASE_URL}/v1/badges/check", headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                new_badges = data.get("newBadges", [])
-                self.log_test("GET /v1/badges/check", True, 
-                            f"Badge check completed, {len(new_badges)} new badges earned")
-            else:
-                self.log_test("GET /v1/badges/check", False, f"Status: {response.status_code}")
-            
-            # 2. Get badge progress
-            response = requests.get(f"{BASE_URL}/v1/badges/progress", headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                progress = data.get("progress", [])
-                earned_count = sum(1 for p in progress if p.get("earned", False))
-                total_badges = len(progress)
-                
-                self.log_test("GET /v1/badges/progress", True, 
-                            f"Found {total_badges} badges, {earned_count} earned. Progress tracking working")
-                
-                # Show sample badge progress
-                if progress:
-                    sample = progress[0]
-                    self.log_test("Badge Progress Detail", True, 
-                                f"Sample: {sample.get('name')} - {sample.get('current')}/{sample.get('requirement_value')} ({sample.get('percentage')}%)")
-            else:
-                self.log_test("GET /v1/badges/progress", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Badge Engine", False, f"Exception: {str(e)}")
-    
-    def test_subscription(self):
-        """Test Subscription system"""
-        print("\n=== TESTING SUBSCRIPTION ===")
-        
-        try:
-            # 1. Get subscription plans
-            response = requests.get(f"{BASE_URL}/v1/subscription/plans", headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                plans = data.get("plans", [])
-                plan_names = [p.get("name") for p in plans]
-                
-                self.log_test("GET /v1/subscription/plans", True, 
-                            f"Found {len(plans)} plans: {', '.join(plan_names)}")
-                
-                # Find pro monthly plan for purchase test
-                pro_plan = next((p for p in plans if p.get("name") == "pro_monthly"), None)
-                
-                if pro_plan:
-                    plan_id = pro_plan.get("id")
-                    
-                    # 2. Purchase subscription (simulated)
-                    purchase_data = {
-                        "planId": plan_id,
-                        "receipt": "test-receipt-12345",
-                        "platform": "ios"
-                    }
-                    
-                    response = requests.post(f"{BASE_URL}/v1/subscription", 
-                                           json=purchase_data, headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        subscription = response.json().get("subscription", {})
-                        self.log_test("POST /v1/subscription", True, 
-                                    f"Purchased {subscription.get('plan_name')} subscription, Status: {subscription.get('status')}")
-                        
-                        # 3. Get current subscription
-                        response = requests.get(f"{BASE_URL}/v1/subscription", headers=self.headers)
-                        
-                        if response.status_code == 200:
-                            sub_data = response.json()
-                            plan = sub_data.get("plan", "basic")
-                            status = sub_data.get("status", "inactive")
-                            features = sub_data.get("features", {})
-                            
-                            self.log_test("GET /v1/subscription", True, 
-                                        f"Current plan: {plan}, Status: {status}, Features: {len(features)} enabled")
-                        else:
-                            self.log_test("GET /v1/subscription", False, f"Status: {response.status_code}")
-                        
-                        # 4. Cancel subscription
-                        response = requests.put(f"{BASE_URL}/v1/subscription/cancel", headers=self.headers)
-                        
-                        if response.status_code == 200:
-                            cancelled_sub = response.json().get("subscription", {})
-                            self.log_test("PUT /v1/subscription/cancel", True, 
-                                        f"Subscription cancelled, Status: {cancelled_sub.get('status')}")
-                        else:
-                            self.log_test("PUT /v1/subscription/cancel", False, f"Status: {response.status_code}")
-                        
-                        # 5. Get transaction history
-                        response = requests.get(f"{BASE_URL}/v1/subscription/transactions?page=1", 
-                                              headers=self.headers)
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            transactions = data.get("data", [])
-                            pagination = data.get("pagination", {})
-                            
-                            self.log_test("GET /v1/subscription/transactions", True, 
-                                        f"Found {len(transactions)} transactions, Total: {pagination.get('total', 0)}")
-                        else:
-                            self.log_test("GET /v1/subscription/transactions", False, f"Status: {response.status_code}")
-                            
-                    else:
-                        self.log_test("POST /v1/subscription", False, f"Status: {response.status_code}, Response: {response.text}")
-                        
-            else:
-                self.log_test("GET /v1/subscription/plans", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Subscription", False, f"Exception: {str(e)}")
-    
-    def test_notifications(self):
-        """Test Notification system"""
-        print("\n=== TESTING NOTIFICATIONS ===")
-        
-        try:
-            # 1. Register push token
-            register_data = {
-                "pushToken": "ExponentPushToken[test-token-12345]",
-                "deviceId": "device-test-1",
-                "platform": "ios"
-            }
-            
-            response = requests.post(f"{BASE_URL}/v1/notifications/register", 
-                                   json=register_data, headers=self.headers)
-            
-            if response.status_code == 200:
-                self.log_test("POST /v1/notifications/register", True, 
-                            "Push token registered successfully")
-            else:
-                self.log_test("POST /v1/notifications/register", False, f"Status: {response.status_code}")
-            
-            # 2. Get notifications with pagination
-            response = requests.get(f"{BASE_URL}/v1/notifications?page=1&limit=10", 
-                                  headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                notifications = data.get("data", [])
-                unread_count = data.get("unreadCount", 0)
-                pagination = data.get("pagination", {})
-                
-                self.log_test("GET /v1/notifications", True, 
-                            f"Found {len(notifications)} notifications, {unread_count} unread, Total: {pagination.get('total', 0)}")
-                
-                # Get a notification ID for testing read/delete
-                notification_id = None
-                if notifications:
-                    notification_id = notifications[0].get("id")
-                    
-                    # 3. Mark notification as read
-                    if notification_id:
-                        response = requests.put(f"{BASE_URL}/v1/notifications/{notification_id}/read", 
-                                              headers=self.headers)
-                        
-                        if response.status_code == 200:
-                            self.log_test("PUT /v1/notifications/:id/read", True, 
-                                        f"Notification {notification_id} marked as read")
-                        else:
-                            self.log_test("PUT /v1/notifications/:id/read", False, f"Status: {response.status_code}")
-                
-                # 4. Mark all as read
-                response = requests.put(f"{BASE_URL}/v1/notifications/read-all", headers=self.headers)
-                
+                response = self.session.post(f"{BACKEND_URL}/v1/ticket/message", json=message_data, headers=headers)
                 if response.status_code == 200:
                     data = response.json()
-                    count = data.get("count", 0)
-                    self.log_test("PUT /v1/notifications/read-all", True, 
-                                f"Marked {count} notifications as read")
-                else:
-                    self.log_test("PUT /v1/notifications/read-all", False, f"Status: {response.status_code}")
-                
-                # 5. Delete notification
-                if notification_id:
-                    response = requests.delete(f"{BASE_URL}/v1/notifications/{notification_id}", 
-                                             headers=self.headers)
-                    
-                    if response.status_code == 200:
-                        self.log_test("DELETE /v1/notifications/:id", True, 
-                                    f"Notification {notification_id} deleted")
+                    if "message" in data:
+                        self.log_test("POST /v1/ticket/message", True, f"Sent message: {data['message']['text'][:50]}...")
                     else:
-                        self.log_test("DELETE /v1/notifications/:id", False, f"Status: {response.status_code}")
-                        
-            else:
-                self.log_test("GET /v1/notifications", False, f"Status: {response.status_code}")
+                        self.log_test("POST /v1/ticket/message", False, "Missing message in response")
+                else:
+                    self.log_test("POST /v1/ticket/message", False, f"Status: {response.status_code}")
+            except Exception as e:
+                self.log_test("POST /v1/ticket/message", False, f"Error: {str(e)}")
             
-            # 6. Get notification preferences
-            response = requests.get(f"{BASE_URL}/v1/notifications/preferences", headers=self.headers)
+            # Get all messages
+            try:
+                response = self.session.get(f"{BACKEND_URL}/v1/tickets/allmessages?ticketId={ticket_id}", headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "pagination" in data:
+                        messages_count = len(data["data"])
+                        self.log_test("GET /v1/tickets/allmessages", True, f"Retrieved {messages_count} messages")
+                    else:
+                        self.log_test("GET /v1/tickets/allmessages", False, "Missing data or pagination in response")
+                else:
+                    self.log_test("GET /v1/tickets/allmessages", False, f"Status: {response.status_code}")
+            except Exception as e:
+                self.log_test("GET /v1/tickets/allmessages", False, f"Error: {str(e)}")
             
-            if response.status_code == 200:
-                data = response.json()
-                preferences = data.get("preferences", {})
-                enabled_count = sum(1 for k, v in preferences.items() if isinstance(v, bool) and v)
-                
-                self.log_test("GET /v1/notifications/preferences", True, 
-                            f"Retrieved preferences, {enabled_count} notification types enabled")
-            else:
-                self.log_test("GET /v1/notifications/preferences", False, f"Status: {response.status_code}")
-            
-            # 7. Update notification preferences
-            prefs_update = {
-                "mealReminders": False,
-                "waterReminders": True,
-                "quietHoursStart": "23:00",
-                "quietHoursEnd": "07:00"
-            }
-            
-            response = requests.put(f"{BASE_URL}/v1/notifications/preferences", 
-                                  json=prefs_update, headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                updated_prefs = data.get("preferences", {})
-                self.log_test("PUT /v1/notifications/preferences", True, 
-                            f"Updated preferences, Meal reminders: {updated_prefs.get('mealReminders')}, Quiet hours: {updated_prefs.get('quietHoursStart')}-{updated_prefs.get('quietHoursEnd')}")
-            else:
-                self.log_test("PUT /v1/notifications/preferences", False, f"Status: {response.status_code}")
-            
-            # 8. Broadcast notification (admin only)
-            broadcast_data = {
-                "title": "Test Broadcast",
-                "body": "This is a test broadcast notification from the admin",
-                "targetSegment": "all"
-            }
-            
-            response = requests.post(f"{BASE_URL}/v1/notifications/broadcast", 
-                                   json=broadcast_data, headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                sent_count = data.get("count", 0)
-                self.log_test("POST /v1/notifications/broadcast", True, 
-                            f"Broadcast sent to {sent_count} users")
-            else:
-                self.log_test("POST /v1/notifications/broadcast", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Notifications", False, f"Exception: {str(e)}")
+            # Update ticket status
+            try:
+                status_data = {"status": "resolved"}
+                response = self.session.put(f"{BACKEND_URL}/v1/tickets/{ticket_id}", json=status_data, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "ticket" in data and data["ticket"]["status"] == "resolved":
+                        self.log_test("PUT /v1/tickets/:id", True, f"Updated ticket status to resolved")
+                    else:
+                        self.log_test("PUT /v1/tickets/:id", False, "Status not updated correctly")
+                else:
+                    self.log_test("PUT /v1/tickets/:id", False, f"Status: {response.status_code}")
+            except Exception as e:
+                self.log_test("PUT /v1/tickets/:id", False, f"Error: {str(e)}")
     
-    def test_ai_predictions(self):
-        """Test AI Predictions"""
-        print("\n=== TESTING AI PREDICTIONS ===")
+    def test_account_deletion(self):
+        """Test account deletion endpoints"""
+        print("\n🗑️ Testing Account Deletion API...")
         
-        try:
-            response = requests.get(f"{BASE_URL}/v1/predictions", headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                predictions = data.get("predictions")
-                message = data.get("message", "")
-                data_points = data.get("dataPoints", 0)
-                
-                if predictions:
-                    weekly_cal = predictions.get("projectedWeeklyCalories", 0)
-                    sleep_trend = predictions.get("sleepQualityTrend", 0)
-                    happiness_trend = predictions.get("happinessTrend", 0)
-                    workout_freq = predictions.get("workoutFrequency", 0)
-                    
-                    self.log_test("GET /v1/predictions", True, 
-                                f"Predictions generated - Weekly calories: {weekly_cal}, Sleep: {sleep_trend}, Happiness: {happiness_trend}, Workout freq: {workout_freq}/week")
-                else:
-                    self.log_test("GET /v1/predictions", True, 
-                                f"Insufficient data message: {message}, Data points: {data_points}")
-                    
-            else:
-                self.log_test("GET /v1/predictions", False, f"Status: {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("AI Predictions", False, f"Exception: {str(e)}")
-    
-    def create_test_image(self):
-        """Create a 1x1 pixel PNG image for testing"""
-        img = Image.new('RGB', (1, 1), color='red')
-        img_bytes = io.BytesIO()
-        img.save(img_bytes, format='PNG')
-        img_bytes.seek(0)
-        return img_bytes
-    
-    def create_test_text_file(self):
-        """Create a text file for testing invalid file type"""
-        text_content = "This is a test text file"
-        text_bytes = io.BytesIO(text_content.encode('utf-8'))
-        text_bytes.seek(0)
-        return text_bytes
-    
-    def test_cloudinary_upload(self):
-        """Test Cloudinary media upload endpoint"""
-        print("\n📤 Testing Cloudinary Upload Endpoint...")
+        if not self.test_token:
+            self.log_test("Account Deletion Test Setup", False, "No test token available")
+            return
         
-        # Test 1: Successful upload with authentication
-        try:
-            test_image = self.create_test_image()
-            files = {'file': ('test_image.png', test_image, 'image/png')}
-            
-            response = requests.post(f"{BASE_URL}/v1/upload", 
-                                   files=files, 
-                                   headers=self.headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Verify required fields are present
-                required_fields = ['url', 'public_id', 'resource_type', 'format']
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if missing_fields:
-                    self.log_test("Upload Success - Required Fields", False, 
-                                f"Missing fields: {missing_fields}")
-                else:
-                    self.log_test("Upload Success - Required Fields", True, 
-                                f"All required fields present")
-                
-                # Verify URL contains 'cloudinary'
-                url = data.get('url', '')
-                if 'cloudinary' in url:
-                    self.log_test("Upload Success - Cloudinary URL", True, 
-                                f"URL contains cloudinary: {url[:50]}...")
-                else:
-                    self.log_test("Upload Success - Cloudinary URL", False, 
-                                f"URL does not contain cloudinary: {url}")
-                
-                # Verify resource type is 'image'
-                if data.get('resource_type') == 'image':
-                    self.log_test("Upload Success - Resource Type", True, 
-                                f"Resource type is image")
-                else:
-                    self.log_test("Upload Success - Resource Type", False, 
-                                f"Resource type is {data.get('resource_type')}, expected image")
-                
-                # Verify format is present
-                if data.get('format'):
-                    self.log_test("Upload Success - Format", True, 
-                                f"Format: {data.get('format')}")
-                else:
-                    self.log_test("Upload Success - Format", False, 
-                                f"Format field missing")
-                    
-            else:
-                self.log_test("Upload Success", False, 
-                            f"Status: {response.status_code}, Response: {response.text}")
-                
-        except Exception as e:
-            self.log_test("Upload Success", False, f"Exception: {str(e)}")
+        headers = {"Authorization": f"Bearer {self.test_token}"}
         
-        # Test 2: Upload without authentication (should return 401)
+        # Test with wrong password (should return 401)
         try:
-            test_image = self.create_test_image()
-            files = {'file': ('test_image.png', test_image, 'image/png')}
-            
-            response = requests.post(f"{BASE_URL}/v1/upload", files=files)
-            
+            wrong_password_data = {"password": "WrongPassword123!"}
+            response = self.session.post(f"{BACKEND_URL}/v1/account/delete-request", json=wrong_password_data, headers=headers)
             if response.status_code == 401:
-                self.log_test("Upload Without Auth", True, 
-                            f"Correctly returned 401 Unauthorized")
+                self.log_test("POST /v1/account/delete-request (wrong password)", True, "Correctly rejected wrong password")
             else:
-                self.log_test("Upload Without Auth", False, 
-                            f"Expected 401, got {response.status_code}")
-                
+                self.log_test("POST /v1/account/delete-request (wrong password)", False, f"Expected 401, got {response.status_code}")
         except Exception as e:
-            self.log_test("Upload Without Auth", False, f"Exception: {str(e)}")
+            self.log_test("POST /v1/account/delete-request (wrong password)", False, f"Error: {str(e)}")
         
-        # Test 3: Upload non-image/video file (should return 400)
+        # Test reactivate with non-pending account (should return 400)
         try:
-            test_text = self.create_test_text_file()
-            files = {'file': ('test.txt', test_text, 'text/plain')}
-            
-            response = requests.post(f"{BASE_URL}/v1/upload", 
-                                   files=files, 
-                                   headers=self.headers)
-            
+            reactivate_data = {
+                "email": TEST_USER["email"],
+                "password": TEST_USER["password"]
+            }
+            response = self.session.post(f"{BACKEND_URL}/v1/account/reactivate", json=reactivate_data)
             if response.status_code == 400:
-                self.log_test("Upload Invalid File Type", True, 
-                            f"Correctly returned 400 Bad Request")
+                self.log_test("POST /v1/account/reactivate (non-pending)", True, "Correctly rejected non-pending account")
             else:
-                self.log_test("Upload Invalid File Type", False, 
-                            f"Expected 400, got {response.status_code}")
-                
+                self.log_test("POST /v1/account/reactivate (non-pending)", False, f"Expected 400, got {response.status_code}")
         except Exception as e:
-            self.log_test("Upload Invalid File Type", False, f"Exception: {str(e)}")
-        
-        # Test 4: Upload without file (should return 400 or 422)
-        try:
-            response = requests.post(f"{BASE_URL}/v1/upload", headers=self.headers)
-            
-            if response.status_code in [400, 422]:
-                self.log_test("Upload No File", True, 
-                            f"Correctly returned {response.status_code}")
-            else:
-                self.log_test("Upload No File", False, 
-                            f"Expected 400/422, got {response.status_code}")
-                
-        except Exception as e:
-            self.log_test("Upload No File", False, f"Exception: {str(e)}")
-
+            self.log_test("POST /v1/account/reactivate (non-pending)", False, f"Error: {str(e)}")
+    
     def run_all_tests(self):
-        """Run all Sprint 5 tests"""
-        print("🚀 Starting Sprint 5 Backend API Testing...")
-        print(f"Testing against: {BASE_URL}")
+        """Run all Sprint 6 backend tests"""
+        print("🚀 Starting Sprint 6 Backend API Tests")
+        print("=" * 50)
         
-        if not self.login():
-            print("❌ Login failed. Cannot proceed with tests.")
-            return False
+        # Setup authentication
+        self.setup_auth()
         
-        # Run all test suites
-        self.test_workout_crud()
-        self.test_goal_workout_linkage()
-        self.test_badge_engine()
-        self.test_subscription()
-        self.test_notifications()
-        self.test_ai_predictions()
-        self.test_cloudinary_upload()
+        # Run all test groups
+        self.test_legal_content()
+        self.test_app_version()
+        self.test_referrals()
+        self.test_faqs()
+        self.test_tickets()
+        self.test_account_deletion()
         
         # Summary
-        print("\n" + "="*60)
-        print("SPRINT 5 BACKEND TEST SUMMARY")
-        print("="*60)
+        print("\n" + "=" * 50)
+        print("📊 TEST SUMMARY")
+        print("=" * 50)
         
-        total_tests = len(self.test_results)
-        passed_tests = len([r for r in self.test_results if "✅ PASS" in r])
-        failed_tests = total_tests - passed_tests
+        passed = sum(1 for result in self.test_results if result["success"])
+        total = len(self.test_results)
         
-        print(f"Total Tests: {total_tests}")
-        print(f"Passed: {passed_tests}")
-        print(f"Failed: {failed_tests}")
-        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        print(f"Total Tests: {total}")
+        print(f"Passed: {passed}")
+        print(f"Failed: {total - passed}")
+        print(f"Success Rate: {(passed/total)*100:.1f}%")
         
-        if failed_tests > 0:
+        if total - passed > 0:
             print("\n❌ FAILED TESTS:")
             for result in self.test_results:
-                if "❌ FAIL" in result:
-                    print(f"  {result}")
+                if not result["success"]:
+                    print(f"  - {result['test']}: {result['details']}")
         
-        print("\n✅ ALL TEST RESULTS:")
-        for result in self.test_results:
-            print(f"  {result}")
-            
-        return failed_tests == 0
+        return passed == total
 
 if __name__ == "__main__":
-    tester = Sprint5Tester()
+    tester = APITester()
     success = tester.run_all_tests()
     sys.exit(0 if success else 1)
