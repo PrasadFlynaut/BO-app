@@ -11,6 +11,7 @@ import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated'
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { boLogoColor } from '@/src/assets';
 import api from '@/src/api';
+import { usePedometer } from '@/src/pedometer';
 
 type Provider = { id: string; name: string; icon: string; color: string; platforms: string[] };
 type Device = { id: string; provider: string; provider_name: string; device_name: string; last_sync: string | null; total_syncs: number; connected_at: string };
@@ -55,6 +56,7 @@ export default function ConnectedDevicesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const { isAvailable: pedometerAvailable, todaySteps, syncStepsToBackend } = usePedometer();
 
   useFocusEffect(useCallback(() => { loadAll(); }, []));
 
@@ -167,6 +169,31 @@ export default function ConnectedDevicesScreen() {
                   <Text style={s.statLabel}>Active Min</Text>
                 </View>
               </ScrollView>
+            </Animated.View>
+          )}
+
+          {/* Pedometer - Live Step Tracking */}
+          {pedometerAvailable && (
+            <Animated.View entering={FadeInDown.delay(50).duration(400)}>
+              <Text style={s.sectionTitle}>DEVICE PEDOMETER</Text>
+              <View style={[s.pedometerCard, Shadow.sm]}>
+                <View style={s.pedometerLeft}>
+                  <View style={[s.deviceIcon, { backgroundColor: Colors.green + '15' }]}>
+                    <Ionicons name="footsteps" size={24} color={Colors.green} />
+                  </View>
+                  <View>
+                    <Text style={s.pedometerSteps}>{todaySteps.toLocaleString()}</Text>
+                    <Text style={s.pedometerLabel}>steps today (live)</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={async () => {
+                  const ok = await syncStepsToBackend();
+                  if (ok) { Alert.alert('Synced', `${todaySteps.toLocaleString()} steps synced to BO`); await loadAll(); }
+                }} style={s.syncStepsBtn}>
+                  <Ionicons name="cloud-upload-outline" size={16} color="#FFF" />
+                  <Text style={s.syncStepsBtnText}>Sync</Text>
+                </TouchableOpacity>
+              </View>
             </Animated.View>
           )}
 
@@ -292,4 +319,10 @@ const s = StyleSheet.create({
   allConnectedText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.green },
   infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, backgroundColor: '#F0F8FF', borderRadius: Radius.lg, padding: Spacing.md, marginHorizontal: Spacing.lg, marginTop: Spacing.lg },
   infoText: { flex: 1, fontSize: FontSize.small, color: Colors.waterBlue, lineHeight: 20 },
+  pedometerCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md, marginHorizontal: Spacing.lg, marginBottom: Spacing.sm },
+  pedometerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  pedometerSteps: { fontSize: 22, fontWeight: '800', color: Colors.green },
+  pedometerLabel: { fontSize: FontSize.caption, color: Colors.textTertiary },
+  syncStepsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.green, borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 14 },
+  syncStepsBtnText: { color: '#FFF', fontSize: FontSize.caption, fontWeight: '700' },
 });
