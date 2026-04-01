@@ -835,7 +835,9 @@ from sprint8 import sprint8_router, seed_sprint8_data, setup_sprint8_indexes
 from sprint9 import sprint9_router, seed_sprint9_data, setup_sprint9_indexes
 from admin_panel import admin_panel_router
 from wearable import wearable_router, create_wearable_indexes
+from payment import payment_router
 
+app.include_router(payment_router)
 app.include_router(wearable_router)
 app.include_router(sprint9_router, prefix="/api")
 app.include_router(sprint8_router, prefix="/api")

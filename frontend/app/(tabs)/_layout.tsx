@@ -4,10 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import { useEffect } from 'react';
+import { usePushNotifications } from '@/src/notifications';
 
 export default function TabLayout() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  // Register for push notifications on app load
+  const { expoPushToken } = usePushNotifications();
 
   useEffect(() => {
     if (!loading && !user) {

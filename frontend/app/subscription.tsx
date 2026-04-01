@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -36,11 +36,38 @@ export default function SubscriptionScreen() {
   const handlePurchase = async (planId: string) => {
     setPurchasing(planId);
     try {
-      await api.post('/v1/subscription', { planId, receipt: 'simulated', platform: 'ios' });
-      Alert.alert('Welcome to BO Pro!', 'You now have access to all premium features.');
-      await loadData();
+      // Create Stripe checkout session
+      const { data } = await api.post('/v1/payment/create-checkout', {
+        plan_id: planId,
+        success_url: 'https://bo-wellness.app/success',
+        cancel_url: 'https://bo-wellness.app/cancel',
+      });
+      if (data.url) {
+        // Open Stripe checkout in browser
+        await Linking.openURL(data.url);
+        Alert.alert(
+          'Complete Payment',
+          'A payment page has been opened in your browser. Once completed, return here and tap "Verify Payment".',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Verify Payment', onPress: async () => {
+              try {
+                const result = await api.post('/v1/payment/confirm', { session_id: data.sessionId });
+                if (result.data.status === 'confirmed') {
+                  Alert.alert('Welcome to BO Pro!', 'Payment confirmed. You now have access to all premium features.');
+                  await loadData();
+                } else {
+                  Alert.alert('Pending', 'Payment is still processing. Please try verifying again in a moment.');
+                }
+              } catch (e: any) {
+                Alert.alert('Error', e.response?.data?.detail || 'Verification failed');
+              }
+            }},
+          ]
+        );
+      }
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.detail || 'Purchase failed');
+      Alert.alert('Error', e.response?.data?.detail || 'Payment setup failed');
     }
     setPurchasing(null);
   };
