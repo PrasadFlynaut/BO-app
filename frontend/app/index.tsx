@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, FlatList, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, FlatList } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -115,7 +116,7 @@ export default function SplashScreen() {
   const renderSlide = ({ item }: { item: typeof SLIDES[0] }) => (
     <View style={styles.slide}>
       <View style={styles.imageCard}>
-        <Image source={{ uri: item.image }} style={styles.slideImage} resizeMode="cover" />
+        <Image source={{ uri: item.image }} style={styles.slideImage} contentFit="cover" transition={300} />
         <LinearGradient
           colors={item.gradientColors}
           start={{ x: 0, y: 0 }}

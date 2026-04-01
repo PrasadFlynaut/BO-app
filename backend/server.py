@@ -42,7 +42,7 @@ db = client[os.environ['DB_NAME']]
 # JWT config
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGORITHM = "HS256"
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+LLM_API_KEY = os.environ.get('EMERGENT_LLM_KEY', os.environ.get('LLM_API_KEY', ''))
 
 app = FastAPI(title="BO Wellness API", version="1.0.0")
 app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -644,7 +644,7 @@ Be encouraging, knowledgeable, and personalized. Give specific, actionable advic
     try:
         session_id = f"bo-chat-{user['id']}"
         chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
+            api_key=LLM_API_KEY,
             session_id=session_id,
             system_message=system_msg
         )
@@ -799,6 +799,7 @@ async def startup():
     await seed_sprint8_data()
     await setup_sprint9_indexes()
     await seed_sprint9_data()
+    await create_wearable_indexes()
     logger.info("BO Wellness App started")
 
 
@@ -833,7 +834,9 @@ from sprint7 import sprint7_router, seed_sprint7_data, setup_sprint7_indexes
 from sprint8 import sprint8_router, seed_sprint8_data, setup_sprint8_indexes
 from sprint9 import sprint9_router, seed_sprint9_data, setup_sprint9_indexes
 from admin_panel import admin_panel_router
+from wearable import wearable_router, create_wearable_indexes
 
+app.include_router(wearable_router)
 app.include_router(sprint9_router, prefix="/api")
 app.include_router(sprint8_router, prefix="/api")
 app.include_router(sprint7_router, prefix="/api")

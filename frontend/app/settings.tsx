@@ -11,6 +11,7 @@ const SECTIONS: { title: string; items: Section[] }[] = [
   {
     title: 'ACCOUNT',
     items: [
+      { icon: 'watch-outline', label: 'Connected Devices', color: Colors.waterBlue, route: '/connected-devices' },
       { icon: 'notifications-outline', label: 'Notification Settings', color: Colors.nutritionOrange, route: '/notification-settings' },
       { icon: 'diamond-outline', label: 'Subscription Management', color: Colors.green, route: '/subscription' },
     ],

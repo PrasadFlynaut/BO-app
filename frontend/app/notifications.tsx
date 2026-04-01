@@ -3,11 +3,13 @@ import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import { boLogoColor } from '@/src/assets';
 import api from '@/src/api';
 
 const NOTIF_ICONS: Record<string, { icon: string; color: string; bg: string }> = {
@@ -122,9 +124,12 @@ export default function NotificationsScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: Spacing.md }}>
-          <Text style={ns.headerTitle}>Notifications</Text>
-          {unread > 0 && <Text style={ns.headerSub}>{unread} unread</Text>}
+        <View style={ns.headerBrand}>
+          <Image source={boLogoColor} style={ns.headerLogo} contentFit="contain" transition={200} />
+          <View>
+            <Text style={ns.headerTitle}>Notifications</Text>
+            {unread > 0 && <Text style={ns.headerSub}>{unread} unread</Text>}
+          </View>
         </View>
         {unread > 0 && (
           <TouchableOpacity onPress={markAllRead} style={ns.markAllBtn}>
@@ -161,6 +166,8 @@ export default function NotificationsScreen() {
 const ns = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F8FAF9' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: Spacing.sm, gap: Spacing.sm },
+  headerLogo: { width: 32, height: 32 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
   headerSub: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 1 },
   markAllBtn: { backgroundColor: Colors.greenLight, borderRadius: Radius.pill, paddingVertical: 6, paddingHorizontal: 14 },
