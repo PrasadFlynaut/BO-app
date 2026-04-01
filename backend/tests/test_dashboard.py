@@ -44,7 +44,7 @@ class TestDashboard:
         # Verify water increased in dashboard
         verify_response = api_client.get(f"{base_url}/api/dashboard")
         new_water = verify_response.json()["water_ml"]
-        assert new_water == initial_water + 250, f"Water should increase by 250ml"
+        assert new_water == initial_water + 250, "Water should increase by 250ml"
 
     def test_log_nutrition(self, api_client, base_url, test_user_token):
         """Test POST /nutrition/log and verify persistence"""

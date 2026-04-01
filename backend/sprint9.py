@@ -1,5 +1,8 @@
 """Sprint 9: Admin Panel Phase 3 (FINAL) - User Management, Tickets, Notifications, Profile"""
-import os, logging, bcrypt, secrets
+import os
+import logging
+import bcrypt
+import secrets
 import jwt as pyjwt
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query
@@ -516,8 +519,8 @@ async def admin_delete_ticket(request: Request, ticket_id: str):
 
 @sprint9_router.post("/v1/admin/tickets/report")
 async def admin_ticket_report(request: Request):
-    admin = await require_admin(request)
-    body = await request.json()
+    await require_admin(request)
+    body_data = await request.json()
     query = {}
     all_tickets = await db.tickets.find(query).to_list(5000)
     total = len(all_tickets)
@@ -854,9 +857,9 @@ async def seed_sprint9_data():
         await db.ticket_response_templates.insert_many(templates)
         logger.info("Seeded 10 ticket response templates")
 
-    # Promote admin to super_admin
-    admin = await db.users.find_one({"role": "admin"})
-    if admin:
+    # Promote main admin to super_admin
+    admin = await db.users.find_one({"email": "admin@bo.com"})
+    if admin and admin.get("role") != "super_admin":
         await db.users.update_one({"_id": admin["_id"]}, {"$set": {"role": "super_admin"}})
         logger.info(f"Promoted {admin.get('email', '')} to super_admin")
 

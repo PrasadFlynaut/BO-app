@@ -211,7 +211,7 @@ async def update_workout(workout_id: str, inp: WorkoutInput, request: Request):
     w = await db.workouts.find_one({"_id": ObjectId(workout_id), "user_id": user["id"]})
     if not w: raise HTTPException(status_code=404, detail="Workout not found")
     if inp.type not in WORKOUT_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid type")
+        raise HTTPException(status_code=400, detail="Invalid type")
     if inp.duration < 1:
         raise HTTPException(status_code=400, detail="Duration must be > 0")
 

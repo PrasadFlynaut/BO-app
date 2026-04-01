@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -34,7 +35,8 @@ JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGORITHM = "HS256"
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
-app = FastAPI()
+app = FastAPI(title="BO Wellness API", version="1.0.0")
+app.add_middleware(GZipMiddleware, minimum_size=500)
 api_router = APIRouter(prefix="/api")
 
 # --- Password Hashing ---
@@ -775,6 +777,25 @@ async def startup():
     await setup_sprint9_indexes()
     await seed_sprint9_data()
     logger.info("BO Wellness App started")
+
+
+# ---------- Health Check ----------
+@api_router.get("/v1/health")
+async def health_check():
+    """Health check endpoint for production monitoring"""
+    try:
+        await db.command("ping")
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+    collections = await db.list_collection_names()
+    return {
+        "status": "healthy" if db_status == "connected" else "degraded",
+        "version": "1.0.0",
+        "database": db_status,
+        "collections": len(collections),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 @app.on_event("shutdown")
 async def shutdown():

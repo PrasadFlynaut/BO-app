@@ -1,5 +1,7 @@
 """Sprint 2: Dashboard Home, Culinary Blueprint, Restaurant Discovery"""
-import os, math, random
+import os
+import math
+import random
 from fastapi import APIRouter, HTTPException, Depends, Query
 from bson import ObjectId
 from datetime import datetime, timezone
