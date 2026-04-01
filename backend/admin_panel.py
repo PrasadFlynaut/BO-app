@@ -116,6 +116,7 @@ tr:hover td{background:#f7fafc}
 <div class="nav-label">Management</div>
 <div class="nav-item" onclick="showPage('users')"><i class="fas fa-users"></i>Users</div>
 <div class="nav-item" onclick="showPage('restaurants')"><i class="fas fa-utensils"></i>Restaurants</div>
+<div class="nav-item" onclick="showPage('claims')"><i class="fas fa-file-signature"></i>Claims <span id="claimBadge" class="badge badge-yellow" style="margin-left:auto;font-size:10px;display:none">0</span></div>
 <div class="nav-item" onclick="showPage('distributors')"><i class="fas fa-truck"></i>Distributors</div>
 </div>
 <div class="nav-section">
@@ -165,6 +166,18 @@ tr:hover td{background:#f7fafc}
 <button class="btn btn-primary" onclick="openRestModal()"><i class="fas fa-plus"></i> Add Restaurant</button>
 </div>
 <div class="card"><table><thead><tr><th>Restaurant</th><th>Cuisine</th><th>Rating</th><th>Status</th><th style="width:120px">Actions</th></tr></thead><tbody id="restBody"></tbody></table></div></div>
+<!-- CLAIMS PAGE -->
+<div class="page" id="page-claims">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<div style="display:flex;gap:8px">
+<button class="btn" style="background:#f7fafc;border:1px solid #e2e8f0" onclick="loadClaims('all')">All</button>
+<button class="btn" style="background:#fefcbf;color:#744210" onclick="loadClaims('pending')"><i class="fas fa-clock"></i> Pending</button>
+<button class="btn" style="background:#c6f6d5;color:#22543d" onclick="loadClaims('approved')"><i class="fas fa-check"></i> Approved</button>
+<button class="btn" style="background:#fed7d7;color:#742a2a" onclick="loadClaims('rejected')"><i class="fas fa-times"></i> Rejected</button>
+</div>
+</div>
+<div class="card"><table><thead><tr><th>Restaurant</th><th>Claimed By</th><th>Owner Info</th><th>Submitted</th><th>Status</th><th style="width:160px">Actions</th></tr></thead><tbody id="claimsBody"><tr><td colspan="6" style="text-align:center;color:#a0aec0;padding:40px">Loading claims...</td></tr></tbody></table></div>
+</div>
 <!-- DISTRIBUTORS PAGE -->
 <div class="page" id="page-distributors">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -495,7 +508,7 @@ async function verify2FA(){
   const d=await r.json();if(!r.ok){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent=d.detail;return}
   adminToken=d.admin_token;sessionStorage.setItem('adminInfo',JSON.stringify(d.user));document.getElementById('loginPage').style.display='none';document.getElementById('dashboardPage').style.display='block';
   document.getElementById('adminName').textContent=d.user.name;document.getElementById('adminAvatar').textContent=d.user.name[0];
-  loadDashboard();
+  loadDashboard();loadClaimBadge();
   }catch(e){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Verification failed'}
 }
 
@@ -503,9 +516,9 @@ function logout(){adminToken='';document.getElementById('dashboardPage').style.d
 
 function showPage(p){document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');
-const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
+const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
 document.getElementById('pageTitle').textContent=titles[p]||p;
-if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
+if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
 
 const hdr=()=>({'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'});
 
@@ -557,6 +570,63 @@ async function saveRestaurant(){
   const method=editingRestId?'PUT':'POST';
   const r=await fetch(url,{method,headers:hdr(),body:JSON.stringify(body)});
   if(r.ok){closeModal('restModal');loadRestaurants();showToast(editingRestId?'Restaurant updated':'Restaurant created')}else{const d=await r.json();alert(d.detail||'Error')}
+}
+
+// ============ CLAIMS ============
+async function loadClaims(status){
+  try{
+    var url=API+'/v1/admin/claims?limit=50';
+    if(status&&status!=='all')url+='&status='+status;
+    var r=await fetch(url,{headers:hdr()});var d=await r.json();
+    var claims=d.claims||[];
+    // Update badge
+    var pending=claims.filter(function(c){return c.status==='pending'}).length;
+    var badge=document.getElementById('claimBadge');
+    if(pending>0){badge.textContent=pending;badge.style.display='inline-flex'}else{badge.style.display='none'}
+    // Render table
+    document.getElementById('claimsBody').innerHTML=claims.map(function(c){
+      var statusBadge=c.status==='pending'?'badge-yellow':c.status==='approved'?'badge-green':'badge-red';
+      var actions='';
+      if(c.status==='pending'){
+        actions='<button class="btn btn-sm" style="background:#c6f6d5;color:#22543d;margin-right:4px" onclick="approveClaim(\''+c.id+'\')"><i class="fas fa-check"></i> Approve</button>'
+          +'<button class="btn btn-sm" style="background:#fed7d7;color:#742a2a" onclick="rejectClaim(\''+c.id+'\')"><i class="fas fa-times"></i> Reject</button>';
+      }else{
+        actions='<span style="color:#a0aec0;font-size:12px">'+(c.reviewed_by||'')+'</span>';
+      }
+      return '<tr>'
+        +'<td><strong>'+(c.restaurant_name||'Unknown')+'</strong></td>'
+        +'<td><div><strong>'+(c.user_name||'Unknown')+'</strong></div><div style="font-size:12px;color:#718096">'+(c.user_email||'')+'</div></td>'
+        +'<td><div style="font-size:13px"><strong>'+(c.owner_name||'')+'</strong></div><div style="font-size:12px;color:#718096">'+(c.owner_email||'')+'</div><div style="font-size:12px;color:#718096">'+(c.owner_phone||'')+'</div></td>'
+        +'<td style="font-size:13px">'+new Date(c.created_at).toLocaleDateString()+'</td>'
+        +'<td><span class="badge '+statusBadge+'">'+c.status+'</span></td>'
+        +'<td>'+actions+'</td>'
+        +'</tr>';
+    }).join('')||'<tr><td colspan="6" style="text-align:center;color:#a0aec0;padding:40px"><i class="fas fa-file-signature" style="font-size:32px;margin-bottom:8px;display:block"></i>No claims found</td></tr>';
+  }catch(e){console.error(e);document.getElementById('claimsBody').innerHTML='<tr><td colspan="6" style="text-align:center;color:#e53e3e;padding:40px">Failed to load claims</td></tr>'}
+}
+
+async function approveClaim(id){
+  if(!confirm('Approve this restaurant claim? The restaurant will be marked as BO Verified.'))return;
+  try{
+    var r=await fetch(API+'/v1/admin/claims/'+id+'/approve',{method:'PUT',headers:hdr()});
+    if(r.ok){showToast('Claim approved! Restaurant marked as verified.','success');loadClaims('all')}
+    else{var d=await r.json();showToast(d.detail||'Failed to approve','error')}
+  }catch(e){showToast('Error approving claim','error')}
+}
+
+async function rejectClaim(id){
+  if(!confirm('Reject this restaurant claim?'))return;
+  try{
+    var r=await fetch(API+'/v1/admin/claims/'+id+'/reject',{method:'PUT',headers:hdr()});
+    if(r.ok){showToast('Claim rejected','success');loadClaims('all')}
+    else{var d=await r.json();showToast(d.detail||'Failed to reject','error')}
+  }catch(e){showToast('Error rejecting claim','error')}
+}
+
+async function loadClaimBadge(){
+  try{var r=await fetch(API+'/v1/admin/claims?status=pending',{headers:hdr()});var d=await r.json();
+  var c=d.total||0;var b=document.getElementById('claimBadge');
+  if(c>0){b.textContent=c;b.style.display='inline-flex'}else{b.style.display='none'}}catch(e){}
 }
 
 async function loadDistributors(search=''){

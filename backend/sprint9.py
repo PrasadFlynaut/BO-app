@@ -836,6 +836,62 @@ async def admin_list_team(request: Request):
     }
 
 
+# ============== RESTAURANT CLAIMS ADMIN ==============
+
+@sprint9_router.get("/v1/admin/claims")
+async def admin_list_claims(request: Request, page: int = 1, limit: int = 25, status: str = ""):
+    await require_admin(request)
+    query = {}
+    if status and status != "all":
+        query["status"] = status
+    total = await db.restaurant_claims.count_documents(query)
+    claims = await db.restaurant_claims.find(query).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    # Enrich with user info
+    for c in claims:
+        c["id"] = str(c["_id"])
+        del c["_id"]
+        user = await db.users.find_one({"id": c.get("user_id")})
+        if not user:
+            try:
+                user = await db.users.find_one({"_id": ObjectId(c.get("user_id"))})
+            except Exception:
+                user = None
+        c["user_name"] = user.get("name", "Unknown") if user else "Unknown"
+        c["user_email"] = user.get("email", "") if user else ""
+    return {"claims": claims, "total": total, "page": page, "limit": limit}
+
+
+@sprint9_router.put("/v1/admin/claims/{claim_id}/approve")
+async def admin_approve_claim(request: Request, claim_id: str):
+    admin = await require_admin(request)
+    result = await db.restaurant_claims.update_one(
+        {"_id": ObjectId(claim_id)},
+        {"$set": {"status": "approved", "reviewed_by": admin.get("name", "Admin"), "reviewed_at": now_utc().isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Claim not found")
+    # Optionally mark restaurant as claimed
+    claim = await db.restaurant_claims.find_one({"_id": ObjectId(claim_id)})
+    if claim:
+        await db.restaurants.update_one(
+            {"_id": ObjectId(claim.get("restaurant_id"))},
+            {"$set": {"claimed": True, "claimed_by": claim.get("user_id"), "bo_verified": True}}
+        )
+    return {"message": "Claim approved", "status": "approved"}
+
+
+@sprint9_router.put("/v1/admin/claims/{claim_id}/reject")
+async def admin_reject_claim(request: Request, claim_id: str):
+    admin = await require_admin(request)
+    result = await db.restaurant_claims.update_one(
+        {"_id": ObjectId(claim_id)},
+        {"$set": {"status": "rejected", "reviewed_by": admin.get("name", "Admin"), "reviewed_at": now_utc().isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Claim not found")
+    return {"message": "Claim rejected", "status": "rejected"}
+
+
 # ============== SEED ==============
 async def seed_sprint9_data():
     # Ticket response templates
