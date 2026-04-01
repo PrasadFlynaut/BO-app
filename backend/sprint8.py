@@ -33,7 +33,7 @@ async def require_admin(request: Request):
         if not payload.get("admin_2fa_verified"):
             raise HTTPException(status_code=403, detail="2FA not verified")
         user = await db.users.find_one({"_id": ObjectId(uid)})
-        if not user or user.get("role") != "admin":
+        if not user or user.get("role") not in ("admin", "super_admin"):
             raise HTTPException(status_code=403, detail="Admin access required")
         return {**user, "id": str(user["_id"])}
     except pyjwt.ExpiredSignatureError:
