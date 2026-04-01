@@ -393,6 +393,18 @@ async def save_questionnaire(input: QuestionnaireInput, user=Depends(get_current
     await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
     return {"message": "Questionnaire saved", "data": update}
 
+
+class AvatarUpdateInput(BaseModel):
+    avatar_url: str
+
+@api_router.put("/auth/avatar")
+async def update_avatar(input: AvatarUpdateInput, user=Depends(get_current_user)):
+    await db.users.update_one(
+        {"_id": ObjectId(user["id"])},
+        {"$set": {"avatar_url": input.avatar_url, "profile_image": input.avatar_url}}
+    )
+    return {"message": "Profile photo updated", "avatar_url": input.avatar_url}
+
 @api_router.put("/onboarding/life-goals")
 async def save_life_goals(input: LifeGoalsInput, user=Depends(get_current_user)):
     update = {"life_goals": input.life_goals, "happiness_level": input.happiness_level, "review_text": input.review_text}

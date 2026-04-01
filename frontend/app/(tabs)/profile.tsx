@@ -2,8 +2,10 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl,
   TextInput, Modal, ActivityIndicator, Alert, Platform,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, ActionSheetIOS,
 } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +48,58 @@ export default function ProfileScreen() {
   const [editAddress, setEditAddress] = useState('');
   const [editDob, setEditDob] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const pickProfilePhoto = async (source: 'camera' | 'gallery') => {
+    try {
+      let result;
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('Permission Needed', 'Camera access is required.'); return; }
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('Permission Needed', 'Gallery access is required.'); return; }
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+      }
+      if (!result.canceled && result.assets?.[0]) await uploadProfilePhoto(result.assets[0].uri);
+    } catch (e) { console.error('Photo pick error:', e); }
+  };
+
+  const uploadProfilePhoto = async (uri: string) => {
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      formData.append('file', { uri, name: filename, type } as any);
+      const uploadRes = await api.post('/v1/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (uploadRes.data?.url) {
+        await api.put('/auth/avatar', { avatar_url: uploadRes.data.url });
+        if (refreshUser) await refreshUser();
+        Alert.alert('Updated!', 'Your profile photo has been updated.');
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Failed', e?.response?.data?.detail || 'Could not upload photo.');
+    }
+    setUploadingPhoto(false);
+  };
+
+  const showPhotoOptions = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', 'Take Photo', 'Choose from Gallery'], cancelButtonIndex: 0 },
+        (idx) => { if (idx === 1) pickProfilePhoto('camera'); if (idx === 2) pickProfilePhoto('gallery'); }
+      );
+    } else {
+      Alert.alert('Profile Photo', 'Choose a source', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take Photo', onPress: () => pickProfilePhoto('camera') },
+        { text: 'Choose from Gallery', onPress: () => pickProfilePhoto('gallery') },
+      ]);
+    }
+  };
 
   // Create recipe
   const [showCreateRecipe, setShowCreateRecipe] = useState(false);
@@ -176,7 +230,20 @@ export default function ProfileScreen() {
             <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={22} color="#FFF" />
             </TouchableOpacity>
-            <View style={st.avatarLarge}><Text style={st.avatarLargeText}>{user?.name?.[0] || 'U'}</Text></View>
+            <TouchableOpacity onPress={showPhotoOptions} activeOpacity={0.8} style={st.avatarWrap}>
+              {user?.avatar_url || user?.profile_image ? (
+                <Image source={{ uri: user.avatar_url || user.profile_image }} style={st.avatarLarge} contentFit="cover" transition={200} />
+              ) : (
+                <View style={st.avatarLargeInitial}><Text style={st.avatarLargeText}>{user?.name?.[0] || 'U'}</Text></View>
+              )}
+              <View style={st.cameraOverlay}>
+                {uploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Ionicons name="camera" size={14} color="#FFF" />
+                )}
+              </View>
+            </TouchableOpacity>
             <Text style={st.profileName}>{user?.name || 'User'}</Text>
             <Text style={st.profileEmail}>{user?.email}</Text>
             <View style={st.subBadge}>
@@ -472,8 +539,11 @@ const st = StyleSheet.create({
   scroll: { paddingBottom: 100 },
   profileHeader: { borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl, padding: Spacing.xl, paddingTop: Spacing.lg, alignItems: 'center' },
   backBtn: { position: 'absolute', top: Spacing.md, left: Spacing.md, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
+  avatarWrap: { position: 'relative', marginBottom: Spacing.md },
+  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden', borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
+  avatarLargeInitial: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' },
   avatarLargeText: { color: '#FFF', fontSize: 32, fontWeight: '800' },
+  cameraOverlay: { position: 'absolute', bottom: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFF' },
   profileName: { color: '#FFF', fontSize: FontSize.h2, fontWeight: '800' },
   profileEmail: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.small, marginTop: 2 },
   subBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.sm, backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill },
