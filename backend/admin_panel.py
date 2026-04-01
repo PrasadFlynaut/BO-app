@@ -588,8 +588,8 @@ async function loadClaims(status){
       var statusBadge=c.status==='pending'?'badge-yellow':c.status==='approved'?'badge-green':'badge-red';
       var actions='';
       if(c.status==='pending'){
-        actions='<button class="btn btn-sm" style="background:#c6f6d5;color:#22543d;margin-right:4px" onclick="approveClaim(\''+c.id+'\')"><i class="fas fa-check"></i> Approve</button>'
-          +'<button class="btn btn-sm" style="background:#fed7d7;color:#742a2a" onclick="rejectClaim(\''+c.id+'\')"><i class="fas fa-times"></i> Reject</button>';
+        actions='<button class="btn btn-sm" style="background:#c6f6d5;color:#22543d;margin-right:4px" onclick="approveClaim(&#39;'+c.id+'&#39;)"><i class="fas fa-check"></i> Approve</button>'
+          +'<button class="btn btn-sm" style="background:#fed7d7;color:#742a2a" onclick="rejectClaim(&#39;'+c.id+'&#39;)"><i class="fas fa-times"></i> Reject</button>';
       }else{
         actions='<span style="color:#a0aec0;font-size:12px">'+(c.reviewed_by||'')+'</span>';
       }
