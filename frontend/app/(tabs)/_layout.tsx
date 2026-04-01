@@ -33,8 +33,8 @@ export default function TabLayout() {
       <Tabs.Screen name="menu" options={{ title: 'Culinary', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={24} color={color} /></View> }} />
       <Tabs.Screen name="quick-adds" options={{ title: 'Quick Add', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={24} color={color} /></View> }} />
       <Tabs.Screen name="goals" options={{ title: 'My Goals', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'trophy' : 'trophy-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="feed" options={{ href: null }} />
+      <Tabs.Screen name="feed" options={{ title: 'Feed', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'people' : 'people-outline'} size={24} color={color} /></View> }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="chat" options={{ href: null }} />
     </Tabs>
   );

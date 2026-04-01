@@ -157,6 +157,88 @@ BO is a comprehensive health, wellness, and nutrition mobile platform built with
 | GET | /api/v1/wellness-programs/active | Active program |
 | POST | /api/v1/reports/generate | Generate 30-day report |
 
+### Sprint 4 Features (Community Feed, Meals, Recipes, Badges)
+
+#### 8. Community Feed (Tab 5)
+- Instagram-style scrollable feed with post cards
+- Create posts (text + media URLs)
+- Like/unlike posts (optimistic toggle)
+- Comment system (add, view, delete comments)
+- Post detail view with full text and all comments
+- User avatars with colored initials
+- "Read more" text truncation for long posts
+- Post ownership: edit/delete own posts only
+- Likes bottom sheet showing who liked
+- FAB button for creating new posts
+- Pull-to-refresh and infinite scroll pagination
+- Skeleton loading state
+
+#### 9. Enhanced Meals Database
+- 40+ seeded meals across 7 categories (Healthy, Vegan, Mediterranean, Clean Eating, Balanced, High Protein, Keto)
+- 7 meal types (breakfast, brunch, lunch, snack, tea, dinner, all-day)
+- Full nutritional data (calories, proteins, fat, carbs)
+- Ingredients list with quantities
+- Step-by-step directions
+- Search with text, category, calorie range, and meal type filters
+- Favorites system (toggle, list favorites)
+- Pagination and sorting (newest, oldest, calories, popular)
+
+#### 10. Meal Plans
+- Add meals to weekly plan (breakfast/lunch/dinner slots)
+- View meal plan by date or date range
+- Remove meals from plan
+- Unique constraint on user+date+slot (replaces existing)
+
+#### 11. User Recipes
+- Full CRUD for custom recipes
+- Required: title (2-100 chars), at least 1 ingredient
+- Includes nutritional data, directions, category, servings
+- Ownership enforcement (403 for non-owners on edit/delete)
+
+#### 12. Badges System
+- 12 seeded badges across 4 categories (wellness, nutrition, activity, community)
+- Per-user earned/not-earned tracking
+- Badge categories: Program Starter, 7-Day Streak, First Post, etc.
+
+#### 13. Profile & Subscription
+- Profile accessible from top-right avatar (removed from tab bar)
+- Update personal details (name, phone, address, DOB, profile image URL)
+- Subscription status endpoint (free/pro)
+
+#### Sprint 4 API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /api/v1/feed | Create feed post |
+| GET | /api/v1/feed | Get paginated feed |
+| GET | /api/v1/feed/{id} | Get post detail |
+| PUT | /api/v1/feed/{id} | Update own post |
+| DELETE | /api/v1/feed/{id} | Delete own post |
+| POST | /api/v1/post/like/{postId} | Toggle like |
+| GET | /api/v1/post/likes/{postId} | Get who liked |
+| POST | /api/v1/post/comment/{postId} | Add comment |
+| GET | /api/v1/post/comments/{postId} | Get comments |
+| PUT | /api/v1/post/{postId}/comment/{commentId} | Edit comment |
+| DELETE | /api/v1/post/{postId}/comment/{commentId} | Delete comment |
+| GET | /api/v1/meals | Enhanced meals listing |
+| GET | /api/v1/meals/{id} | Meal detail |
+| GET | /api/v1/meals/search | Search meals |
+| GET | /api/v1/meals/favorites | User favorites |
+| POST | /api/v1/meal/fav/{mealId} | Toggle favorite |
+| POST | /api/v1/meal-plan | Add to meal plan |
+| GET | /api/v1/meal-plan | Get meal plan |
+| DELETE | /api/v1/meal-plan/{id} | Remove from plan |
+| POST | /api/v1/receipes | Create recipe |
+| GET | /api/v1/receipes | List user recipes |
+| GET | /api/v1/receipes/{id} | Recipe detail |
+| PUT | /api/v1/receipes/{id} | Update recipe |
+| DELETE | /api/v1/receipes/{id} | Delete recipe |
+| GET | /api/v1/badges | Get all badges |
+| GET | /api/v1/profile | Get full profile |
+| PUT | /api/v1/profile/update | Update profile |
+| GET | /api/v1/subscription | Get subscription |
+| POST | /api/v1/auth/logout | Logout |
+
+
 ## Future Enhancements
 - Wearable device integration (Apple Watch, Fitbit, Garmin)
 - Workout tracking with step counter

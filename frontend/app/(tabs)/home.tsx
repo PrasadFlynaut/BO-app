@@ -160,7 +160,7 @@ export default function HomeScreen() {
 
         {/* Active Program Widget */}
         {activeProgram && activeProgramData && (
-          <Animated.View entering={FadeInDown.delay(50).springify()}>
+          <Animated.View entering={FadeInDown.delay(50).duration(350)}>
             <View style={[s.activeProgramCard, Shadow.sm]}>
               <LinearGradient colors={[Colors.green, Colors.greenDark]} style={s.activeProgramGrad}>
                 <View style={s.activeProgramHeader}>
