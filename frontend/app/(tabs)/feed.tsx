@@ -103,11 +103,9 @@ function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleD
               size={24}
               color={item.liked_by_me ? '#E53E3E' : Colors.textTertiary}
             />
-            <TouchableOpacity onPress={() => item.like_count > 0 && handleViewLikes(item.id)}>
-              <Text style={[s.actionCount, item.liked_by_me && { color: '#E53E3E' }]}>
-                {item.like_count || 0}
-              </Text>
-            </TouchableOpacity>
+            <Text style={[s.actionCount, item.liked_by_me && { color: '#E53E3E' }]}>
+              {item.like_count || 0}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.actionBtn} onPress={() => handleOpenDetail(item)} activeOpacity={0.7}>
@@ -348,7 +346,7 @@ export default function FeedScreen() {
 
   // Like toggle
   const handleLike = async (postId: string) => {
-    // Optimistic update
+    // Optimistic update for feed list
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
         const newLiked = !p.liked_by_me;
@@ -360,6 +358,14 @@ export default function FeedScreen() {
       }
       return p;
     }));
+    // Also update selectedPost if viewing detail
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev: any) => {
+        if (!prev) return prev;
+        const newLiked = !prev.liked_by_me;
+        return { ...prev, liked_by_me: newLiked, like_count: newLiked ? (prev.like_count || 0) + 1 : Math.max(0, (prev.like_count || 0) - 1) };
+      });
+    }
     try {
       await api.post(`/v1/post/like/${postId}`);
     } catch (e) {
@@ -370,6 +376,12 @@ export default function FeedScreen() {
         }
         return p;
       }));
+      if (selectedPost && selectedPost.id === postId) {
+        setSelectedPost((prev: any) => {
+          if (!prev) return prev;
+          return { ...prev, liked_by_me: !prev.liked_by_me, like_count: prev.liked_by_me ? (prev.like_count || 0) + 1 : Math.max(0, (prev.like_count || 0) - 1) };
+        });
+      }
     }
   };
 
