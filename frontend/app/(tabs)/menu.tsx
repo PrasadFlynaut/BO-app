@@ -226,54 +226,7 @@ export default function CulinaryScreen() {
       {/* BROWSE VIEW */}
       {viewMode === 'browse' && (
         <>
-          {/* Search */}
-          <View style={cs.searchRow}>
-            <View style={cs.searchBox}>
-              <Ionicons name="search" size={18} color={Colors.textTertiary} />
-              <TextInput
-                style={cs.searchInput}
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search meals..."
-                placeholderTextColor={Colors.textTertiary}
-                onSubmitEditing={onSearch}
-                returnKeyType="search"
-              />
-              {search ? (
-                <TouchableOpacity onPress={() => { setSearch(''); setTimeout(() => loadMeals(1, true), 0); }}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Category chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={cs.chipScroll}>
-            {CATEGORIES.map(cat => (
-              <TouchableOpacity
-                key={cat}
-                style={[cs.chip, activeCategory === cat && cs.chipActive]}
-                onPress={() => onCategoryChange(cat)}
-              >
-                <Text style={[cs.chipText, activeCategory === cat && cs.chipTextActive]}>{cat}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Today's Plan Summary */}
-          {todayPlan.length > 0 && (
-            <Animated.View entering={FadeIn.duration(350)} style={cs.todayPlanBar}>
-              <Ionicons name="calendar" size={16} color={Colors.green} />
-              <Text style={cs.todayPlanText}>
-                {todayPlan.length} meal{todayPlan.length !== 1 ? 's' : ''} planned today
-              </Text>
-              <TouchableOpacity onPress={() => setViewMode('mealplan')}>
-                <Text style={cs.todayPlanLink}>View Plan</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-
-          {/* Meals Grid */}
+          {/* Meals Grid with header */}
           {loading ? (
             <View style={cs.loadWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
           ) : (
@@ -288,6 +241,56 @@ export default function CulinaryScreen() {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />}
               onEndReached={loadMore}
               onEndReachedThreshold={0.3}
+              ListHeaderComponent={
+                <View>
+                  {/* Search */}
+                  <View style={cs.searchRow}>
+                    <View style={cs.searchBox}>
+                      <Ionicons name="search" size={18} color={Colors.textTertiary} />
+                      <TextInput
+                        style={cs.searchInput}
+                        value={search}
+                        onChangeText={setSearch}
+                        placeholder="Search meals..."
+                        placeholderTextColor={Colors.textTertiary}
+                        onSubmitEditing={onSearch}
+                        returnKeyType="search"
+                      />
+                      {search ? (
+                        <TouchableOpacity onPress={() => { setSearch(''); setTimeout(() => loadMeals(1, true), 0); }}>
+                          <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {/* Category chips */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={cs.chipScroll}>
+                    {CATEGORIES.map(cat => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[cs.chip, activeCategory === cat && cs.chipActive]}
+                        onPress={() => onCategoryChange(cat)}
+                      >
+                        <Text style={[cs.chipText, activeCategory === cat && cs.chipTextActive]}>{cat}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  {/* Today's Plan Summary */}
+                  {todayPlan.length > 0 && (
+                    <Animated.View entering={FadeIn.duration(350)} style={cs.todayPlanBar}>
+                      <Ionicons name="calendar" size={16} color={Colors.green} />
+                      <Text style={cs.todayPlanText}>
+                        {todayPlan.length} meal{todayPlan.length !== 1 ? 's' : ''} planned today
+                      </Text>
+                      <TouchableOpacity onPress={() => setViewMode('mealplan')}>
+                        <Text style={cs.todayPlanLink}>View Plan</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  )}
+                </View>
+              }
               ListEmptyComponent={
                 <View style={cs.emptyWrap}>
                   <Ionicons name="restaurant-outline" size={48} color={Colors.textTertiary} />
@@ -490,7 +493,7 @@ const cs = StyleSheet.create({
   searchInput: { flex: 1, color: Colors.textPrimary, fontSize: FontSize.body },
 
   // Category chips
-  chipScroll: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.sm },
+  chipScroll: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.sm, zIndex: 1 },
   chip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: Radius.pill, backgroundColor: '#F5F5F5', borderWidth: 1.5, borderColor: 'transparent' },
   chipActive: { backgroundColor: Colors.greenLight, borderColor: Colors.green },
   chipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
