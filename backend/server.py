@@ -554,11 +554,20 @@ async def get_daily_water(user=Depends(get_current_user)):
 @api_router.get("/feed")
 async def get_feed(user=Depends(get_current_user)):
     posts = await db.posts.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    # Batch fetch comment counts to avoid N+1 query problem
+    post_ids = [p.get("id") for p in posts if p.get("id")]
+    comment_counts = {}
+    if post_ids:
+        pipeline = [
+            {"$match": {"post_id": {"$in": post_ids}}},
+            {"$group": {"_id": "$post_id", "count": {"$sum": 1}}},
+        ]
+        counts = await db.comments.aggregate(pipeline).to_list(len(post_ids))
+        comment_counts = {c["_id"]: c["count"] for c in counts}
     for p in posts:
         p["liked_by_me"] = user["id"] in p.get("likes", [])
         p["like_count"] = len(p.get("likes", []))
-        comment_count = await db.comments.count_documents({"post_id": p["id"]})
-        p["comment_count"] = comment_count
+        p["comment_count"] = comment_counts.get(p.get("id"), 0)
     return {"posts": posts}
 
 @api_router.post("/feed")
