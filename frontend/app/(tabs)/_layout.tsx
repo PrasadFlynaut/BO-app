@@ -4,13 +4,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import { useEffect } from 'react';
-import { usePushNotifications } from '@/src/notifications';
+import { usePushNotifications, scheduleDailyReminder } from '@/src/notifications';
 
 export default function TabLayout() {
   const { user, loading } = useAuth();
   const router = useRouter();
   // Register for push notifications on app load
   const { expoPushToken } = usePushNotifications();
+
+  useEffect(() => {
+    // Schedule daily happiness check-in reminder at 8 PM
+    scheduleDailyReminder(
+      'happiness-checkin',
+      'How are you feeling today? \u{1F60A}',
+      'Take a moment to log your happiness level. Your daily check-in helps track your wellness journey.',
+      20, 0 // 8 PM
+    ).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {

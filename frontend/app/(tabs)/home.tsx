@@ -39,6 +39,19 @@ export default function HomeScreen() {
   const [enrolling, setEnrolling] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
 
+  // Happiness check-in
+  const [showHappiness, setShowHappiness] = useState(false);
+  const [happinessLevel, setHappinessLevel] = useState(0);
+  const [happinessNote, setHappinessNote] = useState('');
+  const [happinessFactors, setHappinessFactors] = useState<string[]>([]);
+  const [savingHappiness, setSavingHappiness] = useState(false);
+  const [happinessLogged, setHappinessLogged] = useState(false);
+
+  const MOOD_EMOJIS = ['\u{1F622}', '\u{1F610}', '\u{1F642}', '\u{1F60A}', '\u{1F929}'];
+  const MOOD_LABELS = ['Bad', 'Okay', 'Good', 'Great', 'Amazing'];
+  const MOOD_COLORS = ['#EF4444', '#F59E0B', '#3B82F6', '#22C55E', '#A855F7'];
+  const FACTORS = ['sleep', 'nutrition', 'exercise', 'social', 'work', 'family'];
+
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -68,8 +81,39 @@ export default function HomeScreen() {
         const { data: notifData } = await api.get('/v1/notifications?page=1&limit=1');
         setUnreadNotifs(notifData.unreadCount || 0);
       } catch {}
+      // Check if happiness logged today - auto-show modal if not
+      try {
+        const { data: hData } = await api.get('/v1/happiness/today');
+        if (!hData.logged && !happinessLogged) {
+          setTimeout(() => setShowHappiness(true), 1500);
+        } else {
+          setHappinessLogged(true);
+        }
+      } catch {}
     } catch (e) { console.error(e); }
     setLoading(false);
+  };
+
+  const saveHappiness = async () => {
+    if (happinessLevel === 0) return;
+    setSavingHappiness(true);
+    try {
+      await api.post('/v1/happiness', {
+        level: happinessLevel,
+        note: happinessNote,
+        factors: happinessFactors,
+      });
+      setShowHappiness(false);
+      setHappinessLogged(true);
+      setHappinessLevel(0);
+      setHappinessNote('');
+      setHappinessFactors([]);
+    } catch (e) { console.error(e); }
+    setSavingHappiness(false);
+  };
+
+  const toggleFactor = (f: string) => {
+    setHappinessFactors(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
@@ -415,6 +459,70 @@ export default function HomeScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Happiness Check-in Modal */}
+      <Modal visible={showHappiness} transparent animationType="slide">
+        <View style={s.happyOverlay}>
+          <View style={s.happySheet}>
+            <View style={s.happyHandle} />
+            <Text style={s.happyTitle}>How are you feeling today?</Text>
+            <Text style={s.happySub}>Your daily wellness check-in</Text>
+
+            <View style={s.moodRow}>
+              {MOOD_EMOJIS.map((emoji, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => setHappinessLevel(i + 1)}
+                  style={[s.moodBtn, happinessLevel === i + 1 && { backgroundColor: MOOD_COLORS[i] + '20', borderColor: MOOD_COLORS[i], borderWidth: 2 }]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.moodEmoji}>{emoji}</Text>
+                  <Text style={[s.moodLabel, happinessLevel === i + 1 && { color: MOOD_COLORS[i], fontWeight: '700' }]}>{MOOD_LABELS[i]}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {happinessLevel > 0 && (
+              <>
+                <Text style={s.factorTitle}>What influenced your mood?</Text>
+                <View style={s.factorRow}>
+                  {FACTORS.map(f => (
+                    <TouchableOpacity
+                      key={f}
+                      onPress={() => toggleFactor(f)}
+                      style={[s.factorChip, happinessFactors.includes(f) && s.factorChipActive]}
+                    >
+                      <Text style={[s.factorText, happinessFactors.includes(f) && s.factorTextActive]}>{f}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={s.happyInput}
+                  placeholder="Add a note (optional)..."
+                  placeholderTextColor={Colors.textTertiary}
+                  value={happinessNote}
+                  onChangeText={setHappinessNote}
+                  multiline
+                />
+              </>
+            )}
+
+            <View style={s.happyActions}>
+              <TouchableOpacity onPress={() => { setShowHappiness(false); setHappinessLogged(true); }} style={s.happySkipBtn}>
+                <Text style={s.happySkipText}>Skip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={saveHappiness}
+                style={[s.happySaveBtn, happinessLevel === 0 && { opacity: 0.4 }]}
+                disabled={happinessLevel === 0 || savingHappiness}
+              >
+                {savingHappiness ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.happySaveText}>Log Mood</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -520,4 +628,27 @@ const s = StyleSheet.create({
   enrollBtnText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
   cancelBtn: { alignItems: 'center', paddingVertical: 14 },
   cancelBtnText: { color: Colors.textTertiary, fontSize: FontSize.body },
+
+  // Happiness Modal
+  happyOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  happySheet: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.xl, paddingBottom: 40 },
+  happyHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
+  happyTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
+  happySub: { fontSize: FontSize.small, color: Colors.textTertiary, textAlign: 'center', marginTop: 4, marginBottom: Spacing.lg },
+  moodRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  moodBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: Radius.lg, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
+  moodEmoji: { fontSize: 28 },
+  moodLabel: { fontSize: 10, color: Colors.textTertiary, marginTop: 4, fontWeight: '500' },
+  factorTitle: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm },
+  factorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  factorChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.pill, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  factorChipActive: { backgroundColor: Colors.greenLight, borderColor: Colors.green },
+  factorText: { fontSize: FontSize.caption, color: Colors.textSecondary, textTransform: 'capitalize', fontWeight: '500' },
+  factorTextActive: { color: Colors.green, fontWeight: '700' },
+  happyInput: { backgroundColor: '#F9FAFB', borderRadius: Radius.lg, padding: 14, fontSize: FontSize.body, color: Colors.textPrimary, marginTop: Spacing.md, minHeight: 60, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E5E7EB' },
+  happyActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
+  happySkipBtn: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: '#F3F4F6' },
+  happySkipText: { color: Colors.textSecondary, fontWeight: '600', fontSize: FontSize.body },
+  happySaveBtn: { flex: 2, alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: Colors.green },
+  happySaveText: { color: '#FFF', fontWeight: '700', fontSize: FontSize.body },
 });

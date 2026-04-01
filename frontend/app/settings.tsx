@@ -11,6 +11,7 @@ const SECTIONS: { title: string; items: Section[] }[] = [
   {
     title: 'ACCOUNT',
     items: [
+      { icon: 'analytics-outline', label: 'My Progress', color: '#A855F7', route: '/progress', sub: 'Happiness trends & wellness history' },
       { icon: 'watch-outline', label: 'Connected Devices', color: Colors.waterBlue, route: '/connected-devices', sub: 'Sync health data from wearables' },
       { icon: 'notifications-outline', label: 'Notification Settings', color: Colors.nutritionOrange, route: '/notification-settings', sub: 'Manage reminders & alerts' },
       { icon: 'diamond-outline', label: 'Subscription Management', color: Colors.green, route: '/subscription', sub: 'View your plan & billing' },

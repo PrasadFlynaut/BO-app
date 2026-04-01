@@ -812,6 +812,7 @@ async def startup():
     await setup_sprint9_indexes()
     await seed_sprint9_data()
     await create_wearable_indexes()
+    await create_happiness_indexes()
     logger.info("BO Wellness App started")
 
 
@@ -848,7 +849,9 @@ from sprint9 import sprint9_router, seed_sprint9_data, setup_sprint9_indexes
 from admin_panel import admin_panel_router
 from wearable import wearable_router, create_wearable_indexes
 from payment import payment_router
+from happiness import happiness_router, create_happiness_indexes
 
+app.include_router(happiness_router)
 app.include_router(payment_router)
 app.include_router(wearable_router)
 app.include_router(sprint9_router, prefix="/api")
