@@ -1,0 +1,22 @@
+# EAS Build Ignore File
+# Prevents unnecessary files from being uploaded to EAS Build
+
+# Cache and temp directories
+.expo/
+.metro-cache/
+dist/
+.ruff_cache/
+
+# Development files
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
