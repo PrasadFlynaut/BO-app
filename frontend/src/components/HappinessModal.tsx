@@ -1,21 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, Modal, Dimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming,
-  withSequence, withDelay, withRepeat, FadeIn, FadeInDown,
-  FadeInUp, SlideInDown, runOnJS, Easing,
+  withDelay, FadeInDown,
+  SlideInDown, Easing,
 } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius } from '@/src/theme';
 import api from '@/src/api';
 
+import MoodEmoji, { MOOD_LABELS, MOOD_COLORS } from '@/src/components/MoodEmoji';
+
 const { width: SW } = Dimensions.get('window');
 
-const MOOD_EMOJIS = ['\u{1F622}', '\u{1F61E}', '\u{1F610}', '\u{1F60A}', '\u{1F929}'];
-const MOOD_LABELS = ['Very Low', 'Low', 'Neutral', 'Good', 'Great'];
-const MOOD_COLORS = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#A855F7'];
 const FACTORS = ['sleep', 'nutrition', 'exercise', 'social', 'work', 'family'];
 const FACTOR_ICONS: Record<string, string> = {
   sleep: '\u{1F634}', nutrition: '\u{1F957}', exercise: '\u{1F3CB}',
@@ -26,73 +25,6 @@ interface HappinessModalProps {
   visible: boolean;
   onClose: () => void;
   onLogged: () => void;
-}
-
-// Animated Emoji Button
-function AnimatedEmoji({
-  emoji, label, color, index, isSelected, onPress,
-}: {
-  emoji: string; label: string; color: string; index: number;
-  isSelected: boolean; onPress: () => void;
-}) {
-  const scale = useSharedValue(0);
-  const bounce = useSharedValue(1);
-  const rotation = useSharedValue(0);
-
-  // Entry animation - staggered bounce in
-  useEffect(() => {
-    scale.value = withDelay(
-      index * 80,
-      withSpring(1, { damping: 8, stiffness: 120 })
-    );
-  }, []);
-
-  // Selection animation
-  useEffect(() => {
-    if (isSelected) {
-      // Big bounce + wiggle
-      bounce.value = withSequence(
-        withSpring(1.3, { damping: 4, stiffness: 200 }),
-        withSpring(1.15, { damping: 6, stiffness: 150 })
-      );
-      rotation.value = withSequence(
-        withTiming(-8, { duration: 60 }),
-        withTiming(8, { duration: 80 }),
-        withTiming(-5, { duration: 60 }),
-        withTiming(5, { duration: 60 }),
-        withTiming(0, { duration: 80 })
-      );
-    } else {
-      bounce.value = withSpring(1, { damping: 10 });
-      rotation.value = withTiming(0, { duration: 150 });
-    }
-  }, [isSelected]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value * bounce.value },
-      { rotate: `${rotation.value}deg` },
-    ],
-  }));
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={[
-        styles.emojiBtn,
-        isSelected && { backgroundColor: color + '15', borderColor: color, borderWidth: 2.5 },
-      ]}
-    >
-      <Animated.View style={animStyle}>
-        <Text style={styles.emojiText}>{emoji}</Text>
-      </Animated.View>
-      <Text style={[
-        styles.emojiLabel,
-        isSelected && { color, fontWeight: '700' },
-      ]}>{label}</Text>
-    </TouchableOpacity>
-  );
 }
 
 export default function HappinessModal({ visible, onClose, onLogged }: HappinessModalProps) {
@@ -187,12 +119,9 @@ export default function HappinessModal({ visible, onClose, onLogged }: Happiness
 
           {/* Emoji Row */}
           <View style={styles.emojiRow}>
-            {MOOD_EMOJIS.map((emoji, i) => (
-              <AnimatedEmoji
+            {MOOD_LABELS.map((_, i) => (
+              <MoodEmoji
                 key={i}
-                emoji={emoji}
-                label={MOOD_LABELS[i]}
-                color={MOOD_COLORS[i]}
                 index={i}
                 isSelected={level === i + 1}
                 onPress={() => selectMood(i)}

@@ -216,11 +216,10 @@ function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose
             bounces={false}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             contentContainerStyle={ms.sheetContent}
           >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View>{children}</View>
-            </TouchableWithoutFeedback>
+            {children}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -416,10 +415,16 @@ export default function QuickAddsScreen() {
 
   // ===== WATER =====
   const addWater = async () => {
+    // Optimistic update
+    setWaterTotal(prev => prev + 1);
     try {
       const { data } = await api.post('/v1/trackers/water', { glasses: 1 });
-      setWaterTotal(data.dailyTotal || waterTotal + 1);
-    } catch (e) { console.error(e); }
+      if (data.dailyTotal != null) setWaterTotal(data.dailyTotal);
+    } catch (e) {
+      // Revert on error
+      setWaterTotal(prev => Math.max(0, prev - 1));
+      console.error(e);
+    }
   };
 
   // ===== SLEEP =====
@@ -1241,7 +1246,7 @@ export default function QuickAddsScreen() {
       <BottomSheet visible={showWorkoutModal} onClose={() => { setShowWorkoutModal(false); Keyboard.dismiss(); }}>
         <Text style={s.bsTitle}>Log Workout</Text>
         <Text style={s.bsLabel}>Type</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} keyboardShouldPersistTaps="handled">
           {WK_TYPES.map(t => (
             <TouchableOpacity
               key={t.key}

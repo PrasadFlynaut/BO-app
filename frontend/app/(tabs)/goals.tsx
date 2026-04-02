@@ -16,6 +16,7 @@ import Animated, {
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
+import MoodEmoji, { MOOD_LABELS, MOOD_COLORS } from '@/src/components/MoodEmoji';
 
 const LIFE_GOAL_OPTIONS = [
   { name: 'Stay Fit', icon: 'fitness' },
@@ -27,10 +28,6 @@ const LIFE_GOAL_OPTIONS = [
   { name: 'Mental Wellness', icon: 'happy' },
 ];
 
-const EMOJI_FACES = ['😢', '😟', '😐', '😊', '😁'];
-const EMOJI_LABELS = ['Very Low', 'Low', 'Neutral', 'Good', 'Great'];
-
-// ============ ANIMATED PROGRESS RING ============
 function AnimatedProgressBar({ value, max, color, height = 10 }: { value: number; max: number; color: string; height?: number }) {
   const progress = useSharedValue(0);
   useEffect(() => {
@@ -75,7 +72,6 @@ function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose
   if (!visible) return null;
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={ms.overlay}
@@ -85,14 +81,11 @@ function BottomSheet({ visible, onClose, children }: { visible: boolean; onClose
           </TouchableWithoutFeedback>
         <View style={ms.sheet}>
           <View style={ms.handle} />
-          <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={ms.sheetContent}>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View>{children}</View>
-            </TouchableWithoutFeedback>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={ms.sheetContent}>
+            {children}
           </ScrollView>
         </View>
         </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
     </Modal>
   );
 }
@@ -346,16 +339,13 @@ export default function GoalsScreen() {
         <Text style={s.modalTitle}>How are you feeling?</Text>
         <Text style={s.modalSubtext}>Track your daily mood to see patterns over time</Text>
         <View style={s.emojiRow}>
-          {EMOJI_FACES.map((emoji, idx) => (
-            <TouchableOpacity
+          {MOOD_LABELS.map((_, idx) => (
+            <MoodEmoji
               key={idx}
+              index={idx}
+              isSelected={happinessLevel === idx + 1}
               onPress={() => setHappinessLevel(idx + 1)}
-              style={[s.emojiBtn, happinessLevel === idx + 1 && s.emojiBtnActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={s.emojiText}>{emoji}</Text>
-              <Text style={[s.emojiLabel, happinessLevel === idx + 1 && s.emojiLabelActive]}>{EMOJI_LABELS[idx]}</Text>
-            </TouchableOpacity>
+            />
           ))}
         </View>
         <Text style={s.inputLabel}>Add a note (optional)</Text>
