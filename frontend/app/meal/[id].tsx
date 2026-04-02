@@ -14,6 +14,19 @@ import api from '@/src/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Fallback placeholder for meals without images
+const MealImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 48, fontWeight: '900', color: '#B0B0B0', letterSpacing: 4 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 type MealSlot = 'breakfast' | 'lunch' | 'dinner';
 
 export default function MealDetailScreen() {
@@ -92,7 +105,7 @@ export default function MealDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={ms.heroWrap}>
-          <Image source={{ uri: meal.image_url }} style={ms.heroImg} contentFit="cover" transition={200} />
+          <MealImage uri={meal.image_url} style={ms.heroImg} />
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.5)']} style={ms.heroOverlay} />
           <View style={ms.heroNav}>
             <TouchableOpacity onPress={() => router.back()} style={ms.heroBtn}>

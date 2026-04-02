@@ -18,6 +18,19 @@ import ProgramModal from '@/src/components/ProgramModal';
 
 const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
 
+// Fallback placeholder for images not available
+const FallbackImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 24, fontWeight: '900', color: '#B0B0B0', letterSpacing: 2 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -256,7 +269,7 @@ export default function HomeScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.progScroll}>
             {programs.map((p, i) => (
               <TouchableOpacity key={p.id || i} style={s.progCard} activeOpacity={0.85} onPress={() => openProgram(p)}>
-                <Image source={{ uri: p.image_url }} style={s.progImg} />
+                <FallbackImage uri={p.image_url} style={s.progImg} />
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={s.progOverlay}>
                   <View style={s.durationBadge}>
                     <Text style={s.durationText}>{p.duration_days} Days</Text>
@@ -335,7 +348,7 @@ export default function HomeScreen() {
           restaurants.map((r, i) => (
             <Animated.View key={r.id || i} entering={FadeInDown.delay(400 + i * 60).duration(400)}>
               <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
-                <Image source={{ uri: r.image_url }} style={s.restImg} />
+                <FallbackImage uri={r.image_url} style={s.restImg} />
                 {r.bo_verified && (
                   <View style={s.verifiedBadge}>
                     <Ionicons name="shield-checkmark" size={12} color="#FFF" />

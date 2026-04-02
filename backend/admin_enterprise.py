@@ -112,7 +112,7 @@ async def ai_analytics(request: Request):
         if LLM_API_KEY:
             try:
                 from emergentintegrations.llm.chat import LlmChat, UserMessage
-                chat = LlmChat(api_key=LLM_API_KEY, session_id="admin-analytics-" + now_utc().strftime("%Y%m%d"))
+                chat = LlmChat(api_key=LLM_API_KEY, session_id="admin-analytics-" + now_utc().strftime("%Y%m%d"), system_message="You are a wellness platform analytics AI assistant.")
                 chat.with_model("openai", "gpt-4.1-mini")
 
                 prompt = f"""You are a wellness platform analytics AI. Analyze this data and provide:
@@ -227,7 +227,7 @@ async def ai_recipe_info(request: Request, body: RecipeAIInput):
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         import json
 
-        chat = LlmChat(api_key=LLM_API_KEY, session_id="recipe-ai-" + now_utc().strftime("%Y%m%d%H%M"))
+        chat = LlmChat(api_key=LLM_API_KEY, session_id="recipe-ai-" + now_utc().strftime("%Y%m%d%H%M"), system_message="You are a nutritionist AI assistant.")
         chat.with_model("openai", "gpt-4.1-mini")
 
         prompt = f"""You are a nutritionist AI. For this meal, provide approximate nutritional information per serving:

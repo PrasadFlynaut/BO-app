@@ -13,6 +13,19 @@ import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
 import ProgramModal from '@/src/components/ProgramModal';
 
+// Fallback image component
+const FallbackImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 32, fontWeight: '900', color: '#B0B0B0', letterSpacing: 3 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 export default function WellnessPrograms() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -109,7 +122,7 @@ export default function WellnessPrograms() {
                 activeOpacity={0.85}
                 onPress={() => openProgram(p)}
               >
-                <Image source={{ uri: p.image_url }} style={styles.cardImage} />
+                <FallbackImage uri={p.image_url} style={styles.cardImage} />
                 <LinearGradient
                   colors={['transparent', 'rgba(0,0,0,0.7)']}
                   style={styles.cardGradient}

@@ -17,6 +17,19 @@ import api from '@/src/api';
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - Spacing.lg * 2 - Spacing.sm) / 2;
 
+// Fallback placeholder for meals without images
+const MealImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 28, fontWeight: '900', color: '#B0B0B0', letterSpacing: 2 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 const CATEGORIES = ['All', 'Healthy', 'Vegan', 'Mediterranean', 'Clean Eating', 'Balanced', 'High Protein', 'Keto'];
 const MEAL_TYPES = ['All', 'breakfast', 'lunch', 'dinner', 'snack', 'brunch', 'tea', 'all-day'];
 
@@ -163,7 +176,7 @@ export default function CulinaryScreen() {
         onPress={() => router.push(`/meal/${item.id}`)}
         activeOpacity={0.85}
       >
-        <Image source={{ uri: item.image_url }} style={cs.mealImg} contentFit="cover" transition={200} />
+        <MealImage uri={item.image_url} style={cs.mealImg} />
         <View style={cs.mealInfo}>
           <Text style={cs.mealTitle} numberOfLines={2}>{item.title}</Text>
           <View style={cs.mealMeta}>
@@ -324,7 +337,7 @@ export default function CulinaryScreen() {
                   onPress={() => router.push(`/meal/${item.id}`)}
                   activeOpacity={0.85}
                 >
-                  <Image source={{ uri: item.image_url }} style={cs.favImg} contentFit="cover" transition={200} />
+                  <MealImage uri={item.image_url} style={cs.favImg} />
                   <View style={cs.favInfo}>
                     <Text style={cs.favTitle} numberOfLines={1}>{item.title}</Text>
                     <Text style={cs.favMeta}>{item.category} · {item.calories} cal</Text>

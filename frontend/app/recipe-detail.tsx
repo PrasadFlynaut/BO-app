@@ -13,6 +13,19 @@ import api from '@/src/api';
 
 const boLogo = require('../assets/images/bo-logo-color.png');
 
+// Fallback image component
+const FallbackImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 36, fontWeight: '900', color: '#B0B0B0', letterSpacing: 3 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 type Recipe = {
   id: string; title: string; category: string; calories: number;
   protein?: number; carbs?: number; fat?: number;
@@ -83,7 +96,7 @@ export default function RecipeDetailScreen() {
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         {recipe.image_url ? (
-          <Image source={{ uri: recipe.image_url }} style={s.heroImg} contentFit="cover" transition={200} />
+          <FallbackImage uri={recipe.image_url} style={s.heroImg} />
         ) : (
           <View style={s.heroPlaceholder}>
             <Ionicons name="restaurant" size={48} color={Colors.green} />

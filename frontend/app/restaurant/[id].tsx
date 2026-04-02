@@ -12,6 +12,19 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
 
+// Fallback image component
+const FallbackImage = ({ uri, style }: { uri?: string; style: any }) => {
+  const [failed, setFailed] = React.useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 36, fontWeight: '900', color: '#B0B0B0', letterSpacing: 3 }}>BO</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
+};
+
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -83,7 +96,7 @@ export default function RestaurantDetailScreen() {
       <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={st.heroWrap}>
-          <Image source={{ uri: rest.image_url }} style={st.heroImg} />
+          <FallbackImage uri={rest.image_url} style={st.heroImg} />
           <LinearGradient colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.5)']} style={st.heroGrad} />
           <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -170,7 +183,7 @@ export default function RestaurantDetailScreen() {
             <Text style={st.sectionTitle}>Menu ({menu.length} items)</Text>
             {menu.map((m, i) => (
               <View key={m.id || i} style={[st.menuItem, Shadow.sm]}>
-                <Image source={{ uri: m.image_url }} style={st.menuImg} />
+                <FallbackImage uri={m.image_url} style={st.menuImg} />
                 <View style={{ flex: 1 }}>
                   <Text style={st.menuName}>{m.title}</Text>
                   <Text style={st.menuDesc} numberOfLines={2}>{m.about || m.description}</Text>
