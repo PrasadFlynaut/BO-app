@@ -919,6 +919,17 @@ async def download_project_docs():
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
+@api_router.get("/download/api-docs")
+async def download_api_docs():
+    file_path = ROOT_DIR / "static" / "BO_API_Documentation.docx"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="API Documentation file not found")
+    return FileResponse(
+        path=str(file_path),
+        filename="BO_API_Documentation.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
 app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint3_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
