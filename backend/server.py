@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
+from fastapi.responses import FileResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from middleware import (
@@ -907,6 +908,17 @@ app.include_router(admin_panel_router, prefix="/api")
 app.include_router(admin_enterprise_router, prefix="/api")
 app.include_router(sprint6_router, prefix="/api")
 app.include_router(sprint5_router, prefix="/api")
+@api_router.get("/download/project-docs")
+async def download_project_docs():
+    file_path = ROOT_DIR / "static" / "BO_Complete_Project_Documentation.docx"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Documentation file not found")
+    return FileResponse(
+        path=str(file_path),
+        filename="BO_Complete_Project_Documentation.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
 app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint3_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
