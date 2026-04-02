@@ -5,6 +5,22 @@ const { FileStore } = require('metro-cache');
 
 const config = getDefaultConfig(__dirname);
 
+// Handle @/ path alias at Metro resolver level (runs BEFORE Babel transforms)
+// This is required because babel-plugin-module-resolver runs too late in the pipeline
+const originalResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.startsWith('@/')) {
+    const newModuleName = './' + moduleName.slice(2);
+    // Use the context's own resolveRequest to handle the rewritten path
+    return context.resolveRequest(context, newModuleName, platform);
+  }
+  // Fall back to default resolution
+  if (originalResolveRequest) {
+    return originalResolveRequest(context, moduleName, platform);
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 // Use a stable on-disk store (shared across web/android)
 const root = process.env.METRO_CACHE_ROOT || path.join(__dirname, '.metro-cache');
 config.cacheStores = [
