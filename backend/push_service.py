@@ -37,10 +37,11 @@ async def send_push_notification(
 
     message = {
         "to": push_token,
-        "title": title,
+        "title": title if title.startswith("BO") else f"BO | {title}",
         "body": body,
         "sound": sound,
         "channelId": channel_id,
+        "subtitle": "BO Wellness",
     }
     if data:
         message["data"] = data

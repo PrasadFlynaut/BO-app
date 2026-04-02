@@ -27,7 +27,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#26B50F"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -73,6 +73,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "notification": {
+      "icon": "./assets/images/bo-logo-color.png",
+      "color": "#26B50F",
+      "androidMode": "default",
+      "androidCollapsedTitle": "BO Wellness"
     }
   }
 }

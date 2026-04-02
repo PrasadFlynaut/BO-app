@@ -67,12 +67,14 @@ export async function scheduleLocalNotification(
   delaySeconds: number = 1,
   data?: Record<string, any>
 ) {
+  const boTitle = title.startsWith('BO') ? title : `BO | ${title}`;
   await Notifications.scheduleNotificationAsync({
     content: {
-      title,
+      title: boTitle,
       body,
       data: data || {},
       sound: 'default',
+      subtitle: 'BO Wellness',
     },
     trigger: delaySeconds > 0 ? { seconds: delaySeconds, type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL } : null,
   });
@@ -86,12 +88,14 @@ export async function scheduleDailyReminder(
   minute: number
 ) {
   await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+  const boTitle = title.startsWith('BO') ? title : `BO | ${title}`;
   await Notifications.scheduleNotificationAsync({
     identifier: id,
     content: {
-      title,
+      title: boTitle,
       body,
       sound: 'default',
+      subtitle: 'BO Wellness',
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
