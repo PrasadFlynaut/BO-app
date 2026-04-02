@@ -15,12 +15,13 @@ import api from '@/src/api';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Fallback placeholder for meals without images
+const boLogoGrey = require('../assets/images/bo-logo-color.png');
 const MealImage = ({ uri, style }: { uri?: string; style: any }) => {
   const [failed, setFailed] = React.useState(false);
   if (!uri || failed) {
     return (
-      <View style={[style, { backgroundColor: '#E8E8E8', justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ fontSize: 48, fontWeight: '900', color: '#B0B0B0', letterSpacing: 4 }}>BO</Text>
+      <View style={[style, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
+        <Image source={boLogoGrey} style={{ width: '50%', height: '50%', opacity: 0.18 }} contentFit="contain" />
       </View>
     );
   }
