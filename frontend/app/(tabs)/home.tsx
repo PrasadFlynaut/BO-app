@@ -251,7 +251,7 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(100).duration(500)}>
           <View style={s.sectionHead}>
             <Text style={s.sectionTitle}>Wellness Programs</Text>
-            <TouchableOpacity><Text style={s.seeAll}>See All</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/wellness-programs')}><Text style={s.seeAll}>See All</Text></TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.progScroll}>
             {programs.map((p, i) => (
