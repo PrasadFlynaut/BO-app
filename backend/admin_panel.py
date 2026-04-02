@@ -149,10 +149,27 @@ tr:hover td{background:#f7fafc}
 <!-- DASHBOARD PAGE -->
 <div class="page active" id="page-dashboard">
 <div class="stat-grid" id="statsGrid"></div>
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
 <div class="card"><div class="card-header"><span class="card-title">User Growth (7 days)</span></div><div style="padding:24px"><canvas id="growthChart" height="200"></canvas></div></div>
 <div class="card"><div class="card-header"><span class="card-title">Top Restaurants</span></div><div id="topRestaurants" style="padding:0"></div></div>
-</div></div>
+</div>
+<!-- AI Analytics Section -->
+<div class="card" style="border:2px solid #26B50F;margin-bottom:24px">
+<div class="card-header" style="background:linear-gradient(135deg,#f0fff4,#f7fafc)">
+<span class="card-title"><i class="fas fa-robot" style="color:#26B50F;margin-right:8px"></i>AI Analytics Dashboard</span>
+<button class="btn btn-primary btn-sm" onclick="loadAIAnalytics()" id="aiRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh Insights</button>
+</div>
+<div id="aiAnalyticsContent" style="padding:24px">
+<div style="text-align:center;padding:40px;color:#a0aec0"><i class="fas fa-robot" style="font-size:48px;margin-bottom:12px;display:block;color:#26B50F"></i><p style="font-size:14px">Click "Refresh Insights" to generate AI-powered analytics</p></div>
+</div>
+</div>
+<!-- Health Metrics Overview -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+<div class="card" style="padding:20px;text-align:center"><div style="font-size:36px;margin-bottom:8px">😊</div><div class="stat-value" id="dashAvgHappiness">--</div><div class="stat-label">Avg Happiness Score</div></div>
+<div class="card" style="padding:20px;text-align:center"><div style="font-size:36px;margin-bottom:8px">💧</div><div class="stat-value" id="dashAvgWater">--</div><div class="stat-label">Avg Daily Water (glasses)</div></div>
+<div class="card" style="padding:20px;text-align:center"><div style="font-size:36px;margin-bottom:8px">😴</div><div class="stat-value" id="dashAvgSleep">--</div><div class="stat-label">Avg Sleep (hours)</div></div>
+</div>
+</div>
 <!-- USERS PAGE -->
 <div class="page" id="page-users">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -401,7 +418,7 @@ tr:hover td{background:#f7fafc}
 <div class="form-group"><label class="form-label">Directions</label><div id="directionsList"></div><button class="btn btn-outline btn-sm" onclick="addDirectionRow()" style="margin-top:8px"><i class="fas fa-plus"></i> Add Step</button></div>
 <div class="form-group"><label class="form-label">Notes</label><textarea id="mealNotes" class="form-input" rows="2" placeholder="Optional notes"></textarea></div>
 </div>
-<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('mealModal')">Cancel</button><button class="btn btn-primary" onclick="saveMeal()"><i class="fas fa-save"></i> Save Meal</button></div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('mealModal')">Cancel</button><button class="btn btn-sm" style="background:linear-gradient(135deg,#805AD5,#6B46C1);color:white" onclick="aiGenerateRecipeInfo()"><i class="fas fa-robot"></i> AI Fill (approx)</button><button class="btn btn-primary" onclick="saveMeal()"><i class="fas fa-save"></i> Save Meal</button></div>
 </div></div>
 
 <!-- QUOTE MODAL -->
@@ -467,11 +484,13 @@ tr:hover td{background:#f7fafc}
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('addAdminModal')">Cancel</button><button class="btn btn-primary" onclick="createAdmin()"><i class="fas fa-user-plus"></i> Create</button></div>
 </div></div>
 
-<!-- USER DETAIL MODAL -->
-<div class="modal-backdrop" id="userDetailModal"><div class="modal" style="max-width:800px">
-<div class="modal-header"><h3 id="userDetailTitle">User Details</h3><button class="btn btn-outline btn-sm" onclick="closeModal('userDetailModal')"><i class="fas fa-times"></i></button></div>
-<div class="modal-body">
-<div id="userDetailContent" style="max-height:500px;overflow-y:auto"></div>
+<!-- USER DETAIL MODAL - 360 VIEW -->
+<div class="modal-backdrop" id="userDetailModal"><div class="modal" style="max-width:960px">
+<div class="modal-header"><h3 id="userDetailTitle">User 360° View</h3><button class="btn btn-outline btn-sm" onclick="closeModal('userDetailModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body" style="padding:0">
+<div id="userDetailContent" style="max-height:75vh;overflow-y:auto;padding:24px">
+<div style="text-align:center;padding:40px;color:#a0aec0"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+</div>
 </div>
 <div class="modal-footer">
 <button class="btn btn-outline" onclick="closeModal('userDetailModal')">Close</button>
@@ -762,6 +781,25 @@ async function rejectMeal(id){
   if(r.ok){loadMeals();showToast('Meal rejected.')}else{var d=await r.json();showToast(d.detail||'Reject failed','error')}
 }
 
+// ======== AI RECIPE INFO ========
+async function aiGenerateRecipeInfo(){
+  var name=document.getElementById('mealTitle').value;
+  if(!name){alert('Please enter a meal name first');return}
+  var cat=document.getElementById('mealCategory').value;
+  var desc=document.getElementById('mealAbout').value;
+  showToast('Generating nutritional info with AI...');
+  try{
+    var r=await fetch(API+'/v1/admin/ai-recipe-info',{method:'POST',headers:hdr(),body:JSON.stringify({name:name,category:cat,description:desc})});
+    var d=await r.json();
+    if(d.calories)document.getElementById('mealCalories').value=d.calories;
+    if(d.proteins)document.getElementById('mealProteins').value=d.proteins;
+    if(d.fat)document.getElementById('mealFat').value=d.fat;
+    if(d.carbs)document.getElementById('mealCarbs').value=d.carbs;
+    if(d.about&&!desc)document.getElementById('mealAbout').value=d.about+' (approx values)';
+    showToast('AI filled nutritional info (approx values)');
+  }catch(e){console.error(e);showToast('AI generation failed','error')}
+}
+
 // ======== QUOTES ========
 async function loadQuotes(search=''){
   try{var r=await fetch(API+'/v1/admin/quotes?limit=50&search='+encodeURIComponent(search),{headers:hdr()});var d=await r.json();
@@ -800,7 +838,7 @@ async function toggleQuote(id){
 async function loadPosts(search=''){
   try{var r=await fetch(API+'/v1/admin/posts?limit=50&search='+encodeURIComponent(search),{headers:hdr()});var d=await r.json();
   document.getElementById('postsBody').innerHTML=(d.data||[]).map(function(p){var sn=p.description.replace(/'/g,'&#39;').substring(0,40);
-  return '<tr><td>'+(p.imageUrl?'<img src="'+p.imageUrl+'" style="width:64px;height:48px;border-radius:6px;object-fit:cover">':'--')+'</td><td style="line-height:1.5">'+p.description.substring(0,120)+(p.description.length>120?'...':'')+'</td><td>'+(p.publishedDate?new Date(p.publishedDate).toLocaleDateString():'--')+'</td><td>'+p.likesCount+'</td><td><button class="btn btn-outline btn-sm" onclick="editPost(&#39;'+p.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;post&#39;,&#39;'+p.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No posts yet. Add your first post!</td></tr>';
+  return '<tr><td>'+(p.imageUrl?'<img src="'+p.imageUrl+'" style="width:64px;height:48px;border-radius:6px;object-fit:cover">':'<div style="width:64px;height:48px;border-radius:6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:800;color:#a0aec0;font-size:16px">BO</div>')+'</td><td style="line-height:1.5">'+p.description.substring(0,120)+(p.description.length>120?'...':'')+'</td><td>'+(p.publishedDate?new Date(p.publishedDate).toLocaleDateString():'--')+'</td><td>'+p.likesCount+'</td><td><button class="btn btn-outline btn-sm" onclick="editPost(&#39;'+p.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;post&#39;,&#39;'+p.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No posts yet. Add your first post!</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchPosts(v){loadPosts(v)}
@@ -882,23 +920,166 @@ async function savePlan(){
   if(r.ok){closeModal('planModal');loadPlans();showToast('Plan saved.')}else{var d=await r.json();alert(d.detail||'Error')}
 }
 
-// ======== SPRINT 9: ENHANCED USERS ========
-function openUserDetail(userId){viewingUserId=userId;loadUserDetail(userId)}
-async function loadUserDetail(userId){
-  try{var r=await fetch(API+'/v1/admin/user/all-data/'+userId,{headers:hdr()});var d=await r.json();
-  var u=d.user;var s=d.stats;
-  document.getElementById('userDetailTitle').textContent=u.name||u.email;
-  var statusColor=u.status==='suspended'?'badge-red':'badge-green';
-  document.getElementById('userSuspendBtn').style.display=u.status==='suspended'?'none':'inline-flex';
-  document.getElementById('userActivateBtn').style.display=u.status==='suspended'?'inline-flex':'none';
-  document.getElementById('userDetailContent').innerHTML='<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e2e8f0"><div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#26B50F,#22a00d);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white">'+(u.name?u.name[0].toUpperCase():'U')+'</div><div><h3 style="font-weight:700">'+u.name+'</h3><p style="font-size:13px;color:#718096">'+u.email+'</p><div style="display:flex;gap:8px;margin-top:4px"><span class="badge '+statusColor+'">'+u.status+'</span><span class="badge badge-blue">'+(u.plan||'basic')+'</span>'+(u.phone?'<span style="font-size:12px;color:#718096"><i class="fas fa-phone"></i> '+u.phone+'</span>':'')+'</div></div></div>'+
-  '<div class="stat-grid" style="margin-bottom:20px"><div class="stat-card"><div class="stat-value">'+s.mealsLogged+'</div><div class="stat-label">Meals Logged</div></div><div class="stat-card"><div class="stat-value">'+s.workoutsCompleted+'</div><div class="stat-label">Workouts</div></div><div class="stat-card"><div class="stat-value">'+s.journalsCreated+'</div><div class="stat-label">Journals</div></div><div class="stat-card"><div class="stat-value">'+s.postsCreated+'</div><div class="stat-label">Posts</div></div></div>'+
-  (d.goals&&d.goals.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Goals</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">'+d.goals.map(function(g){return '<span class="badge badge-gray">'+g+'</span>'}).join('')+'</div>':'')+
-  (d.subscriptions&&d.subscriptions.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Subscriptions</h4><table style="margin-bottom:16px"><tr><th>Plan</th><th>Status</th><th>Started</th></tr>'+d.subscriptions.map(function(s){return '<tr><td>'+(s.display_name||s.plan_name||'--')+'</td><td><span class="badge '+(s.status==='active'?'badge-green':'badge-red')+'">'+s.status+'</span></td><td>'+(s.started_at?new Date(s.started_at).toLocaleDateString():'--')+'</td></tr>'}).join('')+'</table>':'')+
-  (d.workouts&&d.workouts.length?'<h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Recent Workouts</h4><div style="margin-bottom:16px">'+d.workouts.map(function(w){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+w.type+'</span><span>'+w.duration+'min / '+w.calories+' cal</span></div>'}).join('')+'</div>':'');
-  document.getElementById('userDetailModal').classList.add('show');
+// ======== SPRINT 9: ENHANCED USERS 360 VIEW ========
+function openUserDetail(userId){viewingUserId=userId;loadUserDetail360(userId)}
+
+async function loadAIAnalytics(){
+  var btn=document.getElementById('aiRefreshBtn');
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Generating...';btn.disabled=true;
+  try{
+    var r=await fetch(API+'/v1/admin/ai-analytics',{headers:hdr()});
+    var d=await r.json();
+    var m=d.metrics||{};
+    document.getElementById('dashAvgHappiness').textContent=(m.avgHappiness||'--')+'/5';
+    document.getElementById('dashAvgWater').textContent=m.avgWater||'--';
+    document.getElementById('dashAvgSleep').textContent=(m.avgSleep||'--')+'h';
+    var html='<div style="margin-bottom:20px"><h4 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#26B50F"><i class="fas fa-lightbulb"></i> AI Insights</h4><div style="display:grid;gap:8px">';
+    (d.insights||[]).forEach(function(i){html+='<div style="padding:10px 14px;background:#f7fafc;border-radius:8px;font-size:13px;border-left:3px solid #26B50F">'+i+'</div>'});
+    html+='</div></div>';
+    html+='<div style="margin-bottom:20px"><h4 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#805AD5"><i class="fas fa-rocket"></i> Recommendations</h4><div style="display:grid;gap:8px">';
+    (d.recommendations||[]).forEach(function(r){html+='<div style="padding:10px 14px;background:#faf5ff;border-radius:8px;font-size:13px;border-left:3px solid #805AD5">'+r+'</div>'});
+    html+='</div></div>';
+    if(d.healthSummary){html+='<div style="padding:14px;background:linear-gradient(135deg,#f0fff4,#f7fafc);border-radius:10px;font-size:13px;border:1px solid #c6f6d5"><strong><i class="fas fa-heartbeat" style="color:#26B50F"></i> Platform Health:</strong> '+d.healthSummary+'</div>'}
+    document.getElementById('aiAnalyticsContent').innerHTML=html;
+  }catch(e){console.error(e);document.getElementById('aiAnalyticsContent').innerHTML='<p style="color:#e53e3e;padding:20px;text-align:center">Failed to load AI analytics</p>'}
+  btn.innerHTML='<i class="fas fa-sync-alt"></i> Refresh Insights';btn.disabled=false;
+}
+
+async function loadUserDetail360(userId){
+  try{
+    var r=await fetch(API+'/v1/admin/user/360/'+userId,{headers:hdr()});var d=await r.json();
+    var u=d.user;var s=d.stats;
+    document.getElementById('userDetailTitle').textContent=(u.name||u.email)+' - 360\u00b0 View';
+    var statusColor=u.status==='suspended'?'badge-red':'badge-green';
+    document.getElementById('userSuspendBtn').style.display=u.status==='suspended'?'none':'inline-flex';
+    document.getElementById('userActivateBtn').style.display=u.status==='suspended'?'inline-flex':'none';
+
+    var avatarHtml=u.avatar?'<img src="'+u.avatar+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover">':'<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#26B50F,#22a00d);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:white">'+(u.name?u.name[0].toUpperCase():'U')+'</div>';
+
+    var html='<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0">'+avatarHtml+'<div style="flex:1"><h3 style="font-weight:700;font-size:18px;margin-bottom:2px">'+u.name+'</h3><p style="font-size:13px;color:#718096;margin-bottom:6px">'+u.email+(u.phone?' &middot; '+u.phone:'')+'</p><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge '+statusColor+'">'+u.status+'</span><span class="badge badge-blue">'+(u.plan||'basic')+'</span><span class="badge badge-gray">Joined '+(u.created_at?new Date(u.created_at).toLocaleDateString():'--')+'</span>'+(u.last_login?'<span class="badge badge-gray">Last seen '+ new Date(u.last_login).toLocaleDateString()+'</span>':'')+'</div></div></div>';
+
+    // Stats Cards
+    html+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">';
+    var stats=[{v:s.mealsLogged,l:'Meals',i:'fa-utensils',c:'#E53E3E'},{v:s.workoutsCompleted,l:'Workouts',i:'fa-dumbbell',c:'#3182CE'},{v:s.journalsCreated,l:'Journals',i:'fa-book',c:'#805AD5'},{v:s.postsCreated,l:'Posts',i:'fa-edit',c:'#D69E2E'},{v:s.happinessLogs,l:'Mood Logs',i:'fa-smile',c:'#38A169'}];
+    stats.forEach(function(st){html+='<div style="text-align:center;padding:12px;background:#f7fafc;border-radius:10px;border:1px solid #e2e8f0"><i class="fas '+st.i+'" style="color:'+st.c+';font-size:18px;margin-bottom:4px;display:block"></i><div style="font-size:20px;font-weight:800;color:#1a202c">'+st.v+'</div><div style="font-size:11px;color:#a0aec0">'+st.l+'</div></div>'});
+    html+='</div>';
+
+    // Health Metrics
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">';
+    html+='<div style="padding:14px;background:linear-gradient(135deg,#faf5ff,#f5f3ff);border-radius:10px;text-align:center"><div style="font-size:24px;margin-bottom:4px">&#128522;</div><div style="font-size:18px;font-weight:800">'+(s.avgHappiness||'--')+'/5</div><div style="font-size:11px;color:#a0aec0">Avg Happiness</div></div>';
+    html+='<div style="padding:14px;background:linear-gradient(135deg,#ebf8ff,#f0fff4);border-radius:10px;text-align:center"><div style="font-size:24px;margin-bottom:4px">&#128167;</div><div style="font-size:18px;font-weight:800">'+(s.avgWater||'--')+'</div><div style="font-size:11px;color:#a0aec0">Avg Water (glasses)</div></div>';
+    html+='<div style="padding:14px;background:linear-gradient(135deg,#f0fff4,#ebf8ff);border-radius:10px;text-align:center"><div style="font-size:24px;margin-bottom:4px">&#128564;</div><div style="font-size:18px;font-weight:800">'+(s.avgSleep||'--')+'h</div><div style="font-size:11px;color:#a0aec0">Avg Sleep</div></div>';
+    html+='<div style="padding:14px;background:linear-gradient(135deg,#fffbeb,#f0fff4);border-radius:10px;text-align:center"><div style="font-size:24px;margin-bottom:4px">&#128694;</div><div style="font-size:18px;font-weight:800">'+(s.avgSteps?s.avgSteps.toLocaleString():'--')+'</div><div style="font-size:11px;color:#a0aec0">Avg Daily Steps</div></div>';
+    html+='</div>';
+
+    // Tabbed sections
+    html+='<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">';
+    var tabs=[{id:'t360health',l:'Health Timeline',ic:'fa-heartbeat'},{id:'t360workouts',l:'Workouts',ic:'fa-dumbbell'},{id:'t360meals',l:'Meals',ic:'fa-utensils'},{id:'t360social',l:'Social',ic:'fa-users'},{id:'t360subs',l:'Subscriptions',ic:'fa-credit-card'},{id:'t360tickets',l:'Tickets',ic:'fa-ticket-alt'}];
+    tabs.forEach(function(t,i){html+='<button class="btn btn-sm '+(i===0?'btn-primary':'btn-outline')+'" onclick="show360Tab(&#39;'+t.id+'&#39;,this)" style="font-size:12px"><i class="fas '+t.ic+'"></i> '+t.l+'</button>'});
+    html+='</div>';
+
+    // Health Timeline Tab
+    html+='<div class="tab360" id="t360health" style="display:block">';
+    if(d.happiness&&d.happiness.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:#805AD5"><i class="fas fa-smile"></i> Happiness Trend (Last 30)</h4><div style="display:flex;gap:3px;align-items:end;height:60px;margin-bottom:16px;padding:4px;background:#f7fafc;border-radius:8px">';
+      var maxS=5;d.happiness.slice().reverse().forEach(function(h){var pct=(h.score/maxS)*100;var clr=h.score>=4?'#38A169':h.score>=3?'#D69E2E':'#E53E3E';html+='<div style="flex:1;height:'+pct+'%;background:'+clr+';border-radius:3px;min-height:4px" title="'+h.date+': '+h.score+'/5'+'"></div>'});
+      html+='</div>';
+    }
+    if(d.water&&d.water.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:#3182CE"><i class="fas fa-tint"></i> Water Intake (Last 30 days)</h4><div style="display:flex;gap:3px;align-items:end;height:50px;margin-bottom:16px;padding:4px;background:#f7fafc;border-radius:8px">';
+      var maxW=Math.max.apply(null,d.water.map(function(w){return w.glasses||0}))||8;
+      d.water.slice().reverse().forEach(function(w){var pct=((w.glasses||0)/maxW)*100;html+='<div style="flex:1;height:'+Math.max(pct,5)+'%;background:#3182CE;border-radius:3px;opacity:0.7" title="'+w.date+': '+w.glasses+' glasses"></div>'});
+      html+='</div>';
+    }
+    if(d.sleep&&d.sleep.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:#6B46C1"><i class="fas fa-moon"></i> Sleep Trend (Last 30 days)</h4><div style="display:flex;gap:3px;align-items:end;height:50px;margin-bottom:16px;padding:4px;background:#f7fafc;border-radius:8px">';
+      var maxSl=Math.max.apply(null,d.sleep.map(function(s){return s.hours||0}))||10;
+      d.sleep.slice().reverse().forEach(function(sl){var pct=((sl.hours||0)/maxSl)*100;html+='<div style="flex:1;height:'+Math.max(pct,5)+'%;background:#6B46C1;border-radius:3px;opacity:0.7" title="'+sl.date+': '+sl.hours+'h"></div>'});
+      html+='</div>';
+    }
+    if(d.steps&&d.steps.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:#D69E2E"><i class="fas fa-walking"></i> Steps (Last 30 days)</h4><div style="display:flex;gap:3px;align-items:end;height:50px;margin-bottom:12px;padding:4px;background:#f7fafc;border-radius:8px">';
+      var maxSt=Math.max.apply(null,d.steps.map(function(s){return s.steps||0}))||10000;
+      d.steps.slice().reverse().forEach(function(st){var pct=((st.steps||0)/maxSt)*100;html+='<div style="flex:1;height:'+Math.max(pct,5)+'%;background:#D69E2E;border-radius:3px;opacity:0.7" title="'+st.date+': '+st.steps+' steps"></div>'});
+      html+='</div>';
+    }
+    if(!d.happiness.length&&!d.water.length&&!d.sleep.length){html+='<p style="text-align:center;color:#a0aec0;padding:20px">No health data recorded yet</p>'}
+    html+='</div>';
+
+    // Workouts Tab
+    html+='<div class="tab360" id="t360workouts" style="display:none">';
+    if(d.workouts&&d.workouts.length){
+      html+='<table><tr><th>Type</th><th>Duration</th><th>Calories</th><th>Date</th></tr>';
+      d.workouts.forEach(function(w){html+='<tr><td><i class="fas fa-dumbbell" style="color:#3182CE;margin-right:6px"></i>'+w.type+'</td><td>'+w.duration+' min</td><td>'+w.calories+' cal</td><td>'+(w.date?new Date(w.date).toLocaleDateString():'--')+'</td></tr>'});
+      html+='</table>';
+    }else{html+='<p style="text-align:center;color:#a0aec0;padding:20px">No workouts recorded</p>'}
+    html+='</div>';
+
+    // Meals Tab
+    html+='<div class="tab360" id="t360meals" style="display:none">';
+    if(d.meals&&d.meals.length){
+      html+='<div style="display:grid;gap:8px">';
+      d.meals.forEach(function(m){
+        html+='<div style="display:flex;gap:12px;padding:10px;background:#f7fafc;border-radius:8px;align-items:center">';
+        html+=(m.image_url||m.imageUrl)?'<img src="'+(m.image_url||m.imageUrl)+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover">':'<div style="width:48px;height:48px;border-radius:8px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#a0aec0;font-weight:700">BO</div>';
+        html+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+(m.meal_name||m.name||'Meal')+'</div><div style="font-size:11px;color:#a0aec0">'+(m.calories||'--')+' cal &middot; '+(m.created_at?new Date(m.created_at).toLocaleDateString():'')+'</div></div></div>';
+      });
+      html+='</div>';
+    }else{html+='<p style="text-align:center;color:#a0aec0;padding:20px">No meals logged</p>'}
+    html+='</div>';
+
+    // Social Tab
+    html+='<div class="tab360" id="t360social" style="display:none">';
+    if(d.posts&&d.posts.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:8px">Recent Posts</h4><div style="display:grid;gap:8px">';
+      d.posts.forEach(function(p){html+='<div style="padding:10px;background:#f7fafc;border-radius:8px"><div style="font-size:13px">'+p.content+'</div><div style="font-size:11px;color:#a0aec0;margin-top:4px">'+(p.date?new Date(p.date).toLocaleDateString():'')+(p.likes?' &middot; '+p.likes+' likes':'')+'</div></div>'});
+      html+='</div>';
+    }
+    if(d.journals&&d.journals.length){
+      html+='<h4 style="font-size:13px;font-weight:700;margin:16px 0 8px">Journal Entries</h4><div style="display:grid;gap:6px">';
+      d.journals.forEach(function(j){html+='<div style="padding:8px 12px;background:#faf5ff;border-radius:8px;border-left:3px solid #805AD5"><span style="font-size:13px;font-weight:600">'+j.title+'</span><span style="font-size:11px;color:#a0aec0;margin-left:8px">'+(j.date?new Date(j.date).toLocaleDateString():'')+'</span></div>'});
+      html+='</div>';
+    }
+    if(!d.posts.length&&!d.journals.length){html+='<p style="text-align:center;color:#a0aec0;padding:20px">No social activity</p>'}
+    html+='</div>';
+
+    // Subscriptions Tab
+    html+='<div class="tab360" id="t360subs" style="display:none">';
+    if(d.subscriptions&&d.subscriptions.length){
+      html+='<table><tr><th>Plan</th><th>Status</th><th>Started</th></tr>';
+      d.subscriptions.forEach(function(s){html+='<tr><td>'+(s.display_name||s.plan_name||'--')+'</td><td><span class="badge '+(s.status==='active'?'badge-green':'badge-red')+'">'+s.status+'</span></td><td>'+(s.started_at?new Date(s.started_at).toLocaleDateString():'--')+'</td></tr>'});
+      html+='</table>';
+    }else{html+='<p style="text-align:center;color:#a0aec0;padding:20px">No subscriptions</p>'}
+    html+='</div>';
+
+    // Tickets Tab
+    html+='<div class="tab360" id="t360tickets" style="display:none">';
+    if(d.tickets&&d.tickets.length){
+      html+='<table><tr><th>Subject</th><th>Status</th><th>Date</th></tr>';
+      d.tickets.forEach(function(t){html+='<tr><td>'+t.subject+'</td><td><span class="badge '+(t.status==='open'?'badge-blue':t.status==='resolved'?'badge-green':'badge-gray')+'">'+t.status+'</span></td><td>'+(t.date?new Date(t.date).toLocaleDateString():'--')+'</td></tr>'});
+      html+='</table>';
+    }else{html+='<p style="text-align:center;color:#a0aec0;padding:20px">No support tickets</p>'}
+    html+='</div>';
+
+    // Goals & Preferences
+    html+='<div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">';
+    if(d.goals&&d.goals.length){html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:6px"><i class="fas fa-bullseye" style="color:#E53E3E"></i> Goals</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+d.goals.map(function(g){return '<span class="badge badge-gray">'+g+'</span>'}).join('')+'</div>'}
+    if(d.lifeGoals&&d.lifeGoals.length){html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:6px"><i class="fas fa-star" style="color:#D69E2E"></i> Life Goals</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+d.lifeGoals.map(function(g){return '<span class="badge badge-blue">'+g+'</span>'}).join('')+'</div>'}
+    if(d.dietaryPreferences&&d.dietaryPreferences.length){html+='<h4 style="font-size:13px;font-weight:700;margin-bottom:6px"><i class="fas fa-leaf" style="color:#38A169"></i> Dietary Preferences</h4><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+d.dietaryPreferences.map(function(g){return '<span class="badge badge-green">'+g+'</span>'}).join('')+'</div>'}
+    html+='</div>';
+
+    document.getElementById('userDetailContent').innerHTML=html;
+    document.getElementById('userDetailModal').classList.add('show');
   }catch(e){console.error(e);showToast('Failed to load user details','error')}
 }
+
+function show360Tab(tabId,btn){
+  document.querySelectorAll('.tab360').forEach(function(t){t.style.display='none'});
+  document.getElementById(tabId).style.display='block';
+  btn.parentElement.querySelectorAll('.btn').forEach(function(b){b.className='btn btn-outline btn-sm';b.style.fontSize='12px'});
+  btn.classList.add('btn-primary');btn.classList.remove('btn-outline');
+}
+
 async function userAction(action){
   if(action==='delete'&&!confirm('PERMANENTLY delete this user and all their data? This cannot be undone.'))return;
   var reason='';

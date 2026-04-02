@@ -891,6 +891,7 @@ from sprint7 import sprint7_router, seed_sprint7_data, setup_sprint7_indexes
 from sprint8 import sprint8_router, seed_sprint8_data, setup_sprint8_indexes
 from sprint9 import sprint9_router, seed_sprint9_data, setup_sprint9_indexes
 from admin_panel import admin_panel_router
+from admin_enterprise import admin_enterprise_router
 from wearable import wearable_router, create_wearable_indexes
 from payment import payment_router
 from happiness import happiness_router, create_happiness_indexes
@@ -903,6 +904,7 @@ app.include_router(sprint9_router, prefix="/api")
 app.include_router(sprint8_router, prefix="/api")
 app.include_router(sprint7_router, prefix="/api")
 app.include_router(admin_panel_router, prefix="/api")
+app.include_router(admin_enterprise_router, prefix="/api")
 app.include_router(sprint6_router, prefix="/api")
 app.include_router(sprint5_router, prefix="/api")
 app.include_router(sprint4_router, prefix="/api")
