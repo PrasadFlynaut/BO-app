@@ -10,8 +10,8 @@ const config = getDefaultConfig(__dirname);
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.startsWith('@/')) {
-    const newModuleName = './' + moduleName.slice(2);
-    // Use the context's own resolveRequest to handle the rewritten path
+    // Resolve @/ imports relative to the project root (not the importing file)
+    const newModuleName = path.resolve(__dirname, moduleName.slice(2));
     return context.resolveRequest(context, newModuleName, platform);
   }
   // Fall back to default resolution
