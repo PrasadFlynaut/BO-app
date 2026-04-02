@@ -15,7 +15,7 @@ import api from '@/src/api';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Fallback placeholder for meals without images
-const boLogoGrey = require('../assets/images/bo-logo-color.png');
+const boLogoGrey = require('../../assets/images/bo-logo-color.png');
 const MealImage = ({ uri, style }: { uri?: string; style: any }) => {
   const [failed, setFailed] = React.useState(false);
   if (!uri || failed) {
