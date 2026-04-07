@@ -948,12 +948,14 @@ app.include_router(api_router)
 
 ALLOWED_ORIGINS = [
     "https://mobile-launch-45.preview.emergentagent.com",
+    "https://mobile-launch-45.emergent.host",
     "http://localhost:3000",
     "http://localhost:8001",
     "http://localhost:19006",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8001",
     os.environ.get("EXPO_PUBLIC_APP_URL", ""),
+    os.environ.get("CORS_ORIGIN", ""),
 ]
 # Filter out empty strings
 ALLOWED_ORIGINS = [o for o in ALLOWED_ORIGINS if o]
@@ -962,6 +964,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.emergent\.host|https://.*\.emergentagent\.com",
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
