@@ -930,6 +930,17 @@ async def download_api_docs():
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
+@api_router.get("/download/handover-docs")
+async def download_handover_docs():
+    file_path = ROOT_DIR / "static" / "BO_Handover_Document.docx"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Handover Document not found")
+    return FileResponse(
+        path=str(file_path),
+        filename="BO_Handover_Document.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
 app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint3_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
