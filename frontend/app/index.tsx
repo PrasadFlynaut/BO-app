@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import { boLogoWhite } from '@/src/assets';
 
 const { width, height } = Dimensions.get('window');
 
@@ -125,9 +126,9 @@ export default function SplashScreen() {
         />
         <View style={styles.textOverlay}>
           <Animated.View entering={FadeInUp.duration(500)}>
-            <View style={[styles.accentBadge, { backgroundColor: item.accent + '25' }]}>
-              <View style={[styles.accentDot, { backgroundColor: item.accent }]} />
-              <Text style={[styles.accentBadgeText, { color: item.accent }]}>BO Wellness</Text>
+            <View style={styles.logoBadge}>
+              <Image source={boLogoWhite} style={styles.logoImage} contentFit="contain" />
+              <Text style={styles.logoText}>Wellness</Text>
             </View>
           </Animated.View>
         </View>
@@ -224,17 +225,18 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   textOverlay: { position: 'absolute', top: 24, left: 20, right: 20 },
-  accentBadge: {
+  logoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 6,
-    paddingVertical: 6,
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: Radius.pill,
   },
-  accentDot: { width: 8, height: 8, borderRadius: 4 },
-  accentBadgeText: { fontSize: FontSize.caption, fontWeight: '700', letterSpacing: 1 },
+  logoImage: { width: 36, height: 36, borderRadius: 8 },
+  logoText: { fontSize: FontSize.body, fontWeight: '700', color: '#FFFFFF', letterSpacing: 1 },
   bottomOverlay: { position: 'absolute', bottom: 28, left: 20, right: 20 },
   slideTitle: {
     color: '#FFF',
