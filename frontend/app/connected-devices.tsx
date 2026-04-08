@@ -325,7 +325,7 @@ export default function ConnectedDevicesScreen() {
           <Animated.View entering={FadeInUp.delay(300).duration(400)} style={s.infoBanner}>
             <Ionicons name="information-circle-outline" size={20} color={Colors.waterBlue} />
             <Text style={s.infoText}>
-              BO syncs steps, heart rate, calories, sleep, distance, and active minutes from your connected devices. Data syncs automatically on connect and can be refreshed manually.
+              BO syncs steps, heart rate, fuel burned, sleep, distance, and active minutes from your connected devices. Data syncs automatically on connect and can be refreshed manually.
             </Text>
           </Animated.View>
 

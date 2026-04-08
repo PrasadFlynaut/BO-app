@@ -190,8 +190,8 @@ export default function ProfileScreen() {
       setShowCreateRecipe(false);
       resetRecipeForm();
       loadRecipes();
-      Alert.alert('Success', 'Recipe created!');
-    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed to create recipe'); }
+      Alert.alert('Success', 'Meal plan created!');
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed to create meal plan'); }
     setCreatingRecipe(false);
   };
 
@@ -261,7 +261,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(100).duration(350)} style={st.statsRow}>
           {[
             { num: dashboard?.meals_logged || 0, label: 'Meals', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
-            { num: Math.round(dashboard?.calories || 0), label: 'Calories', color: Colors.green, bg: Colors.greenLight },
+            { num: Math.round(dashboard?.calories || 0), label: 'Fuel', color: Colors.green, bg: Colors.greenLight },
             { num: earnedCount, label: 'Badges', color: Colors.fitnessPurple, bg: Colors.fitnessSurface },
           ].map((s, i) => (
             <View key={i} style={[st.statBox, { backgroundColor: s.bg }, Shadow.sm]}>
@@ -311,9 +311,9 @@ export default function ProfileScreen() {
           {recipes.length === 0 ? (
             <View style={st.emptyRecipes}>
               <Ionicons name="book-outline" size={36} color={Colors.textTertiary} />
-              <Text style={st.emptyRecipesText}>No recipes yet</Text>
+              <Text style={st.emptyRecipesText}>No meal plans yet</Text>
               <TouchableOpacity onPress={() => setShowCreateRecipe(true)}>
-                <Text style={st.createRecipeLink}>Create your first recipe</Text>
+                <Text style={st.createRecipeLink}>Create your first meal plan</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -322,7 +322,7 @@ export default function ProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={st.recipeTitle}>{recipe.title}</Text>
                   <Text style={st.recipeMeta}>
-                    {recipe.calories} cal · {recipe.category}
+                    {recipe.calories} fuel · {recipe.category}
                     {recipe.ingredients?.length ? ` · ${recipe.ingredients.length} ingredients` : ''}
                   </Text>
                 </View>
@@ -463,7 +463,7 @@ export default function ProfileScreen() {
               <TouchableOpacity onPress={() => { setShowCreateRecipe(false); resetRecipeForm(); }}>
                 <Text style={st.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={st.createTitle}>New Recipe</Text>
+              <Text style={st.createTitle}>New Meal Plan</Text>
               <TouchableOpacity onPress={handleCreateRecipe} disabled={creatingRecipe}>
                 <View style={[st.saveBtn, (!rTitle.trim() || !rIngredients.trim()) && { opacity: 0.5 }]}>
                   {creatingRecipe ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={st.saveBtnText}>Save</Text>}

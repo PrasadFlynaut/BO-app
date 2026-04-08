@@ -78,7 +78,7 @@ export default function RecipeDetailScreen() {
   );
 
   const macros = [
-    { label: 'Calories', value: recipe.calories, unit: 'kcal', color: Colors.nutritionOrange },
+    { label: 'Fuel', value: recipe.calories, unit: 'kcal', color: Colors.nutritionOrange },
     { label: 'Protein', value: recipe.protein || 0, unit: 'g', color: Colors.green },
     { label: 'Carbs', value: recipe.carbs || 0, unit: 'g', color: Colors.waterBlue },
     { label: 'Fat', value: recipe.fat || 0, unit: 'g', color: Colors.fitnessPurple },

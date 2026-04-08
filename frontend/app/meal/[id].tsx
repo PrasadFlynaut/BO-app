@@ -95,7 +95,7 @@ export default function MealDetailScreen() {
   );
 
   const macros = [
-    { label: 'Calories', value: `${meal.calories || 0}`, unit: 'kcal', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
+    { label: 'Fuel', value: `${meal.calories || 0}`, unit: 'kcal', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
     { label: 'Protein', value: `${meal.proteins || 0}`, unit: 'g', color: Colors.green, bg: Colors.greenLight },
     { label: 'Fat', value: `${meal.fat || 0}`, unit: 'g', color: Colors.fitnessPurple, bg: Colors.fitnessSurface },
     { label: 'Carbs', value: `${meal.carbs || 0}`, unit: 'g', color: Colors.waterBlue, bg: Colors.waterSurface },
@@ -118,7 +118,7 @@ export default function MealDetailScreen() {
           </View>
           <View style={ms.heroBadges}>
             <View style={ms.heroBadge}><Ionicons name="time-outline" size={14} color="#FFF" /><Text style={ms.heroBadgeText}>{meal.servings || 1} servings</Text></View>
-            <View style={ms.heroBadge}><Ionicons name="flame-outline" size={14} color="#FFF" /><Text style={ms.heroBadgeText}>{meal.calories} cal</Text></View>
+            <View style={ms.heroBadge}><Ionicons name="flame-outline" size={14} color="#FFF" /><Text style={ms.heroBadgeText}>{meal.calories} fuel</Text></View>
           </View>
         </View>
 

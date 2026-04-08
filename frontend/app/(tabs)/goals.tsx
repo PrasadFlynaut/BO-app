@@ -182,7 +182,7 @@ export default function GoalsScreen() {
 
   const shareReport = async () => {
     if (!report) return;
-    const text = `BO Wellness Progress Report\n\nPeriod: ${report.period?.start} to ${report.period?.end}\n\nMeals: ${report.meals?.total_logged} logged (${report.meals?.total_calories} cal)\nWater: ${report.water?.total_glasses} glasses (avg ${report.water?.avg_daily}/day)\nSleep: avg ${report.sleep?.avg_duration_hrs}h, quality ${report.sleep?.avg_quality}/5\nWalking: ${report.walking?.total_steps?.toLocaleString()} steps (avg ${report.walking?.avg_daily_steps?.toLocaleString()}/day)\nActivity: ${report.activity?.total_met_minutes} MET-min (${report.activity?.sessions} sessions)\nHappiness: ${report.happiness?.average}/5 avg\n\nGenerated: ${new Date(report.generated_at).toLocaleDateString()}`;
+    const text = `BO Wellness Progress Report\n\nPeriod: ${report.period?.start} to ${report.period?.end}\n\nMeals: ${report.meals?.total_logged} logged (${report.meals?.total_calories} fuel)\nWater: ${report.water?.total_glasses} glasses (avg ${report.water?.avg_daily}/day)\nSleep: avg ${report.sleep?.avg_duration_hrs}h, quality ${report.sleep?.avg_quality}/5\nWalking: ${report.walking?.total_steps?.toLocaleString()} steps (avg ${report.walking?.avg_daily_steps?.toLocaleString()}/day)\nActivity: ${report.activity?.total_met_minutes} MET-min (${report.activity?.sessions} sessions)\nHappiness: ${report.happiness?.average}/5 avg\n\nGenerated: ${new Date(report.generated_at).toLocaleDateString()}`;
     try {
       await Share.share({ message: text, title: 'BO Wellness Report' });
     } catch (e) { console.error(e); }
@@ -418,7 +418,7 @@ export default function GoalsScreen() {
           <>
             <Text style={s.reportPeriod}>{report.period?.start} to {report.period?.end}</Text>
             <View style={s.reportGrid}>
-              {renderReportItem('Meals', `${report.meals?.total_logged || 0} logged`, `${(report.meals?.total_calories || 0).toLocaleString()} cal`, 'restaurant', Colors.nutritionOrange)}
+              {renderReportItem('Meals', `${report.meals?.total_logged || 0} logged`, `${(report.meals?.total_calories || 0).toLocaleString()} fuel`, 'restaurant', Colors.nutritionOrange)}
               {renderReportItem('Water', `${report.water?.total_glasses || 0} glasses`, `avg ${report.water?.avg_daily || 0}/day`, 'water', Colors.waterBlue)}
               {renderReportItem('Sleep', `avg ${report.sleep?.avg_duration_hrs || 0}h`, `quality ${report.sleep?.avg_quality || 0}/5`, 'moon', Colors.fitnessPurple)}
               {renderReportItem('Walking', `${(report.walking?.total_steps || 0).toLocaleString()} steps`, `avg ${(report.walking?.avg_daily_steps || 0).toLocaleString()}/day`, 'walk', Colors.socialTeal)}
