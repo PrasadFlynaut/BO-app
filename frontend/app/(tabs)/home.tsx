@@ -1,20 +1,24 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, ActivityIndicator, RefreshControl, Alert,
+  Dimensions, Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, FadeInLeft, FadeOutLeft, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
-import { boLogoColor } from '@/src/assets';
+import { boLogoColor, boLogoWhite } from '@/src/assets';
 import HappinessModal from '@/src/components/HappinessModal';
 import ProgramModal from '@/src/components/ProgramModal';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const DRAWER_W = SCREEN_W * 0.78;
 
 const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
 
@@ -60,6 +64,21 @@ export default function HomeScreen() {
 
   // Daily Quote
   const [dailyQuote, setDailyQuote] = useState<{ text: string; subQuote: string } | null>(null);
+
+  // Sidebar drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const DRAWER_ITEMS = [
+    { icon: 'person-outline' as const, label: 'Profile', route: '/(tabs)/profile' },
+    { icon: 'restaurant-outline' as const, label: 'Restaurants', route: '/(tabs)/home' },
+    { icon: 'watch-outline' as const, label: 'Connected Devices', route: '/connected-devices' },
+    { icon: 'heart-outline' as const, label: 'Wellness Programs', route: '/wellness-programs' },
+    { icon: 'chatbubble-outline' as const, label: 'AI Coach', route: '/chat' },
+    { icon: 'card-outline' as const, label: 'Subscription', route: '/subscription' },
+    { icon: 'megaphone-outline' as const, label: 'Invite Friends', route: '/referral' },
+    { icon: 'settings-outline' as const, label: 'Settings', route: '/settings' },
+    { icon: 'information-circle-outline' as const, label: 'About', route: '/about' },
+  ];
 
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -196,6 +215,9 @@ export default function HomeScreen() {
         {/* Greeting */}
         <View style={s.greetRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+            <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="menu-outline" size={26} color={Colors.textPrimary} />
+            </TouchableOpacity>
             <Image source={boLogoColor} style={s.headerLogo} contentFit="contain" transition={200} />
             <View style={{ flex: 1 }}>
               <Text style={s.greeting}>{greeting}, {firstName}!</Text>
@@ -427,6 +449,68 @@ export default function HomeScreen() {
         onClose={() => { setShowHappiness(false); setHappinessLogged(true); }}
         onLogged={() => { setShowHappiness(false); setHappinessLogged(true); }}
       />
+
+      {/* Sidebar Drawer */}
+      {drawerOpen && (
+        <>
+          <Animated.View entering={FadeIn.duration(200)} style={s.drawerOverlay}>
+            <Pressable style={{ flex: 1 }} onPress={() => setDrawerOpen(false)} />
+          </Animated.View>
+          <Animated.View entering={SlideInLeft.duration(250)} exiting={SlideOutLeft.duration(200)} style={s.drawerContainer}>
+            <SafeAreaView style={{ flex: 1 }}>
+              {/* Drawer Header */}
+              <LinearGradient colors={[Colors.green, '#1E9B0A']} style={s.drawerHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Image source={boLogoWhite} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" />
+                  <TouchableOpacity onPress={() => setDrawerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={s.drawerName}>{user?.name || user?.first_name || 'User'}</Text>
+                <Text style={s.drawerEmail}>{user?.email || ''}</Text>
+              </LinearGradient>
+
+              {/* Drawer Items */}
+              <ScrollView style={s.drawerScroll} contentContainerStyle={{ paddingVertical: Spacing.sm }}>
+                {DRAWER_ITEMS.map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.label}
+                    style={s.drawerItem}
+                    activeOpacity={0.7}
+                    onPress={() => { setDrawerOpen(false); setTimeout(() => router.push(item.route as any), 150); }}
+                  >
+                    <View style={s.drawerItemIcon}>
+                      <Ionicons name={item.icon} size={22} color={Colors.textSecondary} />
+                    </View>
+                    <Text style={s.drawerItemText}>{item.label}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                  </TouchableOpacity>
+                ))}
+
+                {/* Divider */}
+                <View style={s.drawerDivider} />
+
+                {/* Logout */}
+                <TouchableOpacity
+                  style={s.drawerItem}
+                  activeOpacity={0.7}
+                  onPress={() => { setDrawerOpen(false); logout(); }}
+                >
+                  <View style={[s.drawerItemIcon, { backgroundColor: '#FEE2E2' }]}>
+                    <Ionicons name="log-out-outline" size={22} color="#DC2626" />
+                  </View>
+                  <Text style={[s.drawerItemText, { color: '#DC2626' }]}>Logout</Text>
+                </TouchableOpacity>
+              </ScrollView>
+
+              {/* Drawer Footer */}
+              <View style={s.drawerFooter}>
+                <Text style={s.drawerVersion}>BO Wellness v1.0.0</Text>
+              </View>
+            </SafeAreaView>
+          </Animated.View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -447,6 +531,20 @@ const s = StyleSheet.create({
   quoteContent: { flex: 1 },
   quoteText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary, fontStyle: 'italic', lineHeight: 22 },
   subQuoteText: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 6, lineHeight: 18 },
+
+  // Sidebar Drawer
+  drawerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 100 },
+  drawerContainer: { position: 'absolute', top: 0, left: 0, bottom: 0, width: DRAWER_W, backgroundColor: '#FFF', zIndex: 101, ...Shadow.lg },
+  drawerHeader: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.lg },
+  drawerName: { fontSize: FontSize.h4, fontWeight: '800', color: '#FFF', marginTop: Spacing.md },
+  drawerEmail: { fontSize: FontSize.small, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  drawerScroll: { flex: 1 },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: Spacing.lg, gap: Spacing.md },
+  drawerItemIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  drawerItemText: { flex: 1, fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary },
+  drawerDivider: { height: 1, backgroundColor: Colors.borderLight, marginHorizontal: Spacing.lg, marginVertical: Spacing.sm },
+  drawerFooter: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  drawerVersion: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'center' },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },

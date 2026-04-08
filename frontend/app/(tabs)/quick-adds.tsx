@@ -505,6 +505,45 @@ export default function QuickAddsScreen() {
     { key: 'custom', icon: 'ellipsis-horizontal-outline', label: 'Custom', color: Colors.textTertiary },
   ];
 
+  // Smartwatch sync
+  const [syncingWatch, setSyncingWatch] = useState(false);
+  const [connectedDevices, setConnectedDevices] = useState<any[]>([]);
+
+  const loadConnectedDevices = async () => {
+    try {
+      const { data } = await api.get('/v1/wearables/connected');
+      setConnectedDevices(data.devices || []);
+    } catch {}
+  };
+
+  const syncSmartwatch = async (provider: string) => {
+    setSyncingWatch(true);
+    try {
+      const { data } = await api.post('/v1/wearables/sync', { provider });
+      // Auto-create workout from synced data
+      if (data.data) {
+        const synced = data.data;
+        if (synced.steps > 0 || synced.calories > 0) {
+          try {
+            await api.post('/v1/workouts', {
+              type: 'walking',
+              duration: synced.active_minutes || 30,
+              intensity: 'medium',
+              calories: synced.calories || 0,
+              notes: `Synced from ${provider} — ${synced.steps} steps, ${synced.distance_km?.toFixed(1) || 0} km`,
+            });
+          } catch {}
+        }
+      }
+      loadAllData();
+      Alert.alert('Synced!', `Workout data synced from ${provider}`);
+    } catch (e: any) {
+      Alert.alert('Sync Failed', e.response?.data?.detail || 'Could not sync');
+    } finally {
+      setSyncingWatch(false);
+    }
+  };
+
   const handleCreateWorkout = async () => {
     if (!wkDuration || parseInt(wkDuration) <= 0) { Alert.alert('Error', 'Duration required'); return; }
     try {
@@ -527,6 +566,42 @@ export default function QuickAddsScreen() {
 
   const renderWorkouts = () => (
     <View>
+      {/* Smartwatch Sync Section */}
+      <Animated.View entering={FadeInDown.duration(300)} style={[s.summaryCard, Shadow.sm, { marginBottom: Spacing.md }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.fitnessPurple + '15', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="watch-outline" size={20} color={Colors.fitnessPurple} />
+            </View>
+            <Text style={[s.sectionTitle, { marginBottom: 0 }]}>Smartwatch</Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/connected-devices' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={{ fontSize: 12, color: Colors.green, fontWeight: '600' }}>Manage</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Spacing.sm }}>
+          {[
+            { id: 'apple_health', name: 'Apple Watch', icon: 'logo-apple', color: '#333' },
+            { id: 'samsung_health', name: 'Samsung', icon: 'watch-outline', color: '#1428A0' },
+            { id: 'fitbit', name: 'Fitbit', icon: 'fitness-outline', color: '#00B0B9' },
+            { id: 'garmin', name: 'Garmin', icon: 'navigate-outline', color: '#007CC3' },
+          ].map(device => (
+            <TouchableOpacity
+              key={device.id}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: Radius.md, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: Colors.borderLight }}
+              activeOpacity={0.7}
+              disabled={syncingWatch}
+              onPress={() => syncSmartwatch(device.id)}
+            >
+              <Ionicons name={device.icon as any} size={16} color={device.color} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.textPrimary }}>{device.name}</Text>
+              {syncingWatch && <ActivityIndicator size="small" color={Colors.green} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 8 }}>Tap a device to sync & log workout automatically</Text>
+      </Animated.View>
+
       {/* Weekly Summary */}
       {workoutSummary && (
         <Animated.View entering={FadeInDown.duration(350)} style={[s.summaryCard, Shadow.sm]}>

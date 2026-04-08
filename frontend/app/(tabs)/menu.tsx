@@ -107,10 +107,10 @@ export default function CulinaryScreen() {
   };
 
   const loadWeekPlan = async () => {
-    const start = new Date();
-    start.setDate(start.getDate() + planDay * 7);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
+    const now = new Date();
+    const month = new Date(now.getFullYear(), now.getMonth() + planDay, 1);
+    const start = new Date(month.getFullYear(), month.getMonth(), 1);
+    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0);
     try {
       const { data } = await api.get(`/v1/meal-plan?startDate=${start.toISOString().split('T')[0]}&endDate=${end.toISOString().split('T')[0]}`);
       setWeekPlan(data.plans || []);
@@ -400,7 +400,7 @@ export default function CulinaryScreen() {
           <TouchableOpacity style={[cs.weekViewBtn, Shadow.sm]} onPress={openMealPlanCalendar} activeOpacity={0.8}>
             <LinearGradient colors={[Colors.green, Colors.greenDark]} style={cs.weekViewGrad}>
               <Ionicons name="calendar-outline" size={20} color="#FFF" />
-              <Text style={cs.weekViewText}>View Weekly Calendar</Text>
+              <Text style={cs.weekViewText}>View Monthly Calendar</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -427,60 +427,133 @@ export default function CulinaryScreen() {
         </ScrollView>
       )}
 
-      {/* Week Calendar Modal */}
+      {/* Monthly Calendar Modal */}
       <Modal visible={showPlanModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
           <View style={cs.calHeader}>
             <TouchableOpacity onPress={() => setShowPlanModal(false)}>
               <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={cs.calTitle}>Weekly Meal Plan</Text>
+            <Text style={cs.calTitle}>Monthly Meal Plan</Text>
             <View style={{ width: 24 }} />
           </View>
 
-          {/* Week nav */}
+          {/* Month nav */}
           <View style={cs.weekNav}>
-            <TouchableOpacity onPress={() => { setPlanDay(planDay - 1); setTimeout(loadWeekPlan, 100); }}>
+            <TouchableOpacity onPress={() => setPlanDay(planDay - 1)}>
               <Ionicons name="chevron-back" size={24} color={Colors.green} />
             </TouchableOpacity>
             <Text style={cs.weekNavText}>
-              {planDay === 0 ? 'This Week' : planDay === 1 ? 'Next Week' : planDay === -1 ? 'Last Week' : `Week ${planDay > 0 ? '+' : ''}${planDay}`}
+              {(() => {
+                const d = new Date();
+                d.setMonth(d.getMonth() + planDay);
+                return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              })()}
             </Text>
-            <TouchableOpacity onPress={() => { setPlanDay(planDay + 1); setTimeout(loadWeekPlan, 100); }}>
+            <TouchableOpacity onPress={() => setPlanDay(planDay + 1)}>
               <Ionicons name="chevron-forward" size={24} color={Colors.green} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: Spacing.md, paddingBottom: 40 }}>
-            {getWeekDates().map(day => (
-              <View key={day.date} style={[cs.weekDayCard, day.isToday && cs.weekDayToday]}>
-                <View style={cs.weekDayHeader}>
-                  <Text style={[cs.weekDayName, day.isToday && { color: Colors.green }]}>
-                    {day.dayName} {day.dayNum}
-                  </Text>
-                  {day.isToday && <View style={cs.todayBadge}><Text style={cs.todayBadgeText}>Today</Text></View>}
-                </View>
-                {['breakfast', 'lunch', 'dinner'].map(slot => {
-                  const planned = getMealForSlot(day.date, slot);
-                  return (
-                    <View key={slot} style={cs.weekSlotRow}>
-                      <Text style={cs.weekSlotLabel}>{slot.charAt(0).toUpperCase() + slot.slice(1)}</Text>
-                      {planned ? (
-                        <View style={cs.weekSlotMeal}>
-                          <Text style={cs.weekSlotMealTitle} numberOfLines={1}>{planned.meal_title}</Text>
-                          <Text style={cs.weekSlotMealCal}>{planned.meal_calories} fuel</Text>
-                          <TouchableOpacity onPress={() => deletePlanItem(planned.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="close-circle-outline" size={16} color={Colors.textTertiary} />
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <Text style={cs.weekSlotEmpty}>-</Text>
-                      )}
-                    </View>
-                  );
-                })}
+          {/* Day of Week headers */}
+          <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 4 }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textTertiary }}>{d}</Text>
               </View>
             ))}
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 4, paddingBottom: 40 }}>
+            {(() => {
+              const now = new Date();
+              const month = new Date(now.getFullYear(), now.getMonth() + planDay, 1);
+              const firstDay = month.getDay();
+              const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+              const today = new Date().toISOString().split('T')[0];
+              const weeks: { date: string; day: number; isToday: boolean; isCurrentMonth: boolean }[][] = [];
+              let week: { date: string; day: number; isToday: boolean; isCurrentMonth: boolean }[] = [];
+
+              // Fill blanks before month start
+              for (let i = 0; i < firstDay; i++) {
+                week.push({ date: '', day: 0, isToday: false, isCurrentMonth: false });
+              }
+
+              for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                week.push({ date: dateStr, day: d, isToday: dateStr === today, isCurrentMonth: true });
+                if (week.length === 7) {
+                  weeks.push(week);
+                  week = [];
+                }
+              }
+              // Fill remaining
+              while (week.length > 0 && week.length < 7) {
+                week.push({ date: '', day: 0, isToday: false, isCurrentMonth: false });
+              }
+              if (week.length) weeks.push(week);
+
+              return weeks.map((wk, wi) => (
+                <View key={wi} style={{ flexDirection: 'row', marginBottom: 2 }}>
+                  {wk.map((cell, ci) => {
+                    const hasMeals = cell.date && weekPlan.some((p: any) => p.date === cell.date);
+                    const mealCount = cell.date ? weekPlan.filter((p: any) => p.date === cell.date).length : 0;
+                    return (
+                      <TouchableOpacity
+                        key={ci}
+                        style={[
+                          { flex: 1, aspectRatio: 0.85, margin: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: cell.isToday ? Colors.green + '15' : '#F9FAFB', borderWidth: cell.isToday ? 1.5 : 0, borderColor: Colors.green },
+                          !cell.isCurrentMonth && { backgroundColor: 'transparent' }
+                        ]}
+                        activeOpacity={0.7}
+                        disabled={!cell.isCurrentMonth}
+                        onPress={() => {
+                          if (cell.date) {
+                            setShowPlanModal(false);
+                            Alert.alert(
+                              `Meals for ${cell.date}`,
+                              mealCount > 0
+                                ? weekPlan.filter((p: any) => p.date === cell.date).map((p: any) => `${p.meal_slot}: ${p.meal_title}`).join('\n')
+                                : 'No meals planned. Browse meals to add!',
+                              [{ text: 'OK' }]
+                            );
+                          }
+                        }}
+                      >
+                        {cell.isCurrentMonth && (
+                          <>
+                            <Text style={{ fontSize: 14, fontWeight: cell.isToday ? '800' : '600', color: cell.isToday ? Colors.green : Colors.textPrimary }}>{cell.day}</Text>
+                            {mealCount > 0 && (
+                              <View style={{ flexDirection: 'row', marginTop: 2, gap: 2 }}>
+                                {[...Array(Math.min(mealCount, 3))].map((_, i) => (
+                                  <View key={i} style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: i === 0 ? Colors.nutritionOrange : i === 1 ? Colors.green : Colors.waterBlue }} />
+                                ))}
+                              </View>
+                            )}
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ));
+            })()}
+
+            {/* Legend */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: Spacing.lg, paddingVertical: Spacing.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.nutritionOrange }} />
+                <Text style={{ fontSize: 11, color: Colors.textTertiary }}>Breakfast</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.green }} />
+                <Text style={{ fontSize: 11, color: Colors.textTertiary }}>Lunch</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.waterBlue }} />
+                <Text style={{ fontSize: 11, color: Colors.textTertiary }}>Dinner</Text>
+              </View>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
