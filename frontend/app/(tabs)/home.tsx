@@ -449,16 +449,14 @@ export default function HomeScreen() {
 
       {/* Floating sidebar toggle chevron */}
       {!drawerOpen && (
-        <Animated.View entering={FadeIn.delay(400).duration(300)} style={s.sidebarToggle}>
-          <TouchableOpacity
-            onPress={() => setDrawerOpen(true)}
-            style={s.sidebarToggleBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="chevron-forward" size={18} color="#555" />
-          </TouchableOpacity>
-        </Animated.View>
+        <Pressable
+          onPress={() => setDrawerOpen(true)}
+          style={s.sidebarToggle}
+        >
+          <View style={s.sidebarToggleInner}>
+            <Ionicons name="chevron-forward" size={18} color="#666" />
+          </View>
+        </Pressable>
       )}
 
       {/* Sidebar Panel */}
@@ -533,23 +531,21 @@ const s = StyleSheet.create({
   sidebarToggle: {
     position: 'absolute',
     left: 0,
-    top: '50%',
-    zIndex: 50,
-    marginTop: -20,
-  },
-  sidebarToggleBtn: {
+    top: '56%',
+    zIndex: 999,
     width: 36,
-    height: 40,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  sidebarToggleInner: {
+    width: 26,
+    height: 38,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    backgroundColor: 'rgba(245,245,245,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 6,
   },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
