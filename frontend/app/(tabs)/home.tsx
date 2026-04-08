@@ -68,16 +68,16 @@ export default function HomeScreen() {
   // Sidebar drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const DRAWER_ITEMS = [
-    { icon: 'person-outline' as const, label: 'Profile', route: '/(tabs)/profile' },
-    { icon: 'restaurant-outline' as const, label: 'Restaurants', route: '/(tabs)/home' },
-    { icon: 'watch-outline' as const, label: 'Connected Devices', route: '/connected-devices' },
-    { icon: 'heart-outline' as const, label: 'Wellness Programs', route: '/wellness-programs' },
-    { icon: 'chatbubble-outline' as const, label: 'AI Coach', route: '/chat' },
-    { icon: 'card-outline' as const, label: 'Subscription', route: '/subscription' },
-    { icon: 'megaphone-outline' as const, label: 'Invite Friends', route: '/referral' },
-    { icon: 'settings-outline' as const, label: 'Settings', route: '/settings' },
-    { icon: 'information-circle-outline' as const, label: 'About', route: '/about' },
+  const SIDEBAR_ITEMS = [
+    { icon: 'cafe-outline' as const, label: 'Breakfast', route: '/(tabs)/quick-adds', action: 'breakfast' },
+    { icon: 'restaurant-outline' as const, label: 'Brunch', route: '/(tabs)/quick-adds', action: 'brunch' },
+    { icon: 'chatbubble-ellipses-outline' as const, label: '11:11 Snack', route: '/(tabs)/quick-adds', action: 'snack' },
+    { icon: 'nutrition-outline' as const, label: 'Lunch', route: '/(tabs)/quick-adds', action: 'lunch' },
+    { icon: 'beer-outline' as const, label: 'Tea', route: '/(tabs)/quick-adds', action: 'tea' },
+    { icon: 'fast-food-outline' as const, label: 'Dinner', route: '/(tabs)/quick-adds', action: 'dinner' },
+    { icon: 'water-outline' as const, label: 'Water', route: '/(tabs)/quick-adds', action: 'water' },
+    { icon: 'body-outline' as const, label: 'Daily Activity', route: '/(tabs)/quick-adds', action: 'activity' },
+    { icon: 'bed-outline' as const, label: 'Sleep', route: '/(tabs)/quick-adds', action: 'sleep' },
   ];
 
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
@@ -450,63 +450,34 @@ export default function HomeScreen() {
         onLogged={() => { setShowHappiness(false); setHappinessLogged(true); }}
       />
 
-      {/* Sidebar Drawer */}
+      {/* Sidebar Panel */}
       {drawerOpen && (
         <>
-          <Animated.View entering={FadeIn.duration(200)} style={s.drawerOverlay}>
+          <Animated.View entering={FadeIn.duration(200)} style={s.sidebarOverlay}>
             <Pressable style={{ flex: 1 }} onPress={() => setDrawerOpen(false)} />
           </Animated.View>
-          <Animated.View entering={SlideInLeft.duration(250)} exiting={SlideOutLeft.duration(200)} style={s.drawerContainer}>
+          <Animated.View entering={SlideInLeft.duration(250)} exiting={SlideOutLeft.duration(200)} style={s.sidebarContainer}>
             <SafeAreaView style={{ flex: 1 }}>
-              {/* Drawer Header */}
-              <LinearGradient colors={[Colors.green, '#1E9B0A']} style={s.drawerHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Image source={boLogoWhite} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" />
-                  <TouchableOpacity onPress={() => setDrawerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="close" size={24} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={s.drawerName}>{user?.name || user?.first_name || 'User'}</Text>
-                <Text style={s.drawerEmail}>{user?.email || ''}</Text>
-              </LinearGradient>
-
-              {/* Drawer Items */}
-              <ScrollView style={s.drawerScroll} contentContainerStyle={{ paddingVertical: Spacing.sm }}>
-                {DRAWER_ITEMS.map((item, idx) => (
-                  <TouchableOpacity
-                    key={item.label}
-                    style={s.drawerItem}
-                    activeOpacity={0.7}
-                    onPress={() => { setDrawerOpen(false); setTimeout(() => router.push(item.route as any), 150); }}
-                  >
-                    <View style={s.drawerItemIcon}>
-                      <Ionicons name={item.icon} size={22} color={Colors.textSecondary} />
-                    </View>
-                    <Text style={s.drawerItemText}>{item.label}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-                  </TouchableOpacity>
+              <ScrollView contentContainerStyle={s.sidebarScroll} showsVerticalScrollIndicator={false}>
+                {SIDEBAR_ITEMS.map((item, idx) => (
+                  <Animated.View key={item.label} entering={FadeInLeft.delay(idx * 40).duration(250)}>
+                    <TouchableOpacity
+                      style={s.sidebarItem}
+                      activeOpacity={0.7}
+                      onPress={() => { setDrawerOpen(false); setTimeout(() => router.push(item.route as any), 150); }}
+                    >
+                      <View style={s.sidebarIconWrap}>
+                        <Ionicons name={item.icon} size={28} color={Colors.green} />
+                      </View>
+                      <Text style={s.sidebarLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                 ))}
-
-                {/* Divider */}
-                <View style={s.drawerDivider} />
-
-                {/* Logout */}
-                <TouchableOpacity
-                  style={s.drawerItem}
-                  activeOpacity={0.7}
-                  onPress={() => { setDrawerOpen(false); logout(); }}
-                >
-                  <View style={[s.drawerItemIcon, { backgroundColor: '#FEE2E2' }]}>
-                    <Ionicons name="log-out-outline" size={22} color="#DC2626" />
-                  </View>
-                  <Text style={[s.drawerItemText, { color: '#DC2626' }]}>Logout</Text>
-                </TouchableOpacity>
               </ScrollView>
-
-              {/* Drawer Footer */}
-              <View style={s.drawerFooter}>
-                <Text style={s.drawerVersion}>BO Wellness v1.0.0</Text>
-              </View>
+              {/* Back chevron */}
+              <TouchableOpacity style={s.sidebarBack} onPress={() => setDrawerOpen(false)} activeOpacity={0.7}>
+                <Ionicons name="chevron-back" size={22} color={Colors.textTertiary} />
+              </TouchableOpacity>
             </SafeAreaView>
           </Animated.View>
         </>
@@ -532,19 +503,22 @@ const s = StyleSheet.create({
   quoteText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary, fontStyle: 'italic', lineHeight: 22 },
   subQuoteText: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 6, lineHeight: 18 },
 
-  // Sidebar Drawer
-  drawerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 100 },
-  drawerContainer: { position: 'absolute', top: 0, left: 0, bottom: 0, width: DRAWER_W, backgroundColor: '#FFF', zIndex: 101, ...Shadow.lg },
-  drawerHeader: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.lg },
-  drawerName: { fontSize: FontSize.h4, fontWeight: '800', color: '#FFF', marginTop: Spacing.md },
-  drawerEmail: { fontSize: FontSize.small, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  drawerScroll: { flex: 1 },
-  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: Spacing.lg, gap: Spacing.md },
-  drawerItemIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  drawerItemText: { flex: 1, fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary },
-  drawerDivider: { height: 1, backgroundColor: Colors.borderLight, marginHorizontal: Spacing.lg, marginVertical: Spacing.sm },
-  drawerFooter: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.borderLight },
-  drawerVersion: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'center' },
+  // Slim Sidebar
+  sidebarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 100 },
+  sidebarContainer: {
+    position: 'absolute', top: 0, left: 0, bottom: 0,
+    width: 110,
+    backgroundColor: '#FFFFFF',
+    zIndex: 101,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10,
+  },
+  sidebarScroll: { paddingTop: Spacing.md, paddingBottom: 60, alignItems: 'center' },
+  sidebarItem: { alignItems: 'center', paddingVertical: 10, width: 100 },
+  sidebarIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  sidebarLabel: { fontSize: 11, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
+  sidebarBack: { position: 'absolute', bottom: 24, right: -16, width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 6 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
