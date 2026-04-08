@@ -85,6 +85,7 @@ class MealInput(BaseModel):
 
 class QuoteInput(BaseModel):
     text: str = Field(..., max_length=500)
+    subQuote: str = Field("", max_length=500)
     publishingDate: str = ""
 
 
@@ -368,6 +369,7 @@ async def admin_list_quotes(
         "data": [{
             "id": str(q["_id"]),
             "text": q.get("text", ""),
+            "subQuote": q.get("sub_quote", ""),
             "publishingDate": q.get("publishing_date", ""),
             "isSelected": q.get("is_selected", False),
             "createdAt": q.get("created_at", ""),
@@ -381,6 +383,7 @@ async def admin_create_quote(request: Request, body: QuoteInput):
     await require_admin(request)
     quote = {
         "text": body.text,
+        "sub_quote": body.subQuote,
         "publishing_date": body.publishingDate,
         "is_selected": False,
         "created_at": now_utc(),
@@ -400,6 +403,7 @@ async def admin_update_quote(request: Request, quote_id: str, body: QuoteInput):
         raise HTTPException(status_code=404, detail="Quote not found")
     updates = {
         "text": body.text,
+        "sub_quote": body.subQuote,
         "publishing_date": body.publishingDate,
         "updated_at": now_utc(),
     }
@@ -441,6 +445,7 @@ async def admin_get_selected_quote(request: Request):
     return {"quote": {
         "id": str(quote["_id"]),
         "text": quote.get("text", ""),
+        "subQuote": quote.get("sub_quote", ""),
         "publishingDate": quote.get("publishing_date", ""),
         "isSelected": True,
     }}
@@ -457,10 +462,11 @@ async def get_today_quote():
             sort=[("publishing_date", -1)]
         )
     if not quote:
-        return {"quote": {"text": "Every day is a chance to be better than yesterday.", "publishingDate": today if 'today' in dir() else ""}}
+        return {"quote": {"text": "Every day is a chance to be better than yesterday.", "subQuote": "Start your wellness journey today.", "publishingDate": today if 'today' in dir() else ""}}
     return {"quote": {
         "id": str(quote["_id"]),
         "text": quote.get("text", ""),
+        "subQuote": quote.get("sub_quote", ""),
         "publishingDate": quote.get("publishing_date", ""),
     }}
 

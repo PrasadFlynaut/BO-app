@@ -426,6 +426,7 @@ tr:hover td{background:#f7fafc}
 <div class="modal-header"><h3 id="quoteModalTitle">Add New Quote</h3><button class="btn btn-outline btn-sm" onclick="closeModal('quoteModal')"><i class="fas fa-times"></i></button></div>
 <div class="modal-body">
 <div class="form-group"><label class="form-label">Quote Text *</label><textarea id="quoteText" class="form-input" rows="4" maxlength="500" placeholder="Enter wellness quote..."></textarea></div>
+<div class="form-group"><label class="form-label">Sub-Quote / Tagline</label><input id="quoteSubText" class="form-input" maxlength="500" placeholder="Enter sub-quote or tagline..."></div>
 <div class="form-group"><label class="form-label">Publishing Date *</label><input id="quoteDate" class="form-input" type="date"></div>
 </div>
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('quoteModal')">Cancel</button><button class="btn btn-primary" onclick="saveQuote()"><i class="fas fa-save"></i> Save Quote</button></div>
@@ -804,24 +805,24 @@ async function aiGenerateRecipeInfo(){
 async function loadQuotes(search=''){
   try{var r=await fetch(API+'/v1/admin/quotes?limit=50&search='+encodeURIComponent(search),{headers:hdr()});var d=await r.json();
   document.getElementById('quotesBody').innerHTML=(d.data||[]).map(function(q){var sn=q.text.replace(/'/g,'&#39;').substring(0,80);
-  return '<tr><td style="line-height:1.5">'+q.text.substring(0,100)+(q.text.length>100?'...':'')+'</td><td>'+(q.publishingDate||'--')+'</td><td>'+(q.isSelected?'<span class="badge badge-green" style="cursor:pointer" onclick="toggleQuote(&#39;'+q.id+'&#39;)"><i class="fas fa-check-circle"></i> Active</span>':'<button class="btn btn-outline btn-sm" onclick="toggleQuote(&#39;'+q.id+'&#39;)">Select</button>')+'</td><td><button class="btn btn-outline btn-sm" onclick="editQuote(&#39;'+q.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;quote&#39;,&#39;'+q.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="4" style="text-align:center;color:#a0aec0;padding:40px">No quotes yet</td></tr>';
+  return '<tr><td style="line-height:1.5">'+q.text.substring(0,100)+(q.text.length>100?'...':'')+(q.subQuote?'<br><small style="color:#718096">'+q.subQuote.substring(0,80)+'</small>':'')+'</td><td>'+(q.publishingDate||'--')+'</td><td>'+(q.isSelected?'<span class="badge badge-green" style="cursor:pointer" onclick="toggleQuote(&#39;'+q.id+'&#39;)"><i class="fas fa-check-circle"></i> Active</span>':'<button class="btn btn-outline btn-sm" onclick="toggleQuote(&#39;'+q.id+'&#39;)">Select</button>')+'</td><td><button class="btn btn-outline btn-sm" onclick="editQuote(&#39;'+q.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;quote&#39;,&#39;'+q.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button></td></tr>'}).join('')||'<tr><td colspan="4" style="text-align:center;color:#a0aec0;padding:40px">No quotes yet</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchQuotes(v){loadQuotes(v)}
 
 function openQuoteModal(id){editingQuoteId=id||null;document.getElementById('quoteModalTitle').textContent=id?'Edit Quote':'Add New Quote';
-document.getElementById('quoteText').value='';document.getElementById('quoteDate').value=new Date().toISOString().split('T')[0];
+document.getElementById('quoteText').value='';document.getElementById('quoteSubText').value='';document.getElementById('quoteDate').value=new Date().toISOString().split('T')[0];
 document.getElementById('quoteModal').classList.add('show')}
 
 async function editQuote(id){
   var r=await fetch(API+'/v1/admin/quotes?limit=100',{headers:hdr()});var d=await r.json();
   var q=(d.data||[]).find(function(x){return x.id===id});if(!q)return;
   openQuoteModal(id);editingQuoteId=id;
-  document.getElementById('quoteText').value=q.text;document.getElementById('quoteDate').value=q.publishingDate||'';
+  document.getElementById('quoteText').value=q.text;document.getElementById('quoteSubText').value=q.subQuote||'';document.getElementById('quoteDate').value=q.publishingDate||'';
 }
 
 async function saveQuote(){
-  var body={text:document.getElementById('quoteText').value,publishingDate:document.getElementById('quoteDate').value};
+  var body={text:document.getElementById('quoteText').value,subQuote:document.getElementById('quoteSubText').value,publishingDate:document.getElementById('quoteDate').value};
   if(!body.text){alert('Quote text is required');return}
   var url=editingQuoteId?API+'/v1/admin/quotes/'+editingQuoteId:API+'/v1/admin/quotes';
   var method=editingQuoteId?'PUT':'POST';

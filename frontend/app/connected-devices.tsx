@@ -150,7 +150,7 @@ export default function ConnectedDevicesScreen() {
         `${realSteps ? 'Real' : 'Estimated'} health data synced:\n\n` +
         `👟 ${steps.toLocaleString()} steps\n` +
         `❤️ ${hr} bpm avg heart rate\n` +
-        `🔥 ${cal} kcal burned\n` +
+        `🔥 ${cal} fuel burned\n` +
         `📏 ${dist} km distance\n` +
         `😴 ${sleepHrs}h sleep\n` +
         `⏱ ${activeMins} active minutes`
@@ -200,7 +200,7 @@ export default function ConnectedDevicesScreen() {
                 <View style={[s.statCard, { borderLeftColor: Colors.nutritionOrange }]}>
                   <Ionicons name="flame-outline" size={24} color={Colors.nutritionOrange} />
                   <Text style={s.statValue}>{Math.round(summary.calories?.total || 0)}</Text>
-                  <Text style={s.statLabel}>Calories</Text>
+                  <Text style={s.statLabel}>Fuel</Text>
                 </View>
                 <View style={[s.statCard, { borderLeftColor: '#6B46C1' }]}>
                   <Ionicons name="moon-outline" size={24} color="#6B46C1" />

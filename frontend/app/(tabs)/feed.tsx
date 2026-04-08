@@ -490,7 +490,7 @@ export default function FeedScreen() {
       {/* Header */}
       <Animated.View entering={FadeIn.duration(350)} style={s.headerBar}>
         <View>
-          <Text style={s.headerTitle}>Feed</Text>
+          <Text style={s.headerTitle}>Embrace Connection</Text>
           <Text style={s.headerSubtitle}>Share anything you want.</Text>
         </View>
         <TouchableOpacity

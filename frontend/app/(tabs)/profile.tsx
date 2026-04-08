@@ -297,10 +297,10 @@ export default function ProfileScreen() {
           </ScrollView>
         </Animated.View>
 
-        {/* My Recipes Section */}
+        {/* Meal Planter Section */}
         <Animated.View entering={FadeInDown.delay(200).duration(350)} style={st.section}>
           <View style={st.sectionHeader}>
-            <Text style={st.sectionTitle}>My Recipes</Text>
+            <Text style={st.sectionTitle}>Meal Planter</Text>
             <TouchableOpacity onPress={() => setShowCreateRecipe(true)}>
               <View style={st.addRecipeBtn}>
                 <Ionicons name="add" size={16} color={Colors.green} />
@@ -488,7 +488,7 @@ export default function ProfileScreen() {
 
               <View style={st.macroRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={st.inputLabel}>Calories</Text>
+                  <Text style={st.inputLabel}>Fuel</Text>
                   <TextInput style={st.input} value={rCalories} onChangeText={setRCalories} placeholder="0" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
                 </View>
                 <View style={{ flex: 1 }}>

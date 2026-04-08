@@ -183,7 +183,7 @@ export default function CulinaryScreen() {
           <View style={cs.mealMeta}>
             <View style={cs.metaChip}>
               <Ionicons name="flame-outline" size={12} color={Colors.nutritionOrange} />
-              <Text style={cs.metaText}>{item.calories} cal</Text>
+              <Text style={cs.metaText}>{item.calories} fuel</Text>
             </View>
             <View style={cs.metaChip}>
               <Ionicons name="barbell-outline" size={12} color={Colors.fitnessPurple} />
@@ -341,7 +341,7 @@ export default function CulinaryScreen() {
                   <MealImage uri={item.image_url} style={cs.favImg} />
                   <View style={cs.favInfo}>
                     <Text style={cs.favTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={cs.favMeta}>{item.category} · {item.calories} cal</Text>
+                    <Text style={cs.favMeta}>{item.category} · {item.calories} fuel</Text>
                     <Text style={cs.favMeta}>{item.proteins}g protein · {item.fat}g fat · {item.carbs}g carbs</Text>
                   </View>
                   <Ionicons name="heart" size={20} color="#E53E3E" />
@@ -378,7 +378,7 @@ export default function CulinaryScreen() {
                         ) : null}
                         <View style={{ flex: 1 }}>
                           <Text style={cs.plannedMealTitle} numberOfLines={1}>{planned.meal_title}</Text>
-                          <Text style={cs.plannedMealCal}>{planned.meal_calories} cal</Text>
+                          <Text style={cs.plannedMealCal}>{planned.meal_calories} fuel</Text>
                         </View>
                         <TouchableOpacity onPress={() => deletePlanItem(planned.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                           <Ionicons name="close-circle-outline" size={20} color={Colors.textTertiary} />
@@ -404,7 +404,7 @@ export default function CulinaryScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Total calories today */}
+          {/* Total fuel today */}
           {todayPlan.length > 0 && (
             <View style={[cs.calSummary, Shadow.sm]}>
               <Text style={cs.calSummaryTitle}>Today's Summary</Text>
@@ -468,7 +468,7 @@ export default function CulinaryScreen() {
                       {planned ? (
                         <View style={cs.weekSlotMeal}>
                           <Text style={cs.weekSlotMealTitle} numberOfLines={1}>{planned.meal_title}</Text>
-                          <Text style={cs.weekSlotMealCal}>{planned.meal_calories} cal</Text>
+                          <Text style={cs.weekSlotMealCal}>{planned.meal_calories} fuel</Text>
                           <TouchableOpacity onPress={() => deletePlanItem(planned.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                             <Ionicons name="close-circle-outline" size={16} color={Colors.textTertiary} />
                           </TouchableOpacity>

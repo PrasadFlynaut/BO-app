@@ -40,7 +40,6 @@ const MET_ACTIVITIES = [
   { name: 'Cycling', value: 7.0 },
   { name: 'Swimming', value: 8.0 },
   { name: 'Running', value: 9.8 },
-  { name: 'Yoga', value: 3.0 },
   { name: 'Strength', value: 6.0 },
 ];
 
@@ -501,7 +500,6 @@ export default function QuickAddsScreen() {
     { key: 'running', icon: 'fitness-outline', label: 'Running', color: '#E53E3E' },
     { key: 'cycling', icon: 'bicycle-outline', label: 'Cycling', color: Colors.waterBlue },
     { key: 'swimming', icon: 'water-outline', label: 'Swimming', color: '#00BCD4' },
-    { key: 'yoga', icon: 'body-outline', label: 'Yoga', color: Colors.fitnessPurple },
     { key: 'strength', icon: 'barbell-outline', label: 'Strength', color: Colors.nutritionOrange },
     { key: 'hiit', icon: 'flash-outline', label: 'HIIT', color: '#FF5252' },
     { key: 'custom', icon: 'ellipsis-horizontal-outline', label: 'Custom', color: Colors.textTertiary },
@@ -537,7 +535,7 @@ export default function QuickAddsScreen() {
             {[
               { val: workoutSummary.totalWorkouts || 0, label: 'Workouts', color: Colors.green },
               { val: workoutSummary.totalDuration || 0, label: 'Minutes', color: Colors.waterBlue },
-              { val: workoutSummary.totalCalories || 0, label: 'Calories', color: Colors.nutritionOrange },
+              { val: workoutSummary.totalCalories || 0, label: 'Fuel', color: Colors.nutritionOrange },
             ].map((s2, i) => (
               <View key={i} style={{ flex: 1, alignItems: 'center' }}>
                 <Text style={{ fontSize: 24, fontWeight: '800', color: s2.color }}>{s2.val}</Text>
@@ -577,7 +575,7 @@ export default function QuickAddsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={s.workoutType}>{wkCfg.label}</Text>
                   <Text style={s.workoutMeta}>
-                    {w.duration_minutes}min · {w.intensity} · {w.calories_burned} cal
+                    {w.duration_minutes}min · {w.intensity} · {w.calories_burned} fuel
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => deleteWorkout(w.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -599,7 +597,7 @@ export default function QuickAddsScreen() {
         <View style={[s.calorieBar, Shadow.sm]}>
           <View style={s.calorieInfo}>
             <Ionicons name="flame" size={18} color={Colors.nutritionOrange} />
-            <Text style={s.calorieText}>{totalCalories} cal</Text>
+            <Text style={s.calorieText}>{totalCalories} fuel</Text>
           </View>
           <AnimatedProgressBar value={totalCalories} max={calorieGoal} color={Colors.nutritionOrange} height={6} />
           <Text style={s.calorieGoal}>Goal: {calorieGoal.toLocaleString()}</Text>
@@ -636,7 +634,7 @@ export default function QuickAddsScreen() {
                         {(m.calories || 0) > 0 && (
                           <View style={s.calBadge}>
                             <Ionicons name="flame-outline" size={12} color={Colors.nutritionOrange} />
-                            <Text style={s.calBadgeText}>{m.calories} cal</Text>
+                            <Text style={s.calBadgeText}>{m.calories} fuel</Text>
                           </View>
                         )}
                       </View>
@@ -1068,7 +1066,7 @@ export default function QuickAddsScreen() {
           onSubmitEditing={() => calInputRef.current?.focus()}
           autoFocus
         />
-        <Text style={s.inputLabel}>Estimated calories (optional)</Text>
+        <Text style={s.inputLabel}>Estimated fuel (optional)</Text>
         <TextInput
           ref={calInputRef}
           style={s.modalInput}
@@ -1152,7 +1150,7 @@ export default function QuickAddsScreen() {
             </View>
             <View style={s.calcItem}>
               <Ionicons name="flame" size={14} color={Colors.nutritionOrange} />
-              <Text style={s.calcText}>{Math.round(parseInt(walkSteps) * 0.04)} kcal</Text>
+              <Text style={s.calcText}>{Math.round(parseInt(walkSteps) * 0.04)} fuel</Text>
             </View>
           </Animated.View>
         ) : null}
@@ -1274,7 +1272,7 @@ export default function QuickAddsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={s.bsLabel}>Calories (optional, auto-calculated)</Text>
+        <Text style={s.bsLabel}>Fuel (optional, auto-calculated)</Text>
         <TextInput style={s.bsInput} value={wkCalories} onChangeText={setWkCalories} keyboardType="numeric" placeholder="Auto" placeholderTextColor={Colors.textTertiary} />
         <Text style={s.bsLabel}>Notes</Text>
         <TextInput style={[s.bsInput, { minHeight: 50 }]} value={wkNotes} onChangeText={setWkNotes} multiline placeholder="How did it go?" placeholderTextColor={Colors.textTertiary} />

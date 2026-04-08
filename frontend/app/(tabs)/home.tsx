@@ -58,6 +58,9 @@ export default function HomeScreen() {
   const [showHappiness, setShowHappiness] = useState(false);
   const [happinessLogged, setHappinessLogged] = useState(false);
 
+  // Daily Quote
+  const [dailyQuote, setDailyQuote] = useState<{ text: string; subQuote: string } | null>(null);
+
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -94,6 +97,13 @@ export default function HomeScreen() {
           setTimeout(() => setShowHappiness(true), 1500);
         } else {
           setHappinessLogged(true);
+        }
+      } catch {}
+      // Load daily quote
+      try {
+        const { data: qData } = await api.get('/v1/quotes/today');
+        if (qData.quote) {
+          setDailyQuote({ text: qData.quote.text, subQuote: qData.quote.subQuote || '' });
         }
       } catch {}
     } catch (e) { console.error(e); }
@@ -206,6 +216,23 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Quote of the Day */}
+        {dailyQuote && (
+          <Animated.View entering={FadeInDown.delay(50).duration(400)}>
+            <View style={s.quoteCard}>
+              <View style={s.quoteIconWrap}>
+                <Ionicons name="sparkles" size={18} color={Colors.green} />
+              </View>
+              <View style={s.quoteContent}>
+                <Text style={s.quoteText}>"{dailyQuote.text}"</Text>
+                {dailyQuote.subQuote ? (
+                  <Text style={s.subQuoteText}>{dailyQuote.subQuote}</Text>
+                ) : null}
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Active Program Widget */}
         {activeProgram && activeProgramData && (
@@ -413,6 +440,13 @@ const s = StyleSheet.create({
   headerLogo: { width: 42, height: 42, borderRadius: 10 },
   greeting: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
   greetSub: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 4 },
+
+  // Quote of the Day
+  quoteCard: { flexDirection: 'row', marginHorizontal: Spacing.lg, marginTop: Spacing.md, padding: Spacing.md, backgroundColor: Colors.green + '10', borderRadius: Radius.lg, borderLeftWidth: 3, borderLeftColor: Colors.green },
+  quoteIconWrap: { marginRight: Spacing.sm, marginTop: 2 },
+  quoteContent: { flex: 1 },
+  quoteText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary, fontStyle: 'italic', lineHeight: 22 },
+  subQuoteText: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 6, lineHeight: 18 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },

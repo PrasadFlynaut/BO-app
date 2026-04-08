@@ -32,9 +32,9 @@ sprint5_router = APIRouter()
 JWT_SECRET = os.environ.get("JWT_SECRET", "bo-wellness-secret-key-2026")
 JWT_ALGORITHM = "HS256"
 
-WORKOUT_TYPES = ["walking", "cycling", "swimming", "running", "yoga", "strength", "hiit", "custom"]
+WORKOUT_TYPES = ["walking", "cycling", "swimming", "running", "strength", "hiit", "custom"]
 INTENSITIES = ["low", "medium", "high"]
-MET_VALUES = {"walking": 3.5, "cycling": 6.0, "swimming": 7.0, "running": 8.0, "yoga": 2.5, "strength": 5.0, "hiit": 8.0, "custom": 4.0}
+MET_VALUES = {"walking": 3.5, "cycling": 6.0, "swimming": 7.0, "running": 8.0, "strength": 5.0, "hiit": 8.0, "custom": 4.0}
 
 
 async def get_user(request: Request):
