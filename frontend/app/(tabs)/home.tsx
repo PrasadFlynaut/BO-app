@@ -215,9 +215,6 @@ export default function HomeScreen() {
         {/* Greeting */}
         <View style={s.greetRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
-            <TouchableOpacity onPress={() => setDrawerOpen(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="menu-outline" size={26} color={Colors.textPrimary} />
-            </TouchableOpacity>
             <Image source={boLogoColor} style={s.headerLogo} contentFit="contain" transition={200} />
             <View style={{ flex: 1 }}>
               <Text style={s.greeting}>{greeting}, {firstName}!</Text>
@@ -450,6 +447,20 @@ export default function HomeScreen() {
         onLogged={() => { setShowHappiness(false); setHappinessLogged(true); }}
       />
 
+      {/* Floating sidebar toggle chevron */}
+      {!drawerOpen && (
+        <Animated.View entering={FadeIn.delay(400).duration(300)} style={s.sidebarToggle}>
+          <TouchableOpacity
+            onPress={() => setDrawerOpen(true)}
+            style={s.sidebarToggleBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="chevron-forward" size={18} color="#555" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* Sidebar Panel */}
       {drawerOpen && (
         <>
@@ -519,6 +530,27 @@ const s = StyleSheet.create({
   sidebarIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   sidebarLabel: { fontSize: 11, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
   sidebarBack: { position: 'absolute', bottom: 24, right: -16, width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 6 },
+  sidebarToggle: {
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    zIndex: 50,
+    marginTop: -20,
+  },
+  sidebarToggleBtn: {
+    width: 36,
+    height: 40,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 6,
+  },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
