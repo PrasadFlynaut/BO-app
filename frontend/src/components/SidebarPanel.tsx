@@ -35,7 +35,7 @@ export default function SidebarPanel({ isOpen, onClose, onOpen }: Props) {
       {!isOpen && (
         <Pressable onPress={onOpen} style={s.sidebarToggle}>
           <View style={s.sidebarToggleInner}>
-            <Ionicons name="chevron-forward" size={18} color="#666" />
+            <Ionicons name="chevron-forward" size={22} color="#FFF" />
           </View>
         </Pressable>
       )}
@@ -102,20 +102,25 @@ const s = StyleSheet.create({
   sidebarToggle: {
     position: 'absolute',
     left: 0,
-    top: '56%',
+    top: '50%',
     zIndex: 999,
-    width: 36,
-    height: 48,
+    width: 44,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   sidebarToggleInner: {
-    width: 26,
-    height: 38,
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-    backgroundColor: 'rgba(245,245,245,0.9)',
+    width: 34,
+    height: 52,
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+    backgroundColor: Colors.green,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 3, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 10,
   },
 });
