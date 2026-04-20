@@ -154,23 +154,45 @@ export default function FeedScreen() {
   const [showLikes, setShowLikes] = useState(false);
   const [likeUsers, setLikeUsers] = useState<any[]>([]);
 
+  // Search & Filter (US-BO-017)
+  const [searchText, setSearchText] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'following' | 'my_posts'>('all');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useFocusEffect(useCallback(() => { loadFeed(1, true); }, []));
 
   const loadFeed = async (p: number = 1, reset: boolean = false) => {
     if (reset) setLoading(true);
     try {
-      const { data } = await api.get(`/v1/feed?page=${p}&limit=10`);
-      const newPosts = data.data || [];
+      let url = `/v1/feed?page=${p}&limit=10`;
+      if (searchText.trim()) url += `&search=${encodeURIComponent(searchText.trim())}`;
+      if (activeFilter !== 'all') url += `&filter=${activeFilter}`;
+      const { data } = await api.get(url);
+      const newPosts = data.data || data.posts || [];
       if (reset) {
         setPosts(newPosts);
       } else {
         setPosts(prev => [...prev, ...newPosts]);
       }
-      setHasMore(data.pagination?.hasNext || false);
+      setHasMore(data.pagination?.hasNext || (data.page < data.pages) || false);
       setPage(p);
     } catch (e) { console.error('Feed load error:', e); }
     setLoading(false);
     setLoadingMore(false);
+  };
+
+  // Debounced search
+  const handleSearch = (text: string) => {
+    setSearchText(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      loadFeed(1, true);
+    }, 300);
+  };
+
+  const handleFilterChange = (f: 'all' | 'following' | 'my_posts') => {
+    setActiveFilter(f);
+    setTimeout(() => loadFeed(1, true), 50);
   };
 
   const onRefresh = async () => {
@@ -501,6 +523,39 @@ export default function FeedScreen() {
         </TouchableOpacity>
       </Animated.View>
 
+      {/* Search & Filter (US-BO-017) */}
+      <View style={s.searchFilterBar}>
+        <View style={s.searchRow}>
+          <Ionicons name="search" size={18} color={Colors.textTertiary} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search posts or authors..."
+            placeholderTextColor={Colors.textTertiary}
+            value={searchText}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+            accessibilityLabel="Search posts"
+          />
+          {searchText.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchText(''); loadFeed(1, true); }} accessibilityLabel="Clear search">
+              <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {([['all', 'All'], ['following', 'Following'], ['my_posts', 'My Posts']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[s.filterChip, activeFilter === key && s.filterChipActive]}
+              onPress={() => handleFilterChange(key)}
+              accessibilityLabel={`Filter: ${label}`}
+            >
+              <Text style={[s.filterChipText, activeFilter === key && s.filterChipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Feed List */}
       {loading ? renderSkeleton() : (
         <FlatList
@@ -516,11 +571,13 @@ export default function FeedScreen() {
           ListEmptyComponent={
             <Animated.View entering={FadeIn.duration(500)} style={s.emptyState}>
               <Ionicons name="people-outline" size={64} color={Colors.textTertiary} />
-              <Text style={s.emptyTitle}>No posts yet.</Text>
-              <Text style={s.emptySubtitle}>Be the first to share!</Text>
-              <TouchableOpacity style={s.emptyBtn} onPress={() => setShowCreate(true)}>
-                <Text style={s.emptyBtnText}>Create Post</Text>
-              </TouchableOpacity>
+              <Text style={s.emptyTitle}>{searchText ? 'No posts found for your search.' : 'No posts yet.'}</Text>
+              <Text style={s.emptySubtitle}>{searchText ? 'Try different keywords.' : 'Be the first to share!'}</Text>
+              {!searchText && (
+                <TouchableOpacity style={s.emptyBtn} onPress={() => setShowCreate(true)}>
+                  <Text style={s.emptyBtnText}>Create Post</Text>
+                </TouchableOpacity>
+              )}
             </Animated.View>
           }
         />
@@ -794,6 +851,14 @@ const s = StyleSheet.create({
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   headerTitle: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
   headerSubtitle: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 2 },
+  searchFilterBar: { backgroundColor: '#FFF', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: Radius.md, paddingHorizontal: 12, height: 40, gap: 8 },
+  searchInput: { flex: 1, fontSize: FontSize.body, color: Colors.textPrimary },
+  filterRow: { flexDirection: 'row', gap: 8, paddingTop: Spacing.sm },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, backgroundColor: '#F3F4F6' },
+  filterChipActive: { backgroundColor: Colors.green },
+  filterChipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+  filterChipTextActive: { color: '#FFF' },
   profileBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   profileBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 

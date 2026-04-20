@@ -216,7 +216,7 @@ export default function CulinaryScreen() {
         {[
           { key: 'browse' as ViewMode, label: 'Browse', icon: 'grid-outline' },
           { key: 'favorites' as ViewMode, label: 'Favorites', icon: 'heart-outline' },
-          { key: 'mealplan' as ViewMode, label: 'Meal Plan', icon: 'calendar-outline' },
+          { key: 'mealplan' as ViewMode, label: 'Meal Planter', icon: 'calendar-outline' },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -434,7 +434,7 @@ export default function CulinaryScreen() {
             <TouchableOpacity onPress={() => setShowPlanModal(false)}>
               <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={cs.calTitle}>Monthly Meal Plan</Text>
+            <Text style={cs.calTitle}>Monthly Meal Planter</Text>
             <View style={{ width: 24 }} />
           </View>
 

@@ -35,7 +35,7 @@ const SLIDES = [
     id: '2',
     image: 'https://images.pexels.com/photos/7991909/pexels-photo-7991909.jpeg?auto=compress&cs=tinysrgb&w=800',
     title: "Let's redefine\nhealthy food together!",
-    subtitle: 'AI-powered meal plans tailored to you',
+    subtitle: 'AI-powered meal planter tailored to you',
     accent: Colors.nutritionOrange,
     gradientColors: ['rgba(255,159,28,0.0)', 'rgba(255,159,28,0.85)'] as [string, string],
   },

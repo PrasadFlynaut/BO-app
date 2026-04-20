@@ -520,7 +520,6 @@ export default function QuickAddsScreen() {
     setSyncingWatch(true);
     try {
       const { data } = await api.post('/v1/wearables/sync', { provider });
-      // Auto-create workout from synced data
       if (data.data) {
         const synced = data.data;
         if (synced.steps > 0 || synced.calories > 0) {
@@ -538,7 +537,12 @@ export default function QuickAddsScreen() {
       loadAllData();
       Alert.alert('Synced!', `Workout data synced from ${provider}`);
     } catch (e: any) {
-      Alert.alert('Sync Failed', e.response?.data?.detail || 'Could not sync');
+      const msg = e?.response?.data?.detail || e?.message || '';
+      if (msg.toLowerCase().includes('unsupported') || msg.toLowerCase().includes('not available')) {
+        Alert.alert('Smartwatch sync unavailable', 'Connect your watch in device settings.');
+      } else {
+        Alert.alert('Sync Unavailable', 'Smartwatch sync unavailable. Connect your watch in device settings.');
+      }
     } finally {
       setSyncingWatch(false);
     }

@@ -911,6 +911,9 @@ app.include_router(admin_enterprise_router, prefix="/api")
 from video_mgmt import video_router
 app.include_router(video_router)
 
+from programs_feed import programs_router
+app.include_router(programs_router)
+
 app.include_router(sprint6_router, prefix="/api")
 app.include_router(sprint5_router, prefix="/api")
 @api_router.get("/download/project-docs")

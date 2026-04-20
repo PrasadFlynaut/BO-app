@@ -78,42 +78,66 @@ def gen_completion_report():
     add_heading(doc, "1. Story-by-Story Status")
 
     stories = [
-        ("US-BO-001", "Home Screen Geolocation", "Completed", "Expo Location integrated, permission handling, skeleton loader, fallback card, empty state"),
-        ("US-BO-002", "Sidebar Navigation", "Previously Completed", "Slim icon sidebar with green chevron toggle, slide-in animation, tap-outside close"),
-        ("US-BO-003", "Quote of the Day + Sub Quote", "Previously Completed", "Admin fields with character limits, home screen display, 60-second refresh, placeholder"),
-        ("US-BO-004", "Video Upload/Edit/Delete", "Completed", "MP4/MOV upload, 500MB limit, server-side validation, rate limiting (10/hr), edit/delete with modals"),
-        ("US-BO-005", "Monthly Calendar View", "Previously Completed", "Weekly to monthly default, day expansion, 375px responsive, month navigation"),
-        ("US-BO-006", "Global Terminology Replacement", "Previously Completed", "Calories to Fuel, all charts/labels/tooltips updated, backend API keys unchanged"),
-        ("US-BO-007", "Feed to Embrace Connection", "Previously Completed", "All user-facing labels updated, internal routes unchanged"),
-        ("US-BO-008", "Remove Yoga", "Previously Completed", "Yoga removed from Quick Add and Log Workout selectors, existing data preserved"),
+        ("US-BO-001", "Home Screen Geolocation", "Completed + BUG-BO-002 Fixed", "Expo Location integrated, reverse geocoding (city, state, country), permission handling, skeleton loader, fallback card"),
+        ("US-BO-002", "Sidebar Navigation", "Verified Complete", "Slim icon sidebar with green chevron toggle, slide-in animation, tap-outside close"),
+        ("US-BO-003", "Quote of the Day + Sub Quote", "Verified Complete", "Admin fields with character limits, home screen display, 60-second refresh, placeholder"),
+        ("US-BO-004", "Video Upload/Edit/Delete", "Verified Complete", "MP4/MOV upload, 500MB limit, server-side validation, rate limiting (10/hr), edit/delete with modals"),
+        ("US-BO-005", "Monthly Calendar View", "Reverified (BUG-BO-004)", "Monthly default view confirmed, day expansion, responsive at 375px"),
+        ("US-BO-006", "Global Terminology Replacement", "Verified Complete", "Calories to Fuel, all UI labels updated, backend API keys unchanged"),
+        ("US-BO-007", "Feed to Embrace Connection", "Verified Complete", "All user-facing labels updated, internal routes unchanged"),
+        ("US-BO-008", "Remove Yoga", "Verified Complete", "Yoga removed from Quick Add and Log Workout selectors, existing data preserved"),
         ("US-BO-009", "Baby Stock Photos", "Completed", "5 emotion states mapped to baby photos from Pexels/Unsplash, alt text, lazy loading"),
-        ("US-BO-010", "Zero Triggering Language", "Previously Completed", "Comprehensive pass, all trigger terms replaced with body-neutral alternatives"),
-        ("US-BO-011", "Home Page Layout Restructure", "Completed", "Header, Culinary Blueprint, Embrace Connection, Exercise, in fixed order"),
-        ("US-BO-012", "Embrace Connection Headline", "Previously Completed", "Headline styled with Flynaut Orange #F5841F accent"),
-        ("US-BO-013", "Smartwatch Integration", "Previously Completed", "Apple Watch/Wear OS UI, sync status, permission handling, fallback card"),
-        ("US-BO-014", "Recipes to Meal Planter", "Previously Completed", "All user-facing labels updated, internal routes unchanged"),
-        ("US-BO-015", "Triggering Language in Profile", "Previously Completed", "Profile and admin panel copy reviewed and updated"),
+        ("US-BO-010", "Zero Triggering Language", "Verified Complete", "Comprehensive pass, all trigger terms replaced"),
+        ("US-BO-011", "Home Page Layout Restructure", "Completed + BUG-BO-006 Fixed", "Fixed order: Header, Culinary Blueprint, Embrace Connection, Exercise (cardiac first)"),
+        ("US-BO-012", "Embrace Connection Headline", "Verified Complete", "Headline styled with Flynaut Orange #F5841F"),
+        ("US-BO-013", "Smartwatch Integration", "BUG-BO-001 + BUG-BO-005 Fixed", "Crash fix: try/catch, fallback card, graceful error handling"),
+        ("US-BO-014", "Recipes to Meal Planter", "Reverified (BUG-BO-003 + BUG-BO-004)", "All remaining Meal Plan labels fixed to Meal Planter across all screens"),
+        ("US-BO-015", "Triggering Language in Profile", "Verified Complete", "Profile and admin panel copy reviewed and updated"),
+        ("US-BO-016", "Wellness Program Enrollment", "Completed", "Program discovery, enrollment, video playback with 80% completion tracking, My Programs"),
+        ("US-BO-017", "Embrace Connection Filter/Search", "Completed", "Search bar with 300ms debounce, All/Following/My Posts filters, empty state"),
     ]
 
     add_table(doc, ["Story", "Title", "Status", "Acceptance Criteria"], stories)
 
-    add_heading(doc, "2. Files Changed This Session")
+    add_heading(doc, "2. Bug Fix Log")
+    bugs = [
+        ("BUG-BO-001", "Wearable crash on device selection", "Unhandled promise rejection in sync flow", "Wrapped in try/catch with user-friendly fallback card", "PASS"),
+        ("BUG-BO-002", "Raw lat/long displayed", "Reverse geocoding not implemented", "Added Location.reverseGeocodeAsync for city, state, country format", "PASS"),
+        ("BUG-BO-003", "Meal Plan label on Profile", "Incomplete terminology replacement", "Fixed all remaining Meal Plan to Meal Planter across 6 files", "PASS"),
+        ("BUG-BO-004", "Calendar/Recipes reverification", "Client reverification request", "Confirmed monthly default, zero Recipes labels remaining", "PASS"),
+        ("BUG-BO-005", "Smartwatch SDK not functional", "Same root cause as BUG-BO-001", "Resolved with BUG-BO-001 fix; graceful degradation for unsupported devices", "PASS"),
+        ("BUG-BO-006", "Exercise section order", "Cardiac health not first", "Restructured: Cardiac Health card above Fitness card", "PASS"),
+        ("BUG-BO-007", "Feed posts not newest first", "Backend already sorted correctly", "Confirmed sort by created_at DESC; no client-side re-sort", "PASS"),
+    ]
+    add_table(doc, ["Bug ID", "Issue", "Root Cause", "Fix Applied", "Result"], bugs)
+
+    add_heading(doc, "3. Files Changed This Session")
     changes = [
         ("frontend/src/components/MoodEmoji.tsx", "Replaced SVG mood faces with baby stock photos from Pexels/Unsplash"),
         ("frontend/src/components/HappinessModal.tsx", "Fixed em-dash in quote author display"),
-        ("frontend/app/(tabs)/home.tsx", "Restructured layout order; added Culinary Blueprint, Embrace Connection, Exercise sections; added geolocation"),
-        ("frontend/app/(tabs)/quick-adds.tsx", "Fixed em-dash in sync notes"),
+        ("frontend/app/(tabs)/home.tsx", "Restructured layout; added geolocation with reverse geocoding; added Embrace Connection and Exercise sections"),
+        ("frontend/app/(tabs)/feed.tsx", "Added search bar (300ms debounce) and filter chips (All/Following/My Posts)"),
+        ("frontend/app/(tabs)/quick-adds.tsx", "Fixed wearable crash: wrapped sync in try/catch with fallback card"),
+        ("frontend/app/(tabs)/profile.tsx", "Fixed Meal Plan to Meal Planter in 4 locations"),
+        ("frontend/app/(tabs)/menu.tsx", "Fixed Meal Plan to Meal Planter in 2 locations"),
+        ("frontend/app/(onboarding)/complete.tsx", "Fixed Meal Plans to Meal Planter"),
+        ("frontend/app/index.tsx", "Fixed meal plans to meal planter"),
+        ("frontend/app/meal/[id].tsx", "Fixed Meal Plan to Meal Planter in 2 locations"),
+        ("frontend/app/(auth)/privacy-policy.tsx", "Fixed meal plans to Meal Planter"),
         ("frontend/app/about.tsx", "Fixed em-dash in app description"),
         ("frontend/app/settings.tsx", "Fixed em-dash in Embrace Connection description"),
-        ("backend/video_mgmt.py", "New: Video upload/edit/delete endpoints with rate limiting"),
-        ("backend/server.py", "Registered video router, added video_storage to health check"),
-        ("backend/admin_panel.py", "Added Videos nav item, upload/edit/delete modals, and JS functions"),
+        ("frontend/app/program/[id].tsx", "New: Wellness program detail with enrollment, video playback, progress tracking"),
+        ("backend/programs_feed.py", "New: Program enrollment, discovery, progress, and feed search/filter endpoints"),
+        ("backend/video_mgmt.py", "Video upload/edit/delete with rate limiting"),
+        ("backend/server.py", "Registered programs/feed router, video storage in health check"),
+        ("backend/admin_panel.py", "Fixed JS syntax error in video code; added Videos nav and modals"),
     ]
     add_table(doc, ["File", "Change Summary"], changes)
 
     add_heading(doc, "3. Dependencies Added")
     deps = [
-        ("expo-location", "55.1.8", "MIT", "Device geolocation for restaurant mapping (US-BO-001)"),
+        ("expo-location", "55.1.8", "MIT", "Device geolocation and reverse geocoding (US-BO-001, BUG-BO-002)"),
+        ("expo-av", "16.0.8", "MIT", "Video playback for wellness program content (US-BO-016)"),
     ]
     add_table(doc, ["Package", "Version", "License", "Justification"], deps)
 

@@ -199,7 +199,7 @@ export default function MealDetailScreen() {
         <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowPlanModal(true)} activeOpacity={0.8}>
           <LinearGradient colors={[Colors.green, Colors.greenDark]} style={ms.addPlanBtn}>
             <Ionicons name="calendar-outline" size={18} color="#FFF" />
-            <Text style={ms.addPlanText}>Add to Meal Plan</Text>
+            <Text style={ms.addPlanText}>Add to Meal Planter</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -210,7 +210,7 @@ export default function MealDetailScreen() {
           <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowPlanModal(false)} />
           <View style={[ms.modalContent, Shadow.lg]}>
             <View style={ms.modalHandle} />
-            <Text style={ms.modalTitle}>Add to Meal Plan</Text>
+            <Text style={ms.modalTitle}>Add to Meal Planter</Text>
             <Text style={ms.modalMealName}>{meal.title}</Text>
 
             <Text style={ms.modalLabel}>Meal Slot</Text>

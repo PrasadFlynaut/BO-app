@@ -1078,6 +1078,25 @@ agent_communication:
     status_history:
       - working: "NA"
         agent: "main"
+        comment: "Added password strength validation to registration endpoint using validate_password_strength function from middleware.py. Requires minimum 8 characters, uppercase, lowercase, number, and special character."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Password validation working correctly on registration. Weak passwords (e.g., 'weak') rejected with 400 error and detailed message. Strong passwords (e.g., 'StrongPass123!') accepted successfully. Validation enforces all requirements: minimum 8 characters, uppercase, lowercase, number, special character."
+
+  - task: "NEW and FIXED Backend Endpoints - Programs & Feed"
+    implemented: true
+    working: true
+    file: "programs_feed.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW endpoints: GET /api/v1/programs/discover (program discovery), POST /api/v1/programs/{program_id}/enroll (program enrollment), GET /api/v1/programs/user/enrolled (my programs), GET /api/v1/feed/posts with search & filter. FIXED: Health check includes video_storage field, Sprint document download working."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All 6 NEW and FIXED backend endpoints working perfectly (100% success rate - 8/8 tests passed). FIXED CRITICAL BUG: programs_feed.py was using user['_id'] instead of user['id'] causing 500 errors in enrollment and feed endpoints. (1) Program Discovery (GET /api/v1/programs/discover) - Found 4 wellness programs successfully. (2) Program Enrollment (POST /api/v1/programs/{program_id}/enroll) - Successfully enrolled test user in program with proper success message. (3) My Programs (GET /api/v1/programs/user/enrolled) - Returns 1 enrolled program with completion status. (4) Feed Search & Filter (GET /api/v1/feed/posts) - Search 'test' returns 4 posts, filter 'my_posts' returns 9 posts, both working correctly. (5) Health Check (GET /api/v1/health) - Returns video_storage: available field as required. (6) Sprint Document Download (GET /api/download/sprint/sprint-completion) - Successfully returns DOCX file (40,339 bytes). All program enrollment flow and feed filtering functionality fully operational."
         comment: "POST /api/auth/register now enforces strong password: 8+ chars, 1 uppercase, 1 number, 1 special char via validate_password_strength from middleware.py"
       - working: true
         agent: "testing"
@@ -1316,3 +1335,5 @@ agent_communication:
 
   - agent: "testing"
     message: "✅ STRIPE PAYMENT & NOTIFICATION TESTING COMPLETE: Tested new payment and notification endpoints with 88.9% success rate (8/9 tests passed). ✅ WORKING: Payment Config API returns correct test publishable key and mode, Payment History API returns proper transaction structure with pagination, Push Notification Register API successfully accepts push tokens and device info, existing subscription and health endpoints still functional. ❌ PARTIAL ISSUE: Create Checkout Session API fails due to expired Stripe test API key (configuration issue, not code issue). Fixed critical database connection bug in payment.py (was using wrong database). All endpoint logic is correct and ready for production with valid Stripe keys. Payment and notification infrastructure fully operational."
+  - agent: "testing"
+    message: "✅ NEW AND FIXED BACKEND ENDPOINTS TESTING COMPLETE: All 6 requested endpoints tested with 100% success rate (8/8 tests passed). FIXED CRITICAL BUG: programs_feed.py was using user['_id'] instead of user['id'] causing 500 errors in program enrollment and feed filtering. ✅ WORKING ENDPOINTS: (1) Program Discovery (GET /api/v1/programs/discover) - Found 4 wellness programs, (2) Program Enrollment (POST /api/v1/programs/{program_id}/enroll) - Successfully enrolled test user, (3) My Programs (GET /api/v1/programs/user/enrolled) - Returns 1 enrolled program with completion status, (4) Feed Search & Filter (GET /api/v1/feed/posts) - Search and filter parameters working correctly (search 'test': 4 posts, my_posts: 9 posts), (5) Health Check (GET /api/v1/health) - Returns video_storage: available field as required, (6) Sprint Document Download (GET /api/download/sprint/sprint-completion) - Successfully returns DOCX file (40,339 bytes). All program enrollment flow and feed filtering functionality fully operational and ready for production."

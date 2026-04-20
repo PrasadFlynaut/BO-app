@@ -75,7 +75,7 @@ export default function CompleteScreen() {
               <View style={st.statCard}>
                 <Ionicons name="flame" size={20} color={Colors.nutritionOrange} />
                 <Text style={st.statLabel}>Personalized</Text>
-                <Text style={st.statValue}>Meal Plans</Text>
+                <Text style={st.statValue}>Meal Planter</Text>
               </View>
               <View style={st.statCard}>
                 <Ionicons name="trending-up" size={20} color={Colors.green} />

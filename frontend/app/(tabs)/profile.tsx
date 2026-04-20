@@ -190,8 +190,8 @@ export default function ProfileScreen() {
       setShowCreateRecipe(false);
       resetRecipeForm();
       loadRecipes();
-      Alert.alert('Success', 'Meal plan created!');
-    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed to create meal plan'); }
+      Alert.alert('Success', 'Meal planter entry created!');
+    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed to create meal planter entry'); }
     setCreatingRecipe(false);
   };
 
@@ -311,9 +311,9 @@ export default function ProfileScreen() {
           {recipes.length === 0 ? (
             <View style={st.emptyRecipes}>
               <Ionicons name="book-outline" size={36} color={Colors.textTertiary} />
-              <Text style={st.emptyRecipesText}>No meal plans yet</Text>
+              <Text style={st.emptyRecipesText}>No meal planter entries yet</Text>
               <TouchableOpacity onPress={() => setShowCreateRecipe(true)}>
-                <Text style={st.createRecipeLink}>Create your first meal plan</Text>
+                <Text style={st.createRecipeLink}>Create your first meal planter entry</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -463,7 +463,7 @@ export default function ProfileScreen() {
               <TouchableOpacity onPress={() => { setShowCreateRecipe(false); resetRecipeForm(); }}>
                 <Text style={st.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={st.createTitle}>New Meal Plan</Text>
+              <Text style={st.createTitle}>New Meal Planter Entry</Text>
               <TouchableOpacity onPress={handleCreateRecipe} disabled={creatingRecipe}>
                 <View style={[st.saveBtn, (!rTitle.trim() || !rIngredients.trim()) && { opacity: 0.5 }]}>
                   {creatingRecipe ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={st.saveBtnText}>Save</Text>}

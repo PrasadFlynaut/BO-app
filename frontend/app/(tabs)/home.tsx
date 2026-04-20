@@ -74,7 +74,9 @@ export default function HomeScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
+  const [locationName, setLocationName] = useState('');
 
+  // ... existing code below
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -98,6 +100,22 @@ export default function HomeScreen() {
         await AsyncStorage.setItem('bo_location_permission', 'granted');
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        // Reverse geocode to get city, state, country
+        try {
+          const geocode = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+          if (geocode && geocode.length > 0) {
+            const g = geocode[0];
+            const parts = [g.city, g.region, g.country].filter(Boolean);
+            setLocationName(parts.length > 0 ? parts.join(', ') : 'Location unavailable');
+          } else {
+            setLocationName('Location unavailable');
+          }
+        } catch {
+          setLocationName('Location unavailable');
+        }
       } catch {
         setLocationDenied(true);
       }
@@ -298,7 +316,7 @@ export default function HomeScreen() {
               <View style={s.locationRow}>
                 <Ionicons name="location" size={16} color={Colors.green} />
                 <Text style={s.locationText}>
-                  {userLocation ? `Lat ${userLocation.latitude.toFixed(2)}, Lng ${userLocation.longitude.toFixed(2)}` : 'New York, NY'}
+                  {locationName || 'Location unavailable'}
                 </Text>
               </View>
               <Text style={s.findTitle}>Find your healthiest meal today</Text>
