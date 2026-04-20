@@ -123,6 +123,7 @@ tr:hover td{background:#f7fafc}
 <div class="nav-label">Content</div>
 <div class="nav-item" onclick="showPage('meals')"><i class="fas fa-hamburger"></i>Manage Meals</div>
 <div class="nav-item" onclick="showPage('quotes')"><i class="fas fa-quote-left"></i>Daily Quotes</div>
+<div class="nav-item" onclick="showPage('videos')"><i class="fas fa-video"></i>Program Videos</div>
 <div class="nav-item" onclick="showPage('posts')"><i class="fas fa-bullhorn"></i>My Posts</div>
 <div class="nav-item" onclick="showPage('plans')"><i class="fas fa-crown"></i>Subscription Plans</div>
 </div>
@@ -225,6 +226,54 @@ tr:hover td{background:#f7fafc}
 <button class="btn btn-primary" onclick="openQuoteModal()"><i class="fas fa-plus"></i> Add New Quote</button>
 </div>
 <div class="card"><table><thead><tr><th style="width:50%">Quote</th><th>Publishing Date</th><th>Selected</th><th style="width:120px">Actions</th></tr></thead><tbody id="quotesBody"></tbody></table></div></div>
+<!-- VIDEOS PAGE -->
+<div class="page" id="page-videos">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 style="font-size:16px;font-weight:700">Program Videos</h3>
+<button class="btn btn-primary" onclick="document.getElementById('videoUploadModal').style.display='flex'"><i class="fas fa-upload"></i> Upload Video</button>
+</div>
+<div class="card"><table><thead><tr><th>Title</th><th>Description</th><th>Size</th><th>Uploaded</th><th style="width:150px">Actions</th></tr></thead><tbody id="videosBody"></tbody></table></div>
+</div>
+<!-- Video Upload Modal -->
+<div id="videoUploadModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
+<div style="background:#fff;border-radius:12px;padding:32px;width:500px;max-width:90vw">
+<h3 style="font-size:18px;font-weight:700;margin-bottom:20px">Upload Program Video</h3>
+<div class="form-group"><label class="form-label">Title (max 150 chars)</label><input id="videoTitle" class="form-input" maxlength="150" placeholder="Video title"></div>
+<div class="form-group"><label class="form-label">Description (max 500 chars)</label><textarea id="videoDesc" class="form-input" maxlength="500" rows="3" placeholder="Video description" style="resize:vertical"></textarea></div>
+<div class="form-group"><label class="form-label">Video File (MP4 or MOV, max 500MB)</label><input type="file" id="videoFile" accept=".mp4,.mov" style="margin-top:4px"></div>
+<div id="videoProgress" style="display:none;margin-bottom:16px"><div style="background:#e2e8f0;border-radius:8px;height:8px;overflow:hidden"><div id="videoProgressBar" style="background:var(--bo-green);height:100%;width:0%;transition:width 0.3s"></div></div><span id="videoProgressText" style="font-size:12px;color:#718096">0%</span></div>
+<div style="display:flex;gap:12px;justify-content:flex-end">
+<button class="btn btn-outline" onclick="document.getElementById('videoUploadModal').style.display='none'">Cancel</button>
+<button class="btn btn-primary" id="videoUploadBtn" onclick="uploadVideo()"><i class="fas fa-upload"></i> Upload</button>
+</div>
+</div>
+</div>
+<!-- Video Edit Modal -->
+<div id="videoEditModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
+<div style="background:#fff;border-radius:12px;padding:32px;width:500px;max-width:90vw">
+<h3 style="font-size:18px;font-weight:700;margin-bottom:20px">Edit Video</h3>
+<div class="form-group"><label class="form-label">Title (max 150 chars)</label><input id="editVideoTitle" class="form-input" maxlength="150"></div>
+<div class="form-group"><label class="form-label">Description (max 500 chars)</label><textarea id="editVideoDesc" class="form-input" maxlength="500" rows="3" style="resize:vertical"></textarea></div>
+<input type="hidden" id="editVideoId">
+<div style="display:flex;gap:12px;justify-content:flex-end">
+<button class="btn btn-outline" onclick="document.getElementById('videoEditModal').style.display='none'">Cancel</button>
+<button class="btn btn-primary" onclick="saveVideoEdit()"><i class="fas fa-save"></i> Save</button>
+</div>
+</div>
+</div>
+<!-- Video Delete Confirmation Modal -->
+<div id="videoDeleteModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
+<div style="background:#fff;border-radius:12px;padding:32px;width:420px;max-width:90vw;text-align:center">
+<i class="fas fa-exclamation-triangle" style="font-size:40px;color:#e53e3e;margin-bottom:16px"></i>
+<h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Delete this video?</h3>
+<p style="color:#718096;margin-bottom:24px">This action cannot be undone.</p>
+<input type="hidden" id="deleteVideoId">
+<div style="display:flex;gap:12px;justify-content:center">
+<button class="btn btn-outline" onclick="document.getElementById('videoDeleteModal').style.display='none'">Cancel</button>
+<button class="btn btn-danger" onclick="confirmDeleteVideo()" style="background:#e53e3e;color:#fff"><i class="fas fa-trash"></i> Delete</button>
+</div>
+</div>
+</div>
 <!-- POSTS PAGE -->
 <div class="page" id="page-posts">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -536,9 +585,9 @@ function logout(){adminToken='';document.getElementById('dashboardPage').style.d
 
 function showPage(p){document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');
-const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
+const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',videos:'Program Videos',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
 document.getElementById('pageTitle').textContent=titles[p]||p;
-if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
+if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='videos')loadVideos();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
 
 const hdr=()=>({'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'});
 
@@ -799,6 +848,79 @@ async function aiGenerateRecipeInfo(){
     if(d.about&&!desc)document.getElementById('mealAbout').value=d.about+' (approx values)';
     showToast('AI filled nutritional info (approx values)');
   }catch(e){console.error(e);showToast('AI generation failed','error')}
+}
+
+
+// ======== VIDEOS ========
+async function loadVideos(){
+  try{
+    const r=await fetch(API+'/v1/videos',{headers:hdr()});
+    const d=await r.json();
+    const videos=d.videos||[];
+    document.getElementById('videosBody').innerHTML=videos.length===0?'<tr><td colspan="5" style="text-align:center;padding:32px;color:#a0aec0">No videos uploaded yet</td></tr>':
+    videos.map(v=>{
+      const sizeMB=(v.file_size/(1024*1024)).toFixed(1);
+      const date=v.created_at?new Date(v.created_at).toLocaleDateString():'N/A';
+      const title=(v.title||'Untitled').replace(/'/g,'&#39;');
+      const desc=(v.description||'').replace(/'/g,'&#39;');
+      return '<tr><td>'+title+'</td><td>'+desc.substring(0,60)+(desc.length>60?'...':'')+'</td><td>'+sizeMB+' MB</td><td>'+date+'</td><td><button class="btn btn-outline btn-sm" onclick="openEditVideo(\''+v.video_id+'\',\''+title+'\',\''+desc.replace(/'/g,'&#39;')+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-outline btn-sm" style="color:#e53e3e" onclick="openDeleteVideo(\''+v.video_id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }).join('');
+  }catch(e){console.error(e);showToast('Failed to load videos','error')}
+}
+
+async function uploadVideo(){
+  const title=document.getElementById('videoTitle').value;
+  const desc=document.getElementById('videoDesc').value;
+  const fileInput=document.getElementById('videoFile');
+  if(!fileInput.files.length){showToast('Please select a video file','error');return}
+  const file=fileInput.files[0];
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!['mp4','mov'].includes(ext)){showToast('Only MP4 and MOV files are supported','error');return}
+  if(file.size>500*1024*1024){showToast('File exceeds the 500MB size limit','error');return}
+  const fd=new FormData();fd.append('file',file);fd.append('title',title);fd.append('description',desc);
+  document.getElementById('videoProgress').style.display='block';
+  document.getElementById('videoUploadBtn').disabled=true;
+  const xhr=new XMLHttpRequest();
+  xhr.upload.addEventListener('progress',function(e){if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*100);document.getElementById('videoProgressBar').style.width=pct+'%';document.getElementById('videoProgressText').textContent=pct+'%'}});
+  xhr.onload=function(){
+    document.getElementById('videoUploadBtn').disabled=false;
+    document.getElementById('videoProgress').style.display='none';
+    if(xhr.status===200){showToast('Video uploaded successfully','success');document.getElementById('videoUploadModal').style.display='none';document.getElementById('videoTitle').value='';document.getElementById('videoDesc').value='';fileInput.value='';loadVideos()}
+    else if(xhr.status===429){showToast('Upload rate limit exceeded. Try again later.','error')}
+    else{const err=JSON.parse(xhr.responseText);showToast(err.detail||'Upload failed','error')}
+  };
+  xhr.onerror=function(){document.getElementById('videoUploadBtn').disabled=false;showToast('Upload failed','error')};
+  xhr.open('POST',API+'/v1/videos/upload');xhr.setRequestHeader('Authorization','Bearer '+adminToken);xhr.send(fd);
+}
+
+function openEditVideo(id,title,desc){
+  document.getElementById('editVideoId').value=id;
+  document.getElementById('editVideoTitle').value=title.replace(/&#39;/g,"'");
+  document.getElementById('editVideoDesc').value=desc.replace(/&#39;/g,"'");
+  document.getElementById('videoEditModal').style.display='flex';
+}
+
+async function saveVideoEdit(){
+  const id=document.getElementById('editVideoId').value;
+  const title=document.getElementById('editVideoTitle').value;
+  const desc=document.getElementById('editVideoDesc').value;
+  try{const r=await fetch(API+'/v1/videos/'+id,{method:'PATCH',headers:hdr(),body:JSON.stringify({title,description:desc})});
+    if(r.ok){showToast('Video updated','success');document.getElementById('videoEditModal').style.display='none';loadVideos()}
+    else{const e=await r.json();showToast(e.detail||'Update failed','error')}
+  }catch(e){showToast('Update failed','error')}
+}
+
+function openDeleteVideo(id){
+  document.getElementById('deleteVideoId').value=id;
+  document.getElementById('videoDeleteModal').style.display='flex';
+}
+
+async function confirmDeleteVideo(){
+  const id=document.getElementById('deleteVideoId').value;
+  try{const r=await fetch(API+'/v1/videos/'+id,{method:'DELETE',headers:hdr()});
+    if(r.ok){showToast('Video deleted','success');document.getElementById('videoDeleteModal').style.display='none';loadVideos()}
+    else{const e=await r.json();showToast(e.detail||'Delete failed','error')}
+  }catch(e){showToast('Delete failed','error')}
 }
 
 // ======== QUOTES ========

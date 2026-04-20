@@ -17,7 +17,7 @@ const VERSION_HISTORY = [
       'AI-powered meal recommendations with nutritional tracking',
       'Happiness & mood tracking with custom animated emojis',
       'Wearable device sync (Apple Health, Google Fit, Fitbit, Samsung, Garmin)',
-      'Embrace Connection — share posts, likes, and comments',
+      'Embrace Connection: share posts, likes, and comments',
       'AI wellness chatbot for health Q&A',
       'Push notifications for meal reminders and wellness tips',
       'Restaurant discovery with BO verification',

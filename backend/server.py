@@ -876,6 +876,7 @@ async def health_check():
         "version": "1.0.0",
         "database": db_status,
         "collections": len(collections),
+        "video_storage": "available" if os.path.isdir(os.path.join(os.path.dirname(__file__), "uploads")) else "unavailable",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -906,6 +907,10 @@ app.include_router(sprint8_router, prefix="/api")
 app.include_router(sprint7_router, prefix="/api")
 app.include_router(admin_panel_router, prefix="/api")
 app.include_router(admin_enterprise_router, prefix="/api")
+
+from video_mgmt import video_router
+app.include_router(video_router)
+
 app.include_router(sprint6_router, prefix="/api")
 app.include_router(sprint5_router, prefix="/api")
 @api_router.get("/download/project-docs")
@@ -938,6 +943,31 @@ async def download_handover_docs():
     return FileResponse(
         path=str(file_path),
         filename="BO_Handover_Document.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+# Sprint documents download endpoints
+SPRINT_DOCS = {
+    "sprint-completion": "BO_Sprint_Completion_Report.docx",
+    "sprint-summary": "BO_Sprint_Summary.docx",
+    "sprint-retrospective": "BO_Sprint_Retrospective.docx",
+    "qa-report": "BO_QA_Report.docx",
+    "api-external": "BO_External_API_Documentation.docx",
+    "security-report": "BO_Security_Hardening_Report.docx",
+    "enhancement-log": "BO_Enhancement_Log.docx",
+    "scope-change": "BO_Scope_Change_Register.docx",
+}
+
+@api_router.get("/download/sprint/{doc_key}")
+async def download_sprint_doc(doc_key: str):
+    if doc_key not in SPRINT_DOCS:
+        raise HTTPException(status_code=404, detail="Document not found")
+    file_path = Path("/app") / SPRINT_DOCS[doc_key]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Document file not found. Run generate_sprint_docs.py first.")
+    return FileResponse(
+        path=str(file_path),
+        filename=SPRINT_DOCS[doc_key],
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 

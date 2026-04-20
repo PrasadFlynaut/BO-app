@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, ActivityIndicator, RefreshControl, Alert,
-  Dimensions,
+  Dimensions, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
@@ -68,11 +70,41 @@ export default function HomeScreen() {
   // Sidebar drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Geolocation (US-BO-001)
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
+
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   useFocusEffect(useCallback(() => { loadData(); }, []));
+
+  // Request location permission once and persist decision
+  useEffect(() => {
+    const requestLocation = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('bo_location_permission');
+        if (stored === 'denied') { setLocationDenied(true); setMapLoading(false); return; }
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationDenied(true);
+          await AsyncStorage.setItem('bo_location_permission', 'denied');
+          setMapLoading(false);
+          return;
+        }
+        await AsyncStorage.setItem('bo_location_permission', 'granted');
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      } catch {
+        setLocationDenied(true);
+      }
+      setMapLoading(false);
+    };
+    requestLocation();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -241,6 +273,146 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {/* ===== SECTION 2: Culinary Blueprint (Geolocation Map) ===== */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Culinary Blueprint</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/menu')}><Text style={s.seeAll}>Meal Planter</Text></TouchableOpacity>
+          </View>
+
+          {/* Location status + search */}
+          {locationDenied ? (
+            <View style={[s.locationFallbackCard, Shadow.sm]}>
+              <Ionicons name="location-outline" size={32} color={Colors.textTertiary} />
+              <Text style={s.locationFallbackTitle}>Your location is unavailable</Text>
+              <Text style={s.locationFallbackText}>Update your settings to enable the map.</Text>
+            </View>
+          ) : mapLoading ? (
+            <View style={s.skeletonCard}>
+              <View style={s.skeletonBar} />
+              <View style={[s.skeletonBar, { width: '60%' }]} />
+              <View style={[s.skeletonBar, { width: '80%', height: 80 }]} />
+            </View>
+          ) : (
+            <>
+              <View style={s.locationRow}>
+                <Ionicons name="location" size={16} color={Colors.green} />
+                <Text style={s.locationText}>
+                  {userLocation ? `Lat ${userLocation.latitude.toFixed(2)}, Lng ${userLocation.longitude.toFixed(2)}` : 'New York, NY'}
+                </Text>
+              </View>
+              <Text style={s.findTitle}>Find your healthiest meal today</Text>
+            </>
+          )}
+
+          <View style={s.searchRow}>
+            <Ionicons name="search" size={18} color={Colors.textTertiary} />
+            <TextInput
+              style={s.searchInput}
+              placeholder="Search restaurants, cuisines..."
+              placeholderTextColor={Colors.textTertiary}
+              value={search}
+              onChangeText={handleSearch}
+            />
+            <TouchableOpacity accessibilityLabel="Filter options"><Ionicons name="options-outline" size={18} color={Colors.textTertiary} /></TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
+            {FILTERS.map(f => (
+              <TouchableOpacity key={f} style={[s.filterChip, activeFilter === f && s.filterActive]} onPress={() => handleFilter(f)} activeOpacity={0.7} accessibilityLabel={`Filter: ${f}`}>
+                <Text style={[s.filterText, activeFilter === f && s.filterTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Restaurant List */}
+          {loading ? (
+            <View style={s.loadingWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
+          ) : restaurants.length === 0 ? (
+            <View style={s.emptyWrap}>
+              <Ionicons name="restaurant-outline" size={48} color={Colors.textTertiary} />
+              <Text style={s.emptyText}>No nearby spots found for your Culinary Blueprint</Text>
+              <Text style={s.emptySubtext}>Try expanding your preferences in settings.</Text>
+            </View>
+          ) : (
+            restaurants.slice(0, 3).map((r, i) => (
+              <Animated.View key={r.id || i} entering={FadeInDown.delay(200 + i * 60).duration(400)}>
+                <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
+                  <FallbackImage uri={r.image_url} style={s.restImg} />
+                  {r.bo_verified && (
+                    <View style={s.verifiedBadge}>
+                      <Ionicons name="shield-checkmark" size={12} color="#FFF" />
+                      <Text style={s.verifiedText}>BO Verified</Text>
+                    </View>
+                  )}
+                  <View style={s.restBody}>
+                    <Text style={s.restName}>{r.name}</Text>
+                    <Text style={s.restCuisine}>{(r.cuisines || []).join(', ')}</Text>
+                    <View style={s.restMeta}>
+                      <View style={s.ratingRow}>
+                        <Ionicons name="star" size={14} color="#FFD700" />
+                        <Text style={s.ratingText}>{r.average_rating || '0.0'}</Text>
+                      </View>
+                      {r.distance_miles && (
+                        <View style={s.distRow}>
+                          <Ionicons name="location-outline" size={14} color={Colors.textTertiary} />
+                          <Text style={s.distText}>{r.distance_miles} mi</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            ))
+          )}
+        </Animated.View>
+
+        {/* ===== SECTION 3: Embrace Connection ===== */}
+        <Animated.View entering={FadeInDown.delay(250).duration(500)}>
+          <View style={s.sectionHead}>
+            <Text style={[s.sectionTitle, { color: '#F5841F' }]}>Embrace Connection</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/feed')}><Text style={s.seeAll}>View All</Text></TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[s.connectionCard, Shadow.sm]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/(tabs)/feed')}
+            accessibilityLabel="Navigate to Embrace Connection social feed"
+          >
+            <LinearGradient colors={['#FFF7ED', '#FEF3C7']} style={s.connectionGrad}>
+              <Ionicons name="people" size={28} color="#F5841F" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={s.connectionTitle}>Connect with your community</Text>
+                <Text style={s.connectionSub}>Share your wellness journey, inspire others, and stay motivated together.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#F5841F" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ===== SECTION 4: Exercise ===== */}
+        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Exercise</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/quick-adds?zone=workouts' as any)}><Text style={s.seeAll}>Full Fitness</Text></TouchableOpacity>
+          </View>
+          <View style={s.exerciseRow}>
+            <TouchableOpacity style={[s.exerciseCard, Shadow.sm]} activeOpacity={0.85} onPress={() => router.push('/(tabs)/quick-adds?zone=workouts' as any)} accessibilityLabel="View cardiac health summary">
+              <LinearGradient colors={['#FEE2E2', '#FFF']} style={s.exerciseGrad}>
+                <Ionicons name="heart" size={24} color="#EF4444" />
+                <Text style={s.exerciseCardTitle}>Cardiac Health</Text>
+                <Text style={s.exerciseCardSub}>Monitor your heart wellness and activity levels</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.exerciseCard, Shadow.sm]} activeOpacity={0.85} onPress={() => router.push('/(tabs)/quick-adds?zone=workouts' as any)} accessibilityLabel="Navigate to fitness area">
+              <LinearGradient colors={['#EDE9FE', '#FFF']} style={s.exerciseGrad}>
+                <Ionicons name="barbell" size={24} color={Colors.fitnessPurple} />
+                <Text style={s.exerciseCardTitle}>Fitness</Text>
+                <Text style={s.exerciseCardSub}>Log workouts, track progress, and stay active</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
         {/* Active Program Widget */}
         {activeProgram && activeProgramData && (
           <Animated.View entering={FadeInDown.delay(50).duration(350)}>
@@ -318,7 +490,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Quick Add */}
-        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(350).duration(500)}>
           <TouchableOpacity style={[s.quickAddBtn, Shadow.md]} onPress={() => setShowQuickAdd(!showQuickAdd)} activeOpacity={0.8}>
             <LinearGradient colors={[Colors.green, Colors.greenDark]} style={s.quickAddGrad}>
               <Ionicons name={showQuickAdd ? 'close' : 'add'} size={24} color="#FFF" />
@@ -332,7 +504,8 @@ export default function HomeScreen() {
                   <TouchableOpacity key={i} style={s.qaItem} activeOpacity={0.7} onPress={() => {
                     setShowQuickAdd(false);
                     router.push(`/(tabs)/quick-adds?zone=${qa.zone}&slot=${qa.slot}` as any);
-                  }}>                    <View style={[s.qaIcon, { backgroundColor: qa.color + '15' }]}>
+                  }}>
+                    <View style={[s.qaIcon, { backgroundColor: qa.color + '15' }]}>
                       <Ionicons name={qa.icon as any} size={22} color={qa.color} />
                     </View>
                     <Text style={s.qaLabel}>{qa.label}</Text>
@@ -342,81 +515,6 @@ export default function HomeScreen() {
             </Animated.View>
           )}
         </Animated.View>
-
-        {/* Location + Search */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
-          <View style={s.locationRow}>
-            <Ionicons name="location" size={16} color={Colors.green} />
-            <Text style={s.locationText}>New York, NY</Text>
-          </View>
-          <Text style={s.findTitle}>Find your healthiest meal today</Text>
-          <View style={s.searchRow}>
-            <Ionicons name="search" size={18} color={Colors.textTertiary} />
-            <TextInput
-              style={s.searchInput}
-              placeholder="Search restaurants, cuisines..."
-              placeholderTextColor={Colors.textTertiary}
-              value={search}
-              onChangeText={handleSearch}
-            />
-            <TouchableOpacity><Ionicons name="options-outline" size={18} color={Colors.textTertiary} /></TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
-            {FILTERS.map(f => (
-              <TouchableOpacity key={f} style={[s.filterChip, activeFilter === f && s.filterActive]} onPress={() => handleFilter(f)} activeOpacity={0.7}>
-                <Text style={[s.filterText, activeFilter === f && s.filterTextActive]}>{f}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
-
-        {/* Restaurant List */}
-        {loading ? (
-          <View style={s.loadingWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
-        ) : restaurants.length === 0 ? (
-          <View style={s.emptyWrap}>
-            <Ionicons name="restaurant-outline" size={48} color={Colors.textTertiary} />
-            <Text style={s.emptyText}>No restaurants found nearby</Text>
-            <Text style={s.emptySubtext}>Try expanding your search</Text>
-          </View>
-        ) : (
-          restaurants.map((r, i) => (
-            <Animated.View key={r.id || i} entering={FadeInDown.delay(400 + i * 60).duration(400)}>
-              <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
-                <FallbackImage uri={r.image_url} style={s.restImg} />
-                {r.bo_verified && (
-                  <View style={s.verifiedBadge}>
-                    <Ionicons name="shield-checkmark" size={12} color="#FFF" />
-                    <Text style={s.verifiedText}>BO Verified</Text>
-                  </View>
-                )}
-                {r.bo_partner && !r.bo_verified && (
-                  <View style={[s.verifiedBadge, { backgroundColor: Colors.nutritionOrange }]}>
-                    <Ionicons name="people-outline" size={12} color="#FFF" />
-                    <Text style={s.verifiedText}>BO Partner</Text>
-                  </View>
-                )}
-                <View style={s.restBody}>
-                  <Text style={s.restName}>{r.name}</Text>
-                  <Text style={s.restCuisine}>{(r.cuisines || []).join(', ')}</Text>
-                  <View style={s.restMeta}>
-                    <View style={s.ratingRow}>
-                      <Ionicons name="star" size={14} color="#FFD700" />
-                      <Text style={s.ratingText}>{r.average_rating || '0.0'}</Text>
-                      <Text style={s.ratingCount}>({r.total_ratings || 0})</Text>
-                    </View>
-                    {r.distance_miles && (
-                      <View style={s.distRow}>
-                        <Ionicons name="location-outline" size={14} color={Colors.textTertiary} />
-                        <Text style={s.distText}>{r.distance_miles} mi</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ))
-        )}
       </ScrollView>
 
       {/* Program Detail Modal */}
@@ -532,4 +630,33 @@ const s = StyleSheet.create({
   distText: { fontSize: FontSize.small, color: Colors.textSecondary },
   headerQuote: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
   headerQuoteAuthor: { fontSize: FontSize.caption, color: Colors.textTertiary },
+
+  // Geolocation fallback card
+  locationFallbackCard: {
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.md, padding: 24,
+    borderRadius: Radius.lg, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: Colors.borderLight,
+    alignItems: 'center', gap: 8,
+  },
+  locationFallbackTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
+  locationFallbackText: { fontSize: FontSize.small, color: Colors.textSecondary, textAlign: 'center' },
+
+  // Skeleton loader
+  skeletonCard: {
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.md, padding: 20,
+    borderRadius: Radius.lg, backgroundColor: '#F3F4F6', gap: 12,
+  },
+  skeletonBar: { width: '100%' as any, height: 16, borderRadius: 8, backgroundColor: '#E5E7EB' },
+
+  // Embrace Connection
+  connectionCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden' },
+  connectionGrad: { flexDirection: 'row', alignItems: 'center', padding: 18 },
+  connectionTitle: { fontSize: FontSize.body, fontWeight: '700', color: '#92400E' },
+  connectionSub: { fontSize: FontSize.small, color: '#B45309', marginTop: 4 },
+
+  // Exercise section
+  exerciseRow: { flexDirection: 'row', gap: 12, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  exerciseCard: { flex: 1, borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: '#FFF' },
+  exerciseGrad: { padding: 16, gap: 8, minHeight: 120 },
+  exerciseCardTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
+  exerciseCardSub: { fontSize: FontSize.caption, color: Colors.textSecondary, lineHeight: 16 },
 });

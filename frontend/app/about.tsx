@@ -94,7 +94,7 @@ export default function AboutScreen() {
         <Animated.View entering={FadeInDown.delay(80).duration(350)} style={[s.card, Shadow.sm]}>
           <Text style={s.sectionTitle}>Our Mission</Text>
           <Text style={s.description}>
-            BO was inspired by two matriarchs and stands for Bananas and Okra. We help you discover your healthiest self through personalized nutrition, smart activity tracking, AI-powered wellness insights, and a supportive community — all in one app.
+            BO was inspired by two matriarchs and stands for Bananas and Okra. We help you discover your healthiest self through personalized nutrition, smart activity tracking, AI-powered wellness insights, and a supportive community, all in one app.
           </Text>
         </Animated.View>
 

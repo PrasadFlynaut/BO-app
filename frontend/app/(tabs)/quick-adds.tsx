@@ -530,7 +530,7 @@ export default function QuickAddsScreen() {
               duration: synced.active_minutes || 30,
               intensity: 'medium',
               calories: synced.calories || 0,
-              notes: `Synced from ${provider} — ${synced.steps} steps, ${synced.distance_km?.toFixed(1) || 0} km`,
+              notes: `Synced from ${provider}, ${synced.steps} steps, ${synced.distance_km?.toFixed(1) || 0} km`,
             });
           } catch {}
         }

@@ -180,6 +180,64 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: All 6 onboarding endpoints work correctly. POST /api/onboarding/activities saves activities & fitness_goals. PUT /api/onboarding/preferences saves meal_preferences & allergies. PUT /api/onboarding/questionnaire saves health questionnaire data. PUT /api/onboarding/life-goals saves life_goals & happiness_level. PUT /api/onboarding/permissions saves all permission flags. POST /api/onboarding/complete sets onboarding_complete=true. All require auth and update user profile in MongoDB."
 
+
+  - task: "US-BO-004 Video Upload API"
+    implemented: true
+    working: true
+    file: "video_mgmt.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/v1/videos/upload - MP4/MOV only, 500MB limit, server-side validation, rate limiting (10/hr/user). PATCH /api/v1/videos/{id} for edit. DELETE /api/v1/videos/{id} with confirmation. GET /api/v1/videos for listing."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All Video Management APIs working perfectly (100% success rate - 6/6 tests passed). Fixed critical bug in video_mgmt.py where user_id was using user['_id'] instead of user['id']. POST /api/v1/videos/upload successfully uploads MP4 files with proper validation (rejects text files with 'Only MP4 and MOV files are supported' error), returns video data with id/url/file_size. GET /api/v1/videos lists uploaded videos correctly. PATCH /api/v1/videos/{video_id} updates title/description successfully. DELETE /api/v1/videos/{video_id} removes videos and files correctly. File type validation working (400 error for non-MP4/MOV files). All CRUD operations functional with proper authentication."
+
+  - task: "US-BO-001 Geolocation API"
+    implemented: true
+    working: "NA"
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Frontend uses expo-location for geolocation. Backend restaurants API already exists. No new backend endpoint needed."
+
+  - task: "Sprint Documents Download APIs"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/download/sprint/{doc_key} - serves 8 sprint DOCX documents (sprint-completion, sprint-summary, sprint-retrospective, qa-report, api-external, security-report, enhancement-log, scope-change)"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Sprint Documents Download API working correctly. GET /api/download/sprint/sprint-completion successfully returns DOCX file (39,302 bytes) with proper Content-Type (application/vnd.openxmlformats-officedocument.wordprocessingml.document). Document download endpoint functional and serving sprint completion document as expected."
+
+  - task: "Health Check includes video storage"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/health now returns video_storage: available/unavailable"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Health Check API working correctly. GET /api/v1/health returns all required fields (status: healthy, version: 1.0.0, database: connected, collections: 67, video_storage: available, timestamp). Video storage field properly included and shows 'available' status. Health endpoint fully functional for production monitoring."
+
 frontend:
   - task: "Forgot/Reset Password Screen"
     implemented: true
@@ -989,6 +1047,8 @@ agent_communication:
     message: "✅ RESTAURANT CLAIMS & SEARCH TESTING COMPLETE: All 5 backend API tests passed (100% success rate). Restaurant Search API (GET /api/restaurants?search=green) working perfectly - found 2 restaurants with 2 matching 'green' in name/cuisine, proper pagination structure. Restaurant Claims API working correctly - POST /api/v1/restaurants/claims submits claims with status 'pending', GET /api/v1/restaurants/claims/mine retrieves user claims with required fields. Duplicate claim prevention operational (400 error for duplicates). Post Like API (POST /api/v1/post/like/{postId}) functioning properly with like toggle and count updates. All restaurant claim flow and search functionality fully operational."
   - agent: "testing"
     message: "✅ HAPPINESS TRACKING API TESTING COMPLETE: All 7 happiness tracking endpoint tests passed (100% success rate). Comprehensive testing verified: (1) POST /api/auth/login successful with admin@bo.com credentials, (2) GET /api/v1/happiness/today returns correct structure with logged:true and existing entry (level 4), (3) POST /api/v1/happiness successfully performs upsert behavior - updated existing entry from level 4 to level 5 with new note and factors, (4) GET /api/v1/happiness/today confirms update to level 5, (5) GET /api/v1/happiness/history?days=30 returns proper structure with 2 entries, stats (average, current_streak, top_factors), and pagination, (6) GET /api/v1/progress/overview?days=30 returns comprehensive wellness overview with all required sections and happiness.by_day array with 2 entries, (7) Authentication validation working (401 without Bearer token). All endpoints demonstrate proper upsert behavior, data persistence, and expected response structures as specified in review request."
+  - agent: "testing"
+    message: "✅ BO WELLNESS APP SPRINT V2 BACKEND TESTING COMPLETE: All 6 NEW backend endpoints tested with 100% success rate (6/6 tests passed). FIXED CRITICAL BUG: video_mgmt.py was using user['_id'] instead of user['id'] causing 500 errors. (1) Video Upload API (POST /api/v1/videos/upload) - Successfully uploads MP4 files with proper validation, rejects text files with 'Only MP4 and MOV files are supported' error, returns video data with id/url/file_size. (2) Video List API (GET /api/v1/videos) - Lists uploaded videos correctly. (3) Video Edit API (PATCH /api/v1/videos/{video_id}) - Updates title/description successfully. (4) Video Delete API (DELETE /api/v1/videos/{video_id}) - Removes videos and files correctly. (5) Health Check API (GET /api/v1/health) - Returns all required fields including video_storage: available. (6) Sprint Documents Download (GET /api/download/sprint/sprint-completion) - Successfully returns DOCX file (39,302 bytes). All video management CRUD operations functional with proper authentication and file type validation. All Sprint v2 backend APIs fully operational and ready for production."
   - agent: "testing"
     message: "✅ PUSH NOTIFICATIONS & MOOD QUOTES API TESTING COMPLETE: All 9 endpoint tests passed (100% success rate). Fixed critical issues: (1) Unicode escape error in push_service.py happiness reminder, (2) NameError in server.py push endpoints using undefined get_user function - replaced with Depends(get_current_user), (3) Role validation updated to accept both 'admin' and 'super_admin' roles. Comprehensive testing verified: GET /api/v1/happiness/quote endpoints return correct mood-based quotes (empathetic for level 1, celebratory for level 5) without authentication. POST /api/v1/notifications/register successfully registers push tokens with proper auth validation. All admin push endpoints working: POST /api/v1/push/broadcast (sent to 3 devices), POST /api/v1/push/happiness-reminder (sent to 1 device for users without today's happiness log), POST /api/v1/push/user (sent to 2 devices for specific user). Authentication validation working correctly (401 without token, 403 for non-admin users). Push notifications integrate properly with Expo Push API - test tokens return expected DeviceNotRegistered errors but endpoints function correctly. All push notification and mood quote functionality fully operational."
 

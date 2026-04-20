@@ -139,7 +139,7 @@ export default function HappinessModal({ visible, onClose, onLogged }: Happiness
                   <Text style={styles.quoteIcon}>{'\u2728'}</Text>
                   <Text style={styles.quoteText}>"{quote.quote}"</Text>
                   {quote.author && quote.author !== 'Unknown' && (
-                    <Text style={styles.quoteAuthor}>— {quote.author}</Text>
+                    <Text style={styles.quoteAuthor}>- {quote.author}</Text>
                   )}
                 </>
               ) : null}
