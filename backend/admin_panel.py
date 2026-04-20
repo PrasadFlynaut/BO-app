@@ -863,7 +863,7 @@ async function loadVideos(){
       const date=v.created_at?new Date(v.created_at).toLocaleDateString():'N/A';
       const title=(v.title||'Untitled').replace(/'/g,'&#39;');
       const desc=(v.description||'').replace(/'/g,'&#39;');
-      return '<tr><td>'+title+'</td><td>'+desc.substring(0,60)+(desc.length>60?'...':'')+'</td><td>'+sizeMB+' MB</td><td>'+date+'</td><td><button class="btn btn-outline btn-sm" onclick="openEditVideo(\''+v.video_id+'\',\''+title+'\',\''+desc.replace(/'/g,'&#39;')+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-outline btn-sm" style="color:#e53e3e" onclick="openDeleteVideo(\''+v.video_id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+      return '<tr><td>'+title+'</td><td>'+desc.substring(0,60)+(desc.length>60?'...':'')+'</td><td>'+sizeMB+' MB</td><td>'+date+'</td><td><button class="btn btn-outline btn-sm" onclick="openEditVideo(&quot;'+v.video_id+'&quot;,&quot;'+title+'&quot;,&quot;'+desc+'&quot;)"><i class="fas fa-edit"></i></button> <button class="btn btn-outline btn-sm" style="color:#e53e3e" onclick="openDeleteVideo(&quot;'+v.video_id+'&quot;)"><i class="fas fa-trash"></i></button></td></tr>';
     }).join('');
   }catch(e){console.error(e);showToast('Failed to load videos','error')}
 }
@@ -895,8 +895,8 @@ async function uploadVideo(){
 
 function openEditVideo(id,title,desc){
   document.getElementById('editVideoId').value=id;
-  document.getElementById('editVideoTitle').value=title.replace(/&#39;/g,"'");
-  document.getElementById('editVideoDesc').value=desc.replace(/&#39;/g,"'");
+  document.getElementById('editVideoTitle').value=title.replace(/&amp;#39;/g,"'").replace(/&#39;/g,"'");
+  document.getElementById('editVideoDesc').value=desc.replace(/&amp;#39;/g,"'").replace(/&#39;/g,"'");
   document.getElementById('videoEditModal').style.display='flex';
 }
 
