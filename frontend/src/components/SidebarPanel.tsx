@@ -48,7 +48,7 @@ export default function SidebarPanel({ isOpen, onClose, onOpen }: Props) {
           </Animated.View>
           <Animated.View entering={SlideInLeft.duration(250)} exiting={SlideOutLeft.duration(200)} style={s.sidebarContainer}>
             <SafeAreaView style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={s.sidebarScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={s.sidebarStyle} contentContainerStyle={s.sidebarScroll} showsVerticalScrollIndicator={false}>
                 {SIDEBAR_ITEMS.map((item, idx) => (
                   <Animated.View key={item.label} entering={FadeInLeft.delay(idx * 40).duration(250)}>
                     <TouchableOpacity
@@ -79,6 +79,9 @@ const s = StyleSheet.create({
   sidebarOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 100,
+  },
+  sidebarStyle:{
+    paddingBottom:80
   },
   sidebarContainer: {
     position: 'absolute', top: 0, left: 0, bottom: 0,
