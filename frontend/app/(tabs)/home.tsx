@@ -108,7 +108,13 @@ export default function HomeScreen() {
           });
           if (geocode && geocode.length > 0) {
             const g = geocode[0];
-            const parts = [g.city, g.region, g.country].filter(Boolean);
+            const parts = [
+              g.name !== g.street ? g.name : null, // name is often the house number/POI
+              g.street,
+              g.district, // area/neighborhood
+              g.city,
+              g.postalCode
+            ].filter(Boolean);
             setLocationName(parts.length > 0 ? parts.join(', ') : 'Location unavailable');
           } else {
             setLocationName('Location unavailable');
