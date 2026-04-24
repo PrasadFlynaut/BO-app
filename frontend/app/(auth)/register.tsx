@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import { validateEmail, validatePassword, validateDateOfBirth, validatePhone, validateName, runValidations, isPasswordValid } from '@/src/validation';
 
 // Reusable focused input with highlight + optional info icon
 function FocusInput({ label, info, ...props }: TextInputProps & { label: string; info?: string }) {
@@ -78,9 +79,17 @@ export default function RegisterScreen() {
   }, [user, success]);
 
   const handleRegister = async () => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) { setError('Please fill in all required fields'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    const validationError = runValidations(
+      validateName(firstName, 'First name'),
+      validateName(lastName, 'Last name'),
+      validateEmail(email),
+      validatePassword(password),
+      validateDateOfBirth(dob),
+      validatePhone(phone),
+    );
+    if (validationError) { setError(validationError); return; }
     if (!agreedPrivacy) { setError('Please agree to the Privacy Policy to continue'); return; }
+
     setLoading(true); setError('');
     try {
       const fullName = `${firstName} ${lastName}`.trim();
@@ -92,11 +101,21 @@ export default function RegisterScreen() {
       });
       setSuccess(true);
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Registration failed');
+      if (e.response?.status === 429) {
+        setError('Too many attempts. Please wait a moment and try again.');
+      } else if (e.response?.data?.detail) {
+        setError(e.response.data.detail);
+      } else if (e.code === 'ECONNABORTED' || e.message?.includes('timeout')) {
+        setError('Connection timed out. Please check your internet and try again.');
+      } else if (!e.response) {
+        setError('No internet connection. Please check your network and try again.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally { setLoading(false); }
   };
 
-  const canSubmit = agreedPrivacy && firstName.trim() && lastName.trim() && email.trim() && password.trim() && password.length >= 8;
+  const canSubmit = agreedPrivacy && !!firstName.trim() && !!lastName.trim() && !!email.trim() && isPasswordValid(password);
 
   if (success) {
     return (
@@ -152,7 +171,7 @@ export default function RegisterScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(240).duration(500)}>
-            <FocusInput label="Password" info="Must be at least 8 characters. Use a mix of letters, numbers, and symbols for best security" placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry testID="register-password-input" />
+            <FocusInput label="Password" info="Min 8 characters, with at least one uppercase letter, one number, and one special character (e.g. !@#$%)" placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry testID="register-password-input" />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(280).duration(500)}>
