@@ -37,6 +37,10 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
 
+  // Exercise stats
+  const [workoutSummary, setWorkoutSummary] = useState<{ totalWorkouts: number; totalCalories: number; totalDuration: number } | null>(null);
+  const [wearableSummary, setWearableSummary] = useState<{ steps: number; heartRate: number } | null>(null);
+
   // Active program state
   const [activeProgram, setActiveProgram] = useState<any>(null);
   const [activeProgramData, setActiveProgramData] = useState<any>(null);
@@ -157,6 +161,19 @@ export default function HomeScreen() {
         if (qData.quote) {
           setDailyQuote({ text: qData.quote.text, subQuote: qData.quote.subQuote || '' });
         }
+      } catch {}
+      // Load exercise / workout stats
+      try {
+        const { data: wkData } = await api.get('/v1/workouts?limit=1');
+        setWorkoutSummary(wkData.summary || null);
+      } catch {}
+      try {
+        const { data: wearData } = await api.get('/v1/wearables/summary?days=7');
+        const s = wearData.summary || {};
+        setWearableSummary({
+          steps: s.steps?.total || 0,
+          heartRate: Math.round(s.heart_rate?.avg || 0),
+        });
       } catch {}
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -289,7 +306,11 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
-              <Ionicons name="person" size={20} color={Colors.green} />
+              {user?.profile_photo_url ? (
+                <Image source={{ uri: user.profile_photo_url }} style={s.avatarImg} contentFit="cover" />
+              ) : (
+                <Text style={s.avatarInitial}>{(user?.first_name || user?.name || '?')[0].toUpperCase()}</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -373,35 +394,45 @@ export default function HomeScreen() {
               <Text style={s.emptySubtext}>Try expanding your preferences in settings.</Text>
             </View>
           ) : (
-            restaurants.slice(0, 3).map((r, i) => (
-              <Animated.View key={r.id || i} entering={FadeInDown.delay(200 + i * 60).duration(400)}>
-                <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
-                  <FallbackImage uri={r.image_url} style={s.restImg} />
-                  {r.bo_verified && (
-                    <View style={s.verifiedBadge}>
-                      <Ionicons name="shield-checkmark" size={12} color="#FFF" />
-                      <Text style={s.verifiedText}>BO Verified</Text>
-                    </View>
-                  )}
-                  <View style={s.restBody}>
-                    <Text style={s.restName}>{r.name}</Text>
-                    <Text style={s.restCuisine}>{(r.cuisines || []).join(', ')}</Text>
-                    <View style={s.restMeta}>
-                      <View style={s.ratingRow}>
-                        <Ionicons name="star" size={14} color="#FFD700" />
-                        <Text style={s.ratingText}>{r.average_rating || '0.0'}</Text>
+            <>
+              {restaurants.map((r, i) => (
+                <Animated.View key={r.id || i} entering={FadeInDown.delay(200 + i * 60).duration(400)}>
+                  <TouchableOpacity style={[s.restCard, Shadow.sm]} onPress={() => router.push({ pathname: '/restaurant/[id]', params: { id: r.id } })} activeOpacity={0.85}>
+                    <FallbackImage uri={r.image_url} style={s.restImg} />
+                    {r.bo_verified && (
+                      <View style={s.verifiedBadge}>
+                        <Ionicons name="shield-checkmark" size={12} color="#FFF" />
+                        <Text style={s.verifiedText}>BO Verified</Text>
                       </View>
-                      {r.distance_miles && (
-                        <View style={s.distRow}>
-                          <Ionicons name="location-outline" size={14} color={Colors.textTertiary} />
-                          <Text style={s.distText}>{r.distance_miles} mi</Text>
+                    )}
+                    <View style={s.restBody}>
+                      <Text style={s.restName}>{r.name}</Text>
+                      <Text style={s.restCuisine}>{(r.cuisines || [r.cuisine]).filter(Boolean).join(', ')}</Text>
+                      <View style={s.restMeta}>
+                        <View style={s.ratingRow}>
+                          <Ionicons name="star" size={14} color="#FFD700" />
+                          <Text style={s.ratingText}>{r.average_rating || '0.0'}</Text>
                         </View>
-                      )}
+                        {r.distance_miles && (
+                          <View style={s.distRow}>
+                            <Ionicons name="location-outline" size={14} color={Colors.textTertiary} />
+                            <Text style={s.distText}>{r.distance_miles} mi</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            ))
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+              <TouchableOpacity
+                style={s.seeAllRestaurants}
+                onPress={() => router.push({ pathname: '/restaurant-map', params: { lat: userLocation?.latitude ?? 0, lng: userLocation?.longitude ?? 0 } } as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={s.seeAllRestaurantsText}>See All Restaurants</Text>
+                <Ionicons name="arrow-forward" size={15} color={Colors.green} />
+              </TouchableOpacity>
+            </>
           )}
         </Animated.View>
 
@@ -439,14 +470,27 @@ export default function HomeScreen() {
               <LinearGradient colors={['#FEE2E2', '#FFF']} style={s.exerciseGrad}>
                 <Ionicons name="heart" size={24} color="#EF4444" />
                 <Text style={s.exerciseCardTitle}>Cardiac Health</Text>
-                <Text style={s.exerciseCardSub}>Monitor your heart wellness and activity levels</Text>
+                {wearableSummary && wearableSummary.heartRate > 0 ? (
+                  <Text style={s.exerciseCardStat}>{wearableSummary.heartRate} <Text style={s.exerciseCardStatUnit}>bpm avg</Text></Text>
+                ) : wearableSummary && wearableSummary.steps > 0 ? (
+                  <Text style={s.exerciseCardStat}>{wearableSummary.steps.toLocaleString()} <Text style={s.exerciseCardStatUnit}>steps</Text></Text>
+                ) : (
+                  <Text style={s.exerciseCardSub}>Monitor your heart wellness and activity levels</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={[s.exerciseCard, Shadow.sm]} activeOpacity={0.85} onPress={() => router.push('/(tabs)/quick-adds?zone=workouts' as any)} accessibilityLabel="Navigate to fitness area">
               <LinearGradient colors={['#EDE9FE', '#FFF']} style={s.exerciseGrad}>
                 <Ionicons name="barbell" size={24} color={Colors.fitnessPurple} />
                 <Text style={s.exerciseCardTitle}>Fitness</Text>
-                <Text style={s.exerciseCardSub}>Log workouts, track progress, and stay active</Text>
+                {workoutSummary && workoutSummary.totalWorkouts > 0 ? (
+                  <>
+                    <Text style={s.exerciseCardStat}>{workoutSummary.totalWorkouts} <Text style={s.exerciseCardStatUnit}>workouts</Text></Text>
+                    <Text style={s.exerciseCardSub}>{workoutSummary.totalCalories} kcal · {workoutSummary.totalDuration} min this week</Text>
+                  </>
+                ) : (
+                  <Text style={s.exerciseCardSub}>Log workouts, track progress, and stay active</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -594,7 +638,9 @@ const s = StyleSheet.create({
   quoteText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textPrimary, fontStyle: 'italic', lineHeight: 22 },
   subQuoteText: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 6, lineHeight: 18 },
 
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.green, overflow: 'hidden' },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarInitial: { fontSize: 18, fontWeight: '700', color: Colors.green },
   bellBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   notifBadge: { position: 'absolute' as const, top: -2, right: -2, backgroundColor: '#E53E3E', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   notifBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
@@ -651,6 +697,8 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
   emptyText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textSecondary },
   emptySubtext: { fontSize: FontSize.small, color: Colors.textTertiary },
+  seeAllRestaurants: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginHorizontal: Spacing.lg, marginTop: Spacing.sm, paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: Colors.greenLight },
+  seeAllRestaurantsText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.green },
 
   restCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: '#FFF', borderWidth: 1, borderColor: Colors.borderLight },
   restImg: { width: '100%', height: 180 },
@@ -696,4 +744,6 @@ const s = StyleSheet.create({
   exerciseGrad: { padding: 16, gap: 8, minHeight: 120 },
   exerciseCardTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
   exerciseCardSub: { fontSize: FontSize.caption, color: Colors.textSecondary, lineHeight: 16 },
+  exerciseCardStat: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
+  exerciseCardStatUnit: { fontSize: FontSize.caption, fontWeight: '500', color: Colors.textSecondary },
 });
