@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+// Conditional require: Metro dead-code-eliminates this on web (Platform.OS is
+// a compile-time constant). restaurant-map.web.tsx handles the web render path.
+const _maps = Platform.OS !== 'web' ? require('react-native-maps') : {};
+const MapView: any = _maps.default;
+const Marker: any = _maps.Marker;
+const PROVIDER_GOOGLE: any = _maps.PROVIDER_GOOGLE;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +18,7 @@ import FallbackImage from '@/src/components/FallbackImage';
 export default function RestaurantMapScreen() {
   const { lat, lng } = useLocalSearchParams<{ lat: string; lng: string }>();
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
