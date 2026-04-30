@@ -9,12 +9,17 @@ const config = getDefaultConfig(__dirname);
 // This is required because babel-plugin-module-resolver runs too late in the pipeline
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Stub react-native-maps on web. Metro bundles all app/ files including
+  // restaurant-map.tsx (native), so its import crashes the web bundle even
+  // though restaurant-map.web.tsx is what actually renders on web.
+  if (platform === 'web' && moduleName === 'react-native-maps') {
+    return { type: 'sourceFile', filePath: path.resolve(__dirname, 'src/mocks/react-native-maps.js') };
+  }
+
   if (moduleName.startsWith('@/')) {
-    // Resolve @/ imports relative to the project root (not the importing file)
     const newModuleName = path.resolve(__dirname, moduleName.slice(2));
     return context.resolveRequest(context, newModuleName, platform);
   }
-  // Fall back to default resolution
   if (originalResolveRequest) {
     return originalResolveRequest(context, moduleName, platform);
   }
