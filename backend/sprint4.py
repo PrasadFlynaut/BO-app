@@ -3,6 +3,7 @@ import os
 import math
 import uuid
 import re
+import asyncio
 from fastapi import APIRouter, HTTPException, Request, Query
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
@@ -393,6 +394,45 @@ async def delete_comment(post_id: str, comment_id: str, request: Request):
 
 # ===================== ENHANCED MEALS =====================
 
+def _normalize_admin_meal(m: dict) -> dict:
+    """Normalize admin_meals fields to match sprint4_meals schema."""
+    return {
+        "id": str(m["_id"]),
+        "title": m.get("title", ""),
+        "description": m.get("about", "") or m.get("description", ""),
+        "category": m.get("category", ""),
+        "meal_type": m.get("menuType", ""),
+        "calories": m.get("calories", 0),
+        "proteins": m.get("proteins", 0),
+        "fat": m.get("fat", 0),
+        "carbs": m.get("carbs", 0),
+        "servings": m.get("servings", 1),
+        "image_url": m.get("imageUrl", ""),
+        "video_url": m.get("videoUrl", ""),
+        "ingredients": m.get("ingredients", []),
+        "directions": m.get("directions", []),
+        "notes": m.get("notes", ""),
+        "favorite_count": m.get("favorite_count", 0),
+        "_source": "admin",
+    }
+
+async def _find_meal_any_collection(meal_id: str) -> tuple:
+    """Return (meal_doc, source) from admin_meals or sprint4_meals."""
+    try:
+        oid = ObjectId(meal_id)
+        admin_meal, sprint4_meal = await asyncio.gather(
+            db.admin_meals.find_one({"_id": oid, "status": "active", "deleted": {"$ne": True}}),
+            db.sprint4_meals.find_one({"_id": oid}),
+        )
+        if admin_meal:
+            return admin_meal, "admin"
+        if sprint4_meal:
+            return sprint4_meal, "sprint4"
+    except Exception:
+        pass
+    return None, None
+
+
 @sprint4_router.get("/v1/meals")
 async def get_meals_v1(
     request: Request,
@@ -403,42 +443,52 @@ async def get_meals_v1(
     limit: int = 20,
 ):
     await get_user(request)
-    query = {}
-    if category:
-        query["category"] = {"$regex": category, "$options": "i"}
-    if mealType:
-        query["meal_type"] = {"$regex": mealType, "$options": "i"}
 
     sort_field = "created_at"
     sort_dir = -1
     if sort == "oldest":
         sort_dir = 1
     elif sort == "calories_asc":
-        sort_field = "calories"
-        sort_dir = 1
+        sort_field, sort_dir = "calories", 1
     elif sort == "calories_desc":
-        sort_field = "calories"
-        sort_dir = -1
+        sort_field, sort_dir = "calories", -1
     elif sort == "popular":
-        sort_field = "favorite_count"
-        sort_dir = -1
+        sort_field, sort_dir = "favorite_count", -1
 
     page = max(1, page)
     limit = min(max(1, limit), 50)
     skip = (page - 1) * limit
 
-    total = await db.sprint4_meals.count_documents(query)
-    meals = await db.sprint4_meals.find(query).sort(sort_field, sort_dir).skip(skip).limit(limit).to_list(limit)
+    # Build queries for both collections
+    admin_q: dict = {"status": "active", "deleted": {"$ne": True}}
+    s4_q: dict = {}
+    if category:
+        admin_q["category"] = {"$regex": category, "$options": "i"}
+        s4_q["category"] = {"$regex": category, "$options": "i"}
+    if mealType:
+        admin_q["menuType"] = {"$regex": mealType, "$options": "i"}
+        s4_q["meal_type"] = {"$regex": mealType, "$options": "i"}
 
+    admin_total, s4_total = await asyncio.gather(
+        db.admin_meals.count_documents(admin_q),
+        db.sprint4_meals.count_documents(s4_q),
+    )
+    total = admin_total + s4_total
+
+    # Paginate admin_meals first, supplement with sprint4_meals
+    admin_res = await db.admin_meals.find(admin_q).sort(sort_field, sort_dir).skip(skip).limit(limit).to_list(limit)
+    remaining = limit - len(admin_res)
+    s4_res = []
+    if remaining > 0:
+        s4_skip = max(0, skip - admin_total)
+        s4_res = await db.sprint4_meals.find(s4_q).sort(sort_field, sort_dir).skip(s4_skip).limit(remaining).to_list(remaining)
+
+    meals = [_normalize_admin_meal(m) for m in admin_res] + [serialize(m) for m in s4_res]
     total_pages = math.ceil(total / limit) if limit else 1
     return {
-        "data": [serialize(m) for m in meals],
-        "pagination": {
-            "page": page, "limit": limit, "total": total,
-            "totalPages": total_pages,
-            "hasNext": page < total_pages,
-            "hasPrev": page > 1,
-        },
+        "data": meals,
+        "pagination": {"page": page, "limit": limit, "total": total, "totalPages": total_pages,
+                       "hasNext": page < total_pages, "hasPrev": page > 1},
     }
 
 
@@ -454,38 +504,53 @@ async def search_meals(
     limit: int = 20,
 ):
     await get_user(request)
-    query = {}
-
-    if q:
-        query["$or"] = [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"description": {"$regex": q, "$options": "i"}},
-            {"category": {"$regex": q, "$options": "i"}},
-        ]
-    if category:
-        if "$or" not in query:
-            query["category"] = {"$regex": category, "$options": "i"}
-    if mealType:
-        query["meal_type"] = {"$regex": mealType, "$options": "i"}
-    if caloriesMin is not None:
-        query.setdefault("calories", {})["$gte"] = caloriesMin
-    if caloriesMax is not None:
-        query.setdefault("calories", {})["$lte"] = caloriesMax
-
     page = max(1, page)
     limit = min(max(1, limit), 50)
     skip = (page - 1) * limit
 
-    total = await db.sprint4_meals.count_documents(query)
-    meals = await db.sprint4_meals.find(query).sort("title", 1).skip(skip).limit(limit).to_list(limit)
+    # Build queries for both collections
+    admin_q: dict = {"status": "active", "deleted": {"$ne": True}}
+    s4_q: dict = {}
+    if q:
+        text_filter = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"description": {"$regex": q, "$options": "i"}},
+            {"category": {"$regex": q, "$options": "i"}},
+        ]
+        admin_q["$or"] = text_filter + [{"about": {"$regex": q, "$options": "i"}}]
+        s4_q["$or"] = text_filter
+    if category:
+        admin_q["category"] = {"$regex": category, "$options": "i"}
+        s4_q["category"] = {"$regex": category, "$options": "i"}
+    if mealType:
+        admin_q["menuType"] = {"$regex": mealType, "$options": "i"}
+        s4_q["meal_type"] = {"$regex": mealType, "$options": "i"}
+    if caloriesMin is not None:
+        admin_q.setdefault("calories", {})["$gte"] = caloriesMin
+        s4_q.setdefault("calories", {})["$gte"] = caloriesMin
+    if caloriesMax is not None:
+        admin_q.setdefault("calories", {})["$lte"] = caloriesMax
+        s4_q.setdefault("calories", {})["$lte"] = caloriesMax
 
+    admin_total, s4_total = await asyncio.gather(
+        db.admin_meals.count_documents(admin_q),
+        db.sprint4_meals.count_documents(s4_q),
+    )
+    total = admin_total + s4_total
+
+    admin_res = await db.admin_meals.find(admin_q).sort("title", 1).skip(skip).limit(limit).to_list(limit)
+    remaining = limit - len(admin_res)
+    s4_res = []
+    if remaining > 0:
+        s4_skip = max(0, skip - admin_total)
+        s4_res = await db.sprint4_meals.find(s4_q).sort("title", 1).skip(s4_skip).limit(remaining).to_list(remaining)
+
+    meals = [_normalize_admin_meal(m) for m in admin_res] + [serialize(m) for m in s4_res]
     total_pages = math.ceil(total / limit) if limit else 1
     return {
-        "data": [serialize(m) for m in meals],
-        "pagination": {
-            "page": page, "limit": limit, "total": total,
-            "totalPages": total_pages, "hasNext": page < total_pages,
-        },
+        "data": meals,
+        "pagination": {"page": page, "limit": limit, "total": total,
+                       "totalPages": total_pages, "hasNext": page < total_pages},
     }
 
 
@@ -501,30 +566,28 @@ async def get_favorite_meals(request: Request, page: int = 1, limit: int = 20):
 
     meals = []
     for f in favs:
-        meal = await db.sprint4_meals.find_one({"_id": ObjectId(f["meal_id"])})
+        meal, source = await _find_meal_any_collection(f["meal_id"])
         if meal:
-            m = serialize(meal)
+            m = _normalize_admin_meal(meal) if source == "admin" else serialize(meal)
             m["favorited"] = True
             meals.append(m)
 
     total_pages = math.ceil(total / limit) if limit else 1
     return {
         "data": meals,
-        "pagination": {
-            "page": page, "limit": limit, "total": total,
-            "totalPages": total_pages, "hasNext": page < total_pages,
-        },
+        "pagination": {"page": page, "limit": limit, "total": total,
+                       "totalPages": total_pages, "hasNext": page < total_pages},
     }
 
 
 @sprint4_router.get("/v1/meals/{meal_id}")
 async def get_meal_detail(meal_id: str, request: Request):
     user = await get_user(request)
-    meal = await db.sprint4_meals.find_one({"_id": ObjectId(meal_id)})
+    meal, source = await _find_meal_any_collection(meal_id)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
+    meal_data = _normalize_admin_meal(meal) if source == "admin" else serialize(meal)
     fav = await db.meal_favorites.find_one({"user_id": user["id"], "meal_id": meal_id})
-    meal_data = serialize(meal)
     meal_data["favorited"] = fav is not None
     return {"meal": meal_data}
 
@@ -532,14 +595,15 @@ async def get_meal_detail(meal_id: str, request: Request):
 @sprint4_router.post("/v1/meal/fav/{meal_id}")
 async def toggle_meal_favorite(meal_id: str, request: Request):
     user = await get_user(request)
-    meal = await db.sprint4_meals.find_one({"_id": ObjectId(meal_id)})
+    meal, source = await _find_meal_any_collection(meal_id)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
 
+    col = db.admin_meals if source == "admin" else db.sprint4_meals
     existing = await db.meal_favorites.find_one({"user_id": user["id"], "meal_id": meal_id})
     if existing:
         await db.meal_favorites.delete_one({"_id": existing["_id"]})
-        await db.sprint4_meals.update_one({"_id": ObjectId(meal_id)}, {"$inc": {"favorite_count": -1}})
+        await col.update_one({"_id": ObjectId(meal_id)}, {"$inc": {"favorite_count": -1}})
         count = max(0, meal.get("favorite_count", 0) - 1)
         return {"favorited": False, "count": count}
     else:
@@ -548,7 +612,7 @@ async def toggle_meal_favorite(meal_id: str, request: Request):
             "meal_id": meal_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
-        await db.sprint4_meals.update_one({"_id": ObjectId(meal_id)}, {"$inc": {"favorite_count": 1}})
+        await col.update_one({"_id": ObjectId(meal_id)}, {"$inc": {"favorite_count": 1}})
         count = meal.get("favorite_count", 0) + 1
         return {"favorited": True, "count": count}
 
@@ -562,9 +626,10 @@ async def add_to_meal_plan(input: MealPlanInput, request: Request):
     if input.mealSlot not in ["breakfast", "lunch", "dinner"]:
         raise HTTPException(status_code=400, detail="Invalid meal slot")
 
-    meal = await db.sprint4_meals.find_one({"_id": ObjectId(input.mealId)})
+    meal, meal_source = await _find_meal_any_collection(input.mealId)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
+    meal_norm = _normalize_admin_meal(meal) if meal_source == "admin" else serialize(meal)
 
     # Check for existing plan in same slot
     existing = await db.meal_plans.find_one({
@@ -577,9 +642,9 @@ async def add_to_meal_plan(input: MealPlanInput, request: Request):
     plan_data = {
         "user_id": user["id"],
         "meal_id": input.mealId,
-        "meal_title": meal.get("title", ""),
-        "meal_image": meal.get("image_url", ""),
-        "meal_calories": meal.get("calories", 0),
+        "meal_title": meal_norm.get("title", ""),
+        "meal_image": meal_norm.get("image_url", ""),
+        "meal_calories": meal_norm.get("calories", 0),
         "date": input.date,
         "meal_slot": input.mealSlot,
         "updated_at": now.isoformat(),
