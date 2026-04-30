@@ -514,6 +514,13 @@ tr:hover td{background:#f7fafc}
 
 <div class="toast" id="toast"><i class="fas fa-check-circle" style="color:var(--bo-green)"></i><span id="toastMsg"></span></div>
 
+<!-- MEAL VIEW MODAL -->
+<div class="modal-backdrop" id="mealViewModal"><div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto">
+<div class="modal-header"><h3 id="mealViewTitle">Meal Details</h3><button class="btn btn-outline btn-sm" onclick="closeModal('mealViewModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body" id="mealViewBody"></div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('mealViewModal')">Close</button><button class="btn btn-primary" id="mealViewEditBtn" onclick=""><i class="fas fa-edit"></i> Edit</button></div>
+</div></div>
+
 <!-- MEAL MODAL -->
 <div class="modal-backdrop" id="mealModal"><div class="modal" style="max-width:700px">
 <div class="modal-header"><h3 id="mealModalTitle">Add New Meal</h3><button class="btn btn-outline btn-sm" onclick="closeModal('mealModal')"><i class="fas fa-times"></i></button></div>
@@ -864,13 +871,48 @@ async function loadMeals(search,page){
   document.getElementById('mealsBody').innerHTML=(d.data||[]).map(function(m){var sn=m.title.replace(/'/g,'&#39;');
   var statusBadge=m.status==='active'?'badge-green':m.status==='pending_review'?'badge-yellow':'badge-red';
   var sourceBadge=m.source==='Admin'?'badge-green':'badge-blue';
-  var actions='<button class="btn btn-outline btn-sm" onclick="editMeal(&#39;'+m.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;meal&#39;,&#39;'+m.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button>';
+  var actions='<button class="btn btn-outline btn-sm" onclick="viewMeal(&#39;'+m.id+'&#39;)" title="View details"><i class="fas fa-eye"></i></button> <button class="btn btn-outline btn-sm" onclick="editMeal(&#39;'+m.id+'&#39;)"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteItem(&#39;meal&#39;,&#39;'+m.id+'&#39;,&#39;'+sn+'&#39;)"><i class="fas fa-trash"></i></button>';
   if(m.status==='pending_review')actions+=' <button class="btn btn-sm" style="background:#c6f6d5;color:#22543d" onclick="approveMeal(&#39;'+m.id+'&#39;)"><i class="fas fa-check"></i></button> <button class="btn btn-sm" style="background:#fed7d7;color:#742a2a" onclick="rejectMeal(&#39;'+m.id+'&#39;)"><i class="fas fa-times"></i></button>';
   return '<tr><td><div style="display:flex;align-items:center;gap:10px">'+(m.imageUrl?'<img src="'+m.imageUrl+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover">':'<div style="width:48px;height:48px;border-radius:8px;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><i class="fas fa-image" style="color:#ccc"></i></div>')+'<strong>'+m.title+'</strong></div></td><td><span class="badge badge-gray">'+m.category+'</span></td><td>'+m.menuType+'</td><td>'+m.calories+' kcal</td><td><span class="badge '+sourceBadge+'">'+m.source+'</span></td><td><span class="badge '+statusBadge+'">'+m.status+'</span></td><td>'+actions+'</td></tr>'}).join('')||'<tr><td colspan="7" style="text-align:center;color:#a0aec0;padding:40px"><i class="fas fa-hamburger" style="font-size:30px;margin-bottom:8px;display:block"></i>No meals found. Add your first meal!</td></tr>';
   }catch(e){console.error(e)}
 }
 function searchMeals(v){loadMeals(v,1)}
 function filterMeals(){loadMeals(undefined,1)}
+
+function viewMeal(id){
+  var m=mealsCache[id];if(!m)return;
+  document.getElementById('mealViewTitle').textContent=m.title;
+  document.getElementById('mealViewEditBtn').onclick=function(){closeModal('mealViewModal');editMeal(id)};
+  var ingHtml=(m.ingredients||[]).map(function(ing){
+    var qty=ing.quantity?(ing.quantity+(ing.unit?' '+ing.unit:'')):'';
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0"><span>'+ing.name+'</span><span style="color:#718096;font-size:13px">'+qty+'</span></div>'
+  }).join('')||'<p style="color:#a0aec0">No ingredients listed.</p>';
+  var dirs=m.directions||[];
+  var dirsArr=Array.isArray(dirs)?dirs:(dirs?dirs.split('\\n').filter(function(s){return s.trim()}):[]);
+  var dirHtml=dirsArr.map(function(step,i){
+    return '<div style="display:flex;gap:12px;margin-bottom:12px"><div style="min-width:28px;height:28px;border-radius:50%;background:#f0fff4;color:#26B50F;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">'+(i+1)+'</div><p style="margin:0;color:#4a5568;line-height:1.6">'+step.replace(/^\\d+\\.\\s*/,"")+'</p></div>'
+  }).join('')||'<p style="color:#a0aec0">No directions listed.</p>';
+  var statusBadge=m.status==='active'?'badge-green':m.status==='pending_review'?'badge-yellow':'badge-red';
+  document.getElementById('mealViewBody').innerHTML=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">'
+    +(m.imageUrl?'<img src="'+m.imageUrl+'" style="grid-column:span 2;width:100%;height:200px;object-fit:cover;border-radius:12px">':'')
+    +'<div><label style="font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px">Category</label><p style="margin:4px 0;font-weight:600">'+m.category+'</p></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px">Menu Type</label><p style="margin:4px 0;font-weight:600">'+m.menuType+'</p></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px">Status</label><p style="margin:4px 0"><span class="badge '+statusBadge+'">'+m.status+'</span></p></div>'
+    +'<div><label style="font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px">Servings</label><p style="margin:4px 0;font-weight:600">'+m.servings+'</p></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:12px;background:#f7fafc;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center">'
+    +'<div style="flex:1"><div style="font-size:22px;font-weight:800;color:#E06B2E">'+m.calories+'</div><div style="font-size:11px;color:#718096;font-weight:600">FUEL</div></div>'
+    +'<div style="flex:1"><div style="font-size:22px;font-weight:800;color:#26B50F">'+m.proteins+'g</div><div style="font-size:11px;color:#718096;font-weight:600">PROTEIN</div></div>'
+    +'<div style="flex:1"><div style="font-size:22px;font-weight:800;color:#805AD5">'+m.fat+'g</div><div style="font-size:11px;color:#718096;font-weight:600">FAT</div></div>'
+    +'<div style="flex:1"><div style="font-size:22px;font-weight:800;color:#3182CE">'+m.carbs+'g</div><div style="font-size:11px;color:#718096;font-weight:600">CARBS</div></div>'
+    +'</div>'
+    +(m.about?'<div style="margin-bottom:20px"><p style="color:#4a5568;line-height:1.7;margin:0">'+m.about+'</p></div>':'')
+    +'<div style="margin-bottom:20px"><h4 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Ingredients</h4>'+ingHtml+'</div>'
+    +'<div style="margin-bottom:20px"><h4 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Directions</h4>'+dirHtml+'</div>'
+    +(m.notes?'<div style="background:#fffbeb;border-radius:8px;padding:12px;display:flex;gap:8px"><i class="fas fa-lightbulb" style="color:#d69e2e;margin-top:2px"></i><p style="margin:0;color:#744210;font-size:13px">'+m.notes+'</p></div>':'');
+  document.getElementById('mealViewModal').classList.add('show');
+}
 
 function openMealModal(id){editingMealId=id||null;document.getElementById('mealModalTitle').textContent=id?'Edit Meal':'Add New Meal';
 ['mealTitle','mealAbout','mealCalories','mealProteins','mealFat','mealCarbs','mealImage','mealVideo','mealNotes'].forEach(function(f){document.getElementById(f).value=''});

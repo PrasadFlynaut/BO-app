@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, Dimensions, Modal,
@@ -101,6 +101,13 @@ export default function MealDetailScreen() {
     { label: 'Carbs', value: `${meal.carbs || 0}`, unit: 'g', color: Colors.waterBlue, bg: Colors.waterSurface },
   ];
 
+  // Normalize directions — admin_meals: array of strings; sprint4_meals: newline string
+  const steps: string[] = Array.isArray(meal.directions)
+    ? meal.directions.filter(Boolean)
+    : typeof meal.directions === 'string'
+      ? meal.directions.split('\n').map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
   return (
     <SafeAreaView style={ms.safe} edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -167,13 +174,10 @@ export default function MealDetailScreen() {
           )}
 
           {/* Directions */}
-          {meal.directions && meal.directions.length > 0 && (
+          {steps.length > 0 && (
             <Animated.View entering={FadeInDown.delay(200).duration(350)} style={ms.section}>
               <Text style={ms.sectionTitle}>Directions</Text>
-              {(Array.isArray(meal.directions)
-                ? meal.directions
-                : meal.directions.split('\n').filter((s: string) => s.trim())
-              ).map((step: string, i: number) => (
+              {steps.map((step: string, i: number) => (
                 <View key={i} style={ms.stepRow}>
                   <View style={ms.stepNum}><Text style={ms.stepNumText}>{i + 1}</Text></View>
                   <Text style={ms.stepText}>{step.replace(/^\d+\.\s*/, '')}</Text>
