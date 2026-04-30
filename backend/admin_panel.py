@@ -1487,7 +1487,7 @@ async function searchNotifUsers(){
       if(!users.length){res.style.display='none';return}
       res.style.display='block';
       res.innerHTML=users.map(function(u){
-        return '<div onclick="selectNotifUser(\''+u.id+'\',\''+u.name+' ('+u.email+')'+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'#f7fafc\'" onmouseout="this.style.background=\'\'"><i class="fas fa-user" style="color:#a0aec0"></i>'+u.name+'<span style="color:#718096;font-size:12px">'+u.email+'</span></div>';
+        return '<div onclick="selectNotifUser(\\''+u.id+'\\',\\''+u.name+' ('+u.email+')'+'\\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\\'#f7fafc\\'" onmouseout="this.style.background=\\'\\';"><i class="fas fa-user" style="color:#a0aec0"></i>'+u.name+'<span style="color:#718096;font-size:12px">'+u.email+'</span></div>';
       }).join('');
     }catch(e){}
   },300);
