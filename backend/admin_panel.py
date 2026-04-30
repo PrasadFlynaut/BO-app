@@ -1001,7 +1001,7 @@ async function loadWellnessPrograms(resetPage){
     document.getElementById('programsBody').innerHTML=progs.map(function(p){
       var sn=p.name.replace(/'/g,"&#39;");
       var statusBadge=p.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>';
-      return '<tr><td><strong>'+p.name+'</strong></td><td>'+p.duration_days+' days</td><td>'+(p.category||'Wellness')+'</td><td>'+statusBadge+'</td><td><button class="btn btn-outline btn-sm" onclick="editWellnessProgram(\''+p.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteWellnessProgram(\''+p.id+'\',\''+sn+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+      return '<tr><td><strong>'+p.name+'</strong></td><td>'+p.duration_days+' days</td><td>'+(p.category||'Wellness')+'</td><td>'+statusBadge+'</td><td><button class="btn btn-outline btn-sm" onclick="editWellnessProgram(\\''+p.id+'\\')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteWellnessProgram(\\''+p.id+'\\',\\''+sn+'\\')"><i class="fas fa-trash"></i></button></td></tr>';
     }).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No programs found. <a href="#" onclick="seedDefaultPrograms();return false;" style="color:#26B50F;font-weight:600">Seed defaults</a></td></tr>';
     const total=d.total||0,pages=d.pages||1;
     document.getElementById('progPaginationInfo').textContent='Page '+progPage+' of '+pages+' ('+total+' total)';
