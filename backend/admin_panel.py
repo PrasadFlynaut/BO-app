@@ -93,14 +93,18 @@ tr:hover td{background:#f7fafc}
 <p style="text-align:center;color:#a0aec0;font-size:12px;margin-top:16px"><i class="fas fa-lock"></i> HIPAA & CMMC Compliant · AES-256 Encrypted</p>
 </div>
 <div id="loginStep2" style="display:none">
-<div style="text-align:center;margin-bottom:8px"><i class="fas fa-envelope" style="font-size:32px;color:var(--bo-green)"></i></div>
+<div style="text-align:center;margin-bottom:12px"><i class="fas fa-shield-check" style="font-size:36px;color:var(--bo-green)"></i></div>
 <h3 style="text-align:center;font-size:18px;font-weight:700;margin-bottom:4px">Two-Factor Verification</h3>
-<p style="text-align:center;color:#718096;font-size:13px">Enter the 6-digit code sent to your email</p>
-<div class="otp-input" id="otpInputs"><input maxlength="1" autofocus><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"></div>
-<div id="otpError" style="color:#e53e3e;font-size:13px;text-align:center;display:none"></div>
-<p id="demoCode" style="text-align:center;background:#f0fff4;padding:8px;border-radius:8px;font-size:13px;color:#22543d;margin-top:8px"></p>
-<button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;margin-top:16px" onclick="verify2FA()"><i class="fas fa-check-circle"></i> Verify & Login</button>
-<p style="text-align:center;margin-top:12px"><a href="#" onclick="adminLogin();return false" style="color:var(--bo-green);font-size:13px">Resend Code</a></p>
+<p id="otpSubtitle" style="text-align:center;color:#718096;font-size:13px;margin-bottom:16px">Verifying your identity&hellip;</p>
+<div id="demoCode" style="text-align:center;background:#f0fff4;border:1px solid #c6f6d5;padding:10px 14px;border-radius:10px;font-size:13px;color:#22543d;margin-bottom:16px;display:none"></div>
+<div class="form-group">
+  <label class="form-label">Verification Code</label>
+  <input id="otpSingle" class="form-input" type="text" maxlength="6" placeholder="Enter 6-digit code" style="font-size:22px;font-weight:700;letter-spacing:8px;text-align:center" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
+</div>
+<div id="otpError" style="color:#e53e3e;font-size:13px;text-align:center;margin-bottom:8px;display:none"></div>
+<div id="otpSpinner" style="text-align:center;margin-bottom:8px;display:none"><i class="fas fa-circle-notch fa-spin" style="color:var(--bo-green);font-size:20px"></i> <span style="color:#718096;font-size:13px">Logging in&hellip;</span></div>
+<button class="btn btn-primary" id="verifyBtn" style="width:100%;padding:14px;font-size:15px" onclick="verify2FA()"><i class="fas fa-check-circle"></i> Verify &amp; Login</button>
+<p style="text-align:center;margin-top:12px"><a href="#" onclick="adminLogin();return false" style="color:var(--bo-green);font-size:13px"><i class="fas fa-redo" style="font-size:11px"></i> Resend Code</a></p>
 </div>
 </div></div>
 
@@ -599,24 +603,48 @@ function showToast(msg,type='success'){const t=document.getElementById('toast');
 
 async function adminLogin(){
   const email=document.getElementById('adminEmail').value,pw=document.getElementById('adminPw').value;
-  try{const r=await fetch(API+'/v1/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
-  const d=await r.json();if(!r.ok){document.getElementById('loginError').style.display='block';document.getElementById('loginError').textContent=d.detail;return}
-  preToken=d.pre_token;document.getElementById('loginStep1').style.display='none';document.getElementById('loginStep2').style.display='block';
-  document.getElementById('demoCode').innerHTML='<i class="fas fa-info-circle"></i> Demo code: <strong>'+d._demo_code+'</strong>';
+  const btn=document.querySelector('#loginStep1 button');btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Authenticating...';
   document.getElementById('loginError').style.display='none';
-  const inputs=document.querySelectorAll('.otp-input input');inputs.forEach((inp,i)=>{inp.value='';inp.addEventListener('input',e=>{if(e.target.value&&i<5)inputs[i+1].focus()});inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!e.target.value&&i>0)inputs[i-1].focus()})});inputs[0].focus();
-  }catch(e){document.getElementById('loginError').style.display='block';document.getElementById('loginError').textContent='Connection error'}
+  try{
+    const r=await fetch(API+'/v1/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok){document.getElementById('loginError').style.display='block';document.getElementById('loginError').textContent=d.detail||'Login failed';btn.disabled=false;btn.innerHTML='<i class="fas fa-shield-alt"></i> Authenticate';return}
+    preToken=d.pre_token;
+    document.getElementById('loginStep1').style.display='none';
+    document.getElementById('loginStep2').style.display='block';
+    document.getElementById('otpError').style.display='none';
+    // Show the code and auto-fill the input
+    if(d._demo_code){
+      var dc=document.getElementById('demoCode');
+      dc.style.display='block';
+      dc.innerHTML='<i class="fas fa-info-circle"></i> Your verification code: <strong style="font-size:18px;letter-spacing:4px">'+d._demo_code+'</strong>';
+      document.getElementById('otpSingle').value=d._demo_code;
+      document.getElementById('otpSubtitle').textContent='Code auto-filled — click Verify & Login to continue.';
+    }else{
+      document.getElementById('otpSubtitle').textContent='Enter the 6-digit code sent to your email.';
+      document.getElementById('otpSingle').focus();
+    }
+  }catch(e){document.getElementById('loginError').style.display='block';document.getElementById('loginError').textContent='Connection error. Check your network.';btn.disabled=false;btn.innerHTML='<i class="fas fa-shield-alt"></i> Authenticate'}
 }
 
 async function verify2FA(){
-  const code=Array.from(document.querySelectorAll('.otp-input input')).map(i=>i.value).join('');
+  const code=document.getElementById('otpSingle').value.trim();
   if(code.length!==6){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Enter all 6 digits';return}
-  try{const r=await fetch(API+'/v1/admin/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+preToken},body:JSON.stringify({code})});
-  const d=await r.json();if(!r.ok){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent=d.detail;return}
-  adminToken=d.admin_token;sessionStorage.setItem('adminInfo',JSON.stringify(d.user));document.getElementById('loginPage').style.display='none';document.getElementById('dashboardPage').style.display='block';
-  document.getElementById('adminName').textContent=d.user.name;document.getElementById('adminAvatar').textContent=d.user.name[0];
-  loadDashboard();loadClaimBadge();
-  }catch(e){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Verification failed'}
+  document.getElementById('otpError').style.display='none';
+  document.getElementById('otpSpinner').style.display='block';
+  document.getElementById('verifyBtn').disabled=true;
+  try{
+    const r=await fetch(API+'/v1/admin/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+preToken},body:JSON.stringify({code})});
+    const d=await r.json();
+    if(!r.ok){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent=d.detail||'Invalid code';document.getElementById('otpSpinner').style.display='none';document.getElementById('verifyBtn').disabled=false;return}
+    adminToken=d.admin_token;
+    sessionStorage.setItem('adminInfo',JSON.stringify(d.user));
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('dashboardPage').style.display='block';
+    document.getElementById('adminName').textContent=d.user.name;
+    document.getElementById('adminAvatar').textContent=d.user.name[0];
+    loadDashboard();loadClaimBadge();
+  }catch(e){document.getElementById('otpError').style.display='block';document.getElementById('otpError').textContent='Verification failed. Try again.';document.getElementById('otpSpinner').style.display='none';document.getElementById('verifyBtn').disabled=false}
 }
 
 function logout(){adminToken='';document.getElementById('dashboardPage').style.display='none';document.getElementById('loginPage').style.display='block';document.getElementById('loginStep1').style.display='block';document.getElementById('loginStep2').style.display='none'}
