@@ -20,6 +20,7 @@ from middleware import (
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 import os
+import asyncio
 import logging
 import bcrypt
 import jwt
@@ -436,25 +437,62 @@ async def update_profile(input: ProfileUpdate, user=Depends(get_current_user)):
     return {"user": serialize_user(updated)}
 
 # ===================== DASHBOARD =====================
+def _compute_calorie_goal(user: dict) -> int:
+    """Mifflin-St Jeor BMR × activity multiplier, fallback 2000."""
+    weight = user.get("weight_kg")
+    height = user.get("height_cm")
+    dob = user.get("date_of_birth")  # "YYYY-MM-DD"
+    gender = (user.get("gender") or "").lower()
+    activity = (user.get("activity_level") or "").lower()
+    if not (weight and height and dob):
+        return 2000
+    try:
+        birth = datetime.strptime(dob[:10], "%Y-%m-%d")
+        age = (datetime.now() - birth).days // 365
+    except Exception:
+        return 2000
+    bmr = 10 * weight + 6.25 * height - 5 * age + (5 if gender == "male" else -161)
+    multipliers = {"sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725, "very_active": 1.9}
+    tdee = bmr * multipliers.get(activity, 1.375)
+    return max(1200, round(tdee / 50) * 50)  # round to nearest 50
+
 @api_router.get("/dashboard")
 async def get_dashboard(user=Depends(get_current_user)):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    # Water today
-    water_logs = await db.water_logs.find({"user_id": user["id"], "date": today}).to_list(100)
+    user_id = user["id"]
+    # Water today — check both collections (legacy water_logs + sprint3 water_intake_logs)
+    water_logs, water_intake_logs = await asyncio.gather(
+        db.water_logs.find({"user_id": user_id, "date": today}).to_list(100),
+        db.water_intake_logs.find({"user_id": user_id, "date": today}).to_list(100),
+    )
     total_water = sum(w.get("amount_ml", 0) for w in water_logs)
-    # Nutrition today
-    nutrition_logs = await db.nutrition_logs.find({"user_id": user["id"], "date": today}).to_list(100)
-    total_calories = sum(n.get("calories", 0) for n in nutrition_logs)
+    total_water_glasses = sum(w.get("glasses", 0) for w in water_intake_logs)
+    # Calories today — sum both nutrition_logs (legacy) and meal_logs (quick-add)
+    nutrition_logs, meal_logs = await asyncio.gather(
+        db.nutrition_logs.find({"user_id": user_id, "date": today}).to_list(100),
+        db.meal_logs.find({"user_id": user_id, "date": today}).to_list(100),
+    )
+    total_calories = (
+        sum(n.get("calories", 0) for n in nutrition_logs)
+        + sum(m.get("calories", 0) or 0 for m in meal_logs)
+    )
     total_protein = sum(n.get("protein_g", 0) for n in nutrition_logs)
     total_carbs = sum(n.get("carbs_g", 0) for n in nutrition_logs)
     total_fat = sum(n.get("fat_g", 0) for n in nutrition_logs)
-    meals_logged = len(nutrition_logs)
+    meals_logged = len(nutrition_logs) + len(meal_logs)
+    calorie_goal = _compute_calorie_goal(user)
+    # Water goal: 8 glasses (2000ml) default, scale with weight if available
+    weight = user.get("weight_kg") or 70
+    water_goal_ml = max(1500, round(weight * 30 / 250) * 250)  # ~30ml/kg rounded to 250ml
+    water_goal_glasses = round(water_goal_ml / 250)
     return {
         "date": today,
         "water_ml": total_water,
-        "water_goal_ml": 2500,
+        "water_glasses": total_water_glasses,
+        "water_goal_ml": water_goal_ml,
+        "water_goal_glasses": water_goal_glasses,
         "calories": total_calories,
-        "calorie_goal": 2000,
+        "calorie_goal": calorie_goal,
         "protein_g": total_protein,
         "carbs_g": total_carbs,
         "fat_g": total_fat,

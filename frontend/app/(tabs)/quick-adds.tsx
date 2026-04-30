@@ -251,6 +251,7 @@ export default function QuickAddsScreen() {
   // Goals from backend
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [waterGoal, setWaterGoal] = useState(8);
+  const [mealNameError, setMealNameError] = useState('');
 
   // Meal
   const [mealLogs, setMealLogs] = useState<any[]>([]);
@@ -351,7 +352,8 @@ export default function QuickAddsScreen() {
       // Apply goals from backend
       const dash = dashRes.data;
       if (dash.calorie_goal) setCalorieGoal(dash.calorie_goal);
-      if (dash.water_goal_ml) setWaterGoal(Math.round(dash.water_goal_ml / 250));
+      if (dash.water_goal_glasses) setWaterGoal(dash.water_goal_glasses);
+      else if (dash.water_goal_ml) setWaterGoal(Math.round(dash.water_goal_ml / 250));
       setMealLogs(mealsRes.data.logs || []);
       const wLogs = waterRes.data.logs || [];
       setWaterTotal(wLogs.reduce((s: number, w: any) => s + (w.glasses || 0), 0));
@@ -405,15 +407,22 @@ export default function QuickAddsScreen() {
   const onRefresh = async () => { setRefreshing(true); await loadAllData(); setRefreshing(false); };
 
   // ===== MEAL =====
-  const openMealSlot = (slot: any) => { setSelectedSlot(slot); setMealName(''); setMealCalories(''); setShowMealModal(true); };
+  const openMealSlot = (slot: any) => { setSelectedSlot(slot); setMealName(''); setMealCalories(''); setMealNameError(''); setShowMealModal(true); };
   const saveMeal = async () => {
-    if (!mealName.trim()) return;
+    if (!mealName.trim()) { setMealNameError('Please enter a food name'); return; }
+    setMealNameError('');
+    const cal = parseInt(mealCalories) || 0;
+    const optimisticEntry = { id: `tmp-${Date.now()}`, meal_type: selectedSlot.type, manual_name: mealName.trim(), calories: cal, logged_at: new Date().toISOString(), date: new Date().toISOString().split('T')[0] };
+    setMealLogs(prev => [optimisticEntry, ...prev]);
+    setShowMealModal(false);
+    Keyboard.dismiss();
     try {
-      await api.post('/v1/meals/log', { meal_type: selectedSlot.type, name: mealName.trim(), calories: parseInt(mealCalories) || 0 });
-      setShowMealModal(false);
-      Keyboard.dismiss();
-      loadAllData();
-    } catch (e) { console.error(e); }
+      await api.post('/v1/meals/log', { meal_type: selectedSlot.type, name: mealName.trim(), calories: cal });
+      loadAllData(); // refresh with real server IDs
+    } catch (e) {
+      setMealLogs(prev => prev.filter(m => m.id !== optimisticEntry.id)); // revert
+      console.error(e);
+    }
   };
   const deleteMeal = (id: string) => Alert.alert('Delete Meal', 'Remove this meal log?', [
     { text: 'Cancel', style: 'cancel' },
@@ -1151,15 +1160,16 @@ export default function QuickAddsScreen() {
         <Text style={s.modalTitle}>Add {selectedSlot?.label || 'Meal'}</Text>
         <Text style={s.inputLabel}>What did you eat?</Text>
         <TextInput
-          style={s.modalInput}
+          style={[s.modalInput, mealNameError ? { borderColor: Colors.danger, borderWidth: 1 } : {}]}
           placeholder="e.g. Grilled chicken salad"
           placeholderTextColor={Colors.textTertiary}
           value={mealName}
-          onChangeText={setMealName}
+          onChangeText={t => { setMealName(t); if (mealNameError) setMealNameError(''); }}
           returnKeyType="next"
           onSubmitEditing={() => calInputRef.current?.focus()}
           autoFocus
         />
+        {!!mealNameError && <Text style={{ color: Colors.danger, fontSize: 12, marginTop: -6, marginBottom: 6 }}>{mealNameError}</Text>}
         <Text style={s.inputLabel}>Estimated fuel (optional)</Text>
         <TextInput
           ref={calInputRef}
