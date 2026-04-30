@@ -115,20 +115,42 @@ export default function GoalsScreen() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [report, setReport] = useState<any>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [happinessHistory, setHappinessHistory] = useState<any[]>([]);
+  const [showEditQuestionnaire, setShowEditQuestionnaire] = useState(false);
+  const [qSleepHours, setQSleepHours] = useState('7');
+  const [qBusyness, setQBusyness] = useState(3);
+  const [qDietRestriction, setQDietRestriction] = useState(false);
+  const [qUnderNutritionist, setQUnderNutritionist] = useState(false);
+  const [qHealthInfo, setQHealthInfo] = useState('');
+  const [qFastFood, setQFastFood] = useState('');
 
   useFocusEffect(useCallback(() => { loadGoals(); }, []));
 
   const loadGoals = async () => {
     setLoading(true);
     try {
-      const [goalsRes, progressRes] = await Promise.all([
+      const [goalsRes, progressRes, happinessRes] = await Promise.all([
         api.get('/v1/goals').catch(() => ({ data: { goals: {}, questionnaire: {} } })),
         api.get('/v1/goals/progress').catch(() => ({ data: { goalProgress: [] } })),
+        api.get('/v1/trackers/happiness').catch(() => ({ data: { logs: [] } })),
       ]);
-      setGoals(goalsRes.data.goals || {});
-      setQuestionnaire(goalsRes.data.questionnaire || {});
+      const g = goalsRes.data.goals || {};
+      const q = goalsRes.data.questionnaire || {};
+      setGoals(g);
+      setQuestionnaire(q);
       setProgress(progressRes.data.goalProgress || []);
-      setSelectedGoals(goalsRes.data.goals?.lifeGoals || []);
+      setSelectedGoals(g.lifeGoals || []);
+      const hLogs = happinessRes.data.logs || [];
+      setHappinessHistory(hLogs);
+      // Pre-fill happiness level from most recent log
+      if (hLogs.length > 0) setHappinessLevel(hLogs[0].level || 3);
+      // Init questionnaire edit form
+      setQSleepHours(String(q.sleep_hours || 7));
+      setQBusyness(q.lifestyle_busyness || 3);
+      setQDietRestriction(!!q.dietary_restriction);
+      setQUnderNutritionist(!!q.under_nutritionist);
+      setQHealthInfo(q.health_info || '');
+      setQFastFood(q.favorite_fast_food || '');
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -164,6 +186,21 @@ export default function GoalsScreen() {
       });
       setShowEditGoals(false);
       refreshUser();
+      loadGoals();
+    } catch (e) { console.error(e); }
+  };
+
+  const saveQuestionnaire = async () => {
+    try {
+      await api.put('/onboarding/questionnaire', {
+        sleep_hours: parseFloat(qSleepHours) || 7,
+        lifestyle_busyness: qBusyness,
+        dietary_restriction: qDietRestriction,
+        under_nutritionist: qUnderNutritionist,
+        health_info: qHealthInfo.trim(),
+        favorite_fast_food: qFastFood.trim(),
+      });
+      setShowEditQuestionnaire(false);
       loadGoals();
     } catch (e) { console.error(e); }
   };
@@ -253,6 +290,19 @@ export default function GoalsScreen() {
                   <AnimatedProgressBar value={happinessPercent} max={100} color={happinessColor} height={12} />
                   <AnimatedCounter value={happinessPercent} color={happinessColor} />
                 </View>
+                {happinessHistory.length > 0 && (
+                  <View style={s.moodTrend}>
+                    <Text style={s.moodTrendLabel}>7-day mood</Text>
+                    <View style={s.moodDots}>
+                      {happinessHistory.slice(0, 7).reverse().map((h: any, i: number) => (
+                        <View
+                          key={i}
+                          style={[s.moodDot, { backgroundColor: MOOD_COLORS[(h.level || 1) - 1] }]}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                )}
                 <Text style={s.happinessHint}>Tap to rate how you feel today</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -304,18 +354,25 @@ export default function GoalsScreen() {
 
             {/* Health Profile */}
             <Animated.View entering={FadeInDown.delay(600).duration(350)}>
+              <View style={s.sectionHead}>
+                <Text style={s.sectionTitle}>Health Profile</Text>
+                <TouchableOpacity
+                  onPress={() => setShowEditQuestionnaire(true)}
+                  style={s.editBtnWrap}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="pencil" size={14} color={Colors.green} />
+                  <Text style={s.editBtn}>Edit</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity onPress={() => setShowQuestionnaire(true)} activeOpacity={0.85}>
-                <View style={s.sectionHead}>
-                  <Text style={s.sectionTitle}>Health Profile</Text>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+                <View style={[s.questionnaireCard, Shadow.sm]}>
+                  {renderQField('Sleep', `${questionnaire.sleep_hours || 7} hours`, 'moon')}
+                  {renderQField('Busyness', `${questionnaire.lifestyle_busyness || 3}/5`, 'time')}
+                  {renderQField('Diet Restriction', questionnaire.dietary_restriction ? 'Yes' : 'No', 'nutrition')}
+                  {renderQField('Nutritionist', questionnaire.under_nutritionist ? 'Yes' : 'No', 'medkit')}
                 </View>
               </TouchableOpacity>
-              <View style={[s.questionnaireCard, Shadow.sm]}>
-                {renderQField('Sleep', `${questionnaire.sleep_hours || 7} hours`, 'moon')}
-                {renderQField('Busyness', `${questionnaire.lifestyle_busyness || 3}/5`, 'time')}
-                {renderQField('Diet Restriction', questionnaire.dietary_restriction ? 'Yes' : 'No', 'nutrition')}
-                {renderQField('Nutritionist', questionnaire.under_nutritionist ? 'Yes' : 'No', 'medkit')}
-              </View>
             </Animated.View>
             {/* Download Report Button */}
             <Animated.View entering={FadeInDown.delay(700).duration(350)}>
@@ -396,7 +453,17 @@ export default function GoalsScreen() {
 
       {/* Questionnaire Detail Modal */}
       <BottomSheet visible={showQuestionnaire} onClose={() => setShowQuestionnaire(false)}>
-        <Text style={s.modalTitle}>Health Profile</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm }}>
+          <Text style={s.modalTitle}>Health Profile</Text>
+          <TouchableOpacity
+            onPress={() => { setShowQuestionnaire(false); setShowEditQuestionnaire(true); }}
+            style={s.editBtnWrap}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="pencil" size={14} color={Colors.green} />
+            <Text style={s.editBtn}>Edit</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={s.modalSubtext}>Your health questionnaire answers</Text>
         {renderDetailField('Favorite Fast Food', questionnaire.favorite_fast_food || 'Not set')}
         {renderDetailField('Dietary Restriction', questionnaire.dietary_restriction ? 'Yes' : 'No')}
@@ -408,6 +475,84 @@ export default function GoalsScreen() {
         {renderDetailField('Best Meal', questionnaire.best_meal || 'Not set')}
         <TouchableOpacity onPress={() => setShowQuestionnaire(false)} style={s.modalSaveBtn} activeOpacity={0.8}>
           <Text style={s.modalSaveBtnText}>Close</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      {/* Edit Health Profile Modal */}
+      <BottomSheet visible={showEditQuestionnaire} onClose={() => setShowEditQuestionnaire(false)}>
+        <Text style={s.modalTitle}>Edit Health Profile</Text>
+        <Text style={s.modalSubtext}>Update your health information</Text>
+
+        <Text style={s.inputLabel}>Sleep Hours Per Night</Text>
+        <TextInput
+          style={s.modalInput}
+          value={qSleepHours}
+          onChangeText={setQSleepHours}
+          keyboardType="decimal-pad"
+          placeholder="e.g. 7.5"
+          placeholderTextColor={Colors.textTertiary}
+        />
+
+        <Text style={s.inputLabel}>Lifestyle Busyness (1–5)</Text>
+        <View style={s.stepperRow}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <TouchableOpacity
+              key={n}
+              onPress={() => setQBusyness(n)}
+              style={[s.stepperBtn, qBusyness === n && s.stepperBtnActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.stepperBtnText, qBusyness === n && s.stepperBtnTextActive]}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={s.toggleRow}>
+          <Text style={s.toggleLabel}>Dietary Restriction</Text>
+          <TouchableOpacity
+            onPress={() => setQDietRestriction(v => !v)}
+            style={[s.toggleBtn, qDietRestriction && s.toggleBtnActive]}
+            activeOpacity={0.7}
+          >
+            <View style={[s.toggleThumb, qDietRestriction && s.toggleThumbActive]} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={s.toggleRow}>
+          <Text style={s.toggleLabel}>Under a Nutritionist</Text>
+          <TouchableOpacity
+            onPress={() => setQUnderNutritionist(v => !v)}
+            style={[s.toggleBtn, qUnderNutritionist && s.toggleBtnActive]}
+            activeOpacity={0.7}
+          >
+            <View style={[s.toggleThumb, qUnderNutritionist && s.toggleThumbActive]} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={s.inputLabel}>Favorite Fast Food</Text>
+        <TextInput
+          style={s.modalInput}
+          value={qFastFood}
+          onChangeText={setQFastFood}
+          placeholder="e.g. Pizza"
+          placeholderTextColor={Colors.textTertiary}
+        />
+
+        <Text style={s.inputLabel}>Health Notes</Text>
+        <TextInput
+          style={[s.modalInput, { height: 80, textAlignVertical: 'top', paddingTop: 14 }]}
+          value={qHealthInfo}
+          onChangeText={setQHealthInfo}
+          placeholder="Any health conditions, allergies, etc."
+          placeholderTextColor={Colors.textTertiary}
+          multiline
+        />
+
+        <TouchableOpacity onPress={saveQuestionnaire} style={s.modalSaveBtn} activeOpacity={0.8}>
+          <Text style={s.modalSaveBtnText}>Save Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowEditQuestionnaire(false)} style={s.modalCancelBtn}>
+          <Text style={s.modalCancelText}>Cancel</Text>
         </TouchableOpacity>
       </BottomSheet>
 
@@ -498,6 +643,10 @@ const s = StyleSheet.create({
   happinessTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
   happinessGauge: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   happinessHint: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 10 },
+  moodTrend: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  moodTrendLabel: { fontSize: 10, color: Colors.textTertiary, fontWeight: '600', width: 56 },
+  moodDots: { flexDirection: 'row', gap: 6 },
+  moodDot: { width: 10, height: 10, borderRadius: 5 },
 
   // Section
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, marginTop: Spacing.md, marginBottom: Spacing.sm },
@@ -557,6 +706,21 @@ const s = StyleSheet.create({
   goalToggleTextActive: { color: Colors.textPrimary },
   checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
   checkboxActive: { backgroundColor: Colors.green, borderColor: Colors.green },
+
+  // Stepper
+  stepperRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  stepperBtn: { flex: 1, paddingVertical: 12, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.borderLight, alignItems: 'center' },
+  stepperBtnActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },
+  stepperBtnText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textTertiary },
+  stepperBtnTextActive: { color: Colors.green },
+
+  // Toggle
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  toggleLabel: { fontSize: FontSize.body, color: Colors.textPrimary, fontWeight: '500' },
+  toggleBtn: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#E5E7EB', justifyContent: 'center', paddingHorizontal: 2 },
+  toggleBtnActive: { backgroundColor: Colors.green },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFF', alignSelf: 'flex-start' },
+  toggleThumbActive: { alignSelf: 'flex-end' },
 
   // Report
   reportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: Spacing.lg, backgroundColor: Colors.waterBlue, borderRadius: Radius.lg, paddingVertical: 16, marginBottom: Spacing.lg },

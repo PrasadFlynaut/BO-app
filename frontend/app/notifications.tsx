@@ -13,6 +13,7 @@ import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import EmptyState from '@/src/components/EmptyState';
 import { boLogoColor } from '@/src/assets';
 import api from '@/src/api';
+import { resolveDeepLink } from '@/src/notifications';
 
 const NOTIF_CONFIG: Record<string, { icon: string; color: string; bg: string; label: string }> = {
   meal_reminder:   { icon: 'restaurant',       color: Colors.nutritionOrange, bg: Colors.nutritionSurface, label: 'Meal'      },
@@ -153,7 +154,14 @@ export default function NotificationsScreen() {
       <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 35).duration(320)}>
         <TouchableOpacity
           style={[ns.card, isUnread && ns.cardUnread]}
-          onPress={() => { if (isUnread) markRead(item.id); }}
+          onPress={() => {
+            if (isUnread) markRead(item.id);
+            const link = item.deep_link || item.deepLink;
+            if (link) {
+              const resolved = resolveDeepLink(link);
+              if (resolved) router.push(resolved as any);
+            }
+          }}
           onLongPress={() => confirmDelete(item.id)}
           activeOpacity={0.82}
         >
@@ -183,6 +191,9 @@ export default function NotificationsScreen() {
           {/* Actions */}
           <View style={ns.cardActions}>
             {isUnread && <View style={[ns.unreadDot, { backgroundColor: cfg.color }]} />}
+            {(item.deep_link || item.deepLink) && (
+              <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
+            )}
             <TouchableOpacity
               onPress={() => confirmDelete(item.id)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

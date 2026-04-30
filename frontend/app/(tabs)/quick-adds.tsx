@@ -557,7 +557,7 @@ export default function QuickAddsScreen() {
       loadAllData(false);
       Alert.alert('Synced!', `Workout data synced from ${provider}`);
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || '';
+      const msg = String(e?.response?.data?.detail ?? e?.message ?? '');
       if (msg.toLowerCase().includes('unsupported') || msg.toLowerCase().includes('not available')) {
         Alert.alert('Smartwatch sync unavailable', 'Connect your watch in device settings.');
       } else {
@@ -703,6 +703,11 @@ export default function QuickAddsScreen() {
           </View>
           <AnimatedProgressBar value={totalCalories} max={calorieGoal} color={Colors.nutritionOrange} height={6} />
           <Text style={s.calorieGoal}>Goal: {calorieGoal.toLocaleString()}</Text>
+          {totalCalories === 0 && (
+            <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 4, textAlign: 'center' }}>
+              Add calories when logging meals to track your fuel bar
+            </Text>
+          )}
         </View>
       </Animated.View>
 
@@ -1173,11 +1178,11 @@ export default function QuickAddsScreen() {
           autoFocus
         />
         {!!mealNameError && <Text style={{ color: Colors.danger, fontSize: 12, marginTop: -6, marginBottom: 6 }}>{mealNameError}</Text>}
-        <Text style={s.inputLabel}>Estimated fuel (optional)</Text>
+        <Text style={s.inputLabel}>Calories (updates fuel bar)</Text>
         <TextInput
           ref={calInputRef}
           style={s.modalInput}
-          placeholder="e.g. 350"
+          placeholder="e.g. 350 kcal"
           placeholderTextColor={Colors.textTertiary}
           value={mealCalories}
           onChangeText={setMealCalories}

@@ -1,31 +1,65 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
-
-const SECTIONS = [
-  { title: '1. Information We Collect', body: 'We collect personal information you provide during registration, including your name, email address, date of birth, and phone number. We also collect health-related data such as dietary preferences, fitness goals, weight, and activity levels that you voluntarily enter to personalize your experience.' },
-  { title: '2. How We Use Your Information', body: 'Your information is used to provide personalized Meal Planter recommendations, nutrition tracking, and wellness guidance. We use aggregated, de-identified data to improve our services. We do not sell your personal information to third parties.' },
-  { title: '3. Data Security', body: 'We implement industry-standard security measures including encryption at rest and in transit, secure token-based authentication, and regular security audits. Health-related data is stored with additional safeguards in compliance with applicable regulations.' },
-  { title: '4. HIPAA Compliance', body: 'Any health information you provide is treated as Protected Health Information (PHI) under HIPAA guidelines. We maintain appropriate administrative, physical, and technical safeguards to protect the privacy and security of your health data.' },
-  { title: '5. Your Rights', body: 'You have the right to access, update, or delete your personal data at any time through the app settings. You may also request a copy of your data or opt out of data personalization features.' },
-  { title: '6. Third-Party Services', body: 'We may use third-party services for analytics and cloud infrastructure. These partners are contractually obligated to protect your data and use it only for the purposes we specify.' },
-  { title: '7. Data Retention', body: 'We retain your data for as long as your account is active. Upon account deletion, your data is permanently removed within 30 days, except where retention is required by law.' },
-  { title: '8. Changes to This Policy', body: 'We may update this privacy policy from time to time. We will notify you of significant changes through the app or via email. Continued use after changes constitutes acceptance.' },
-  { title: '9. Contact Us', body: 'If you have questions about this privacy policy or our data practices, please contact us at privacy@boapp.com.' },
-];
+import api from '@/src/api';
 
 export default function PrivacyPolicyScreen() {
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
+  const [content, setContent] = useState('');
+  const [lastUpdated, setLastUpdated] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/v1/legal/privacy');
+        setContent(data.content || '');
+        setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated).toLocaleDateString() : '');
+      } catch (e) {
+        console.error('Failed to load privacy policy:', e);
+      }
+      setLoading(false);
+    })();
+  }, []);
 
   const handleScroll = (e: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    const isEnd = layoutMeasurement.height + contentOffset.y >= contentSize.height - 50;
-    if (isEnd) setScrolledToEnd(true);
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 50) {
+      setScrolledToEnd(true);
+    }
+  };
+
+  const renderMarkdown = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      if (line.startsWith('# ')) return <Text key={i} style={s.h1}>{line.replace(/^# /, '')}</Text>;
+      if (line.startsWith('## ')) return <Text key={i} style={s.sectionTitle}>{line.replace(/^## /, '')}</Text>;
+      if (line.startsWith('- ')) return (
+        <View key={i} style={s.bulletRow}>
+          <Text style={s.bullet}>{'•'}</Text>
+          <Text style={s.sectionBody}>{line.replace(/^- /, '')}</Text>
+        </View>
+      );
+      if (line.startsWith('**') && line.endsWith('**')) return <Text key={i} style={[s.sectionBody, { fontWeight: '700', color: Colors.textPrimary }]}>{line.replace(/\*\*/g, '')}</Text>;
+      if (line.trim() === '') return <View key={i} style={{ height: 8 }} />;
+      if (line.includes('**')) {
+        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+        return (
+          <Text key={i} style={s.sectionBody}>
+            {parts.map((p, j) =>
+              p.startsWith('**') && p.endsWith('**')
+                ? <Text key={j} style={{ fontWeight: '700', color: Colors.textPrimary }}>{p.replace(/\*\*/g, '')}</Text>
+                : p
+            )}
+          </Text>
+        );
+      }
+      return <Text key={i} style={s.sectionBody}>{line}</Text>;
+    });
   };
 
   return (
@@ -38,20 +72,28 @@ export default function PrivacyPolicyScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={s.scrollView} contentContainerStyle={s.content} onScroll={handleScroll} scrollEventThrottle={200} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.scrollView}
+        contentContainerStyle={s.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={s.badge}>
           <Ionicons name="shield-checkmark" size={16} color={Colors.green} />
           <Text style={s.badgeText}>BO Wellness Privacy Policy</Text>
         </View>
-        <Text style={s.lastUpdated}>Last updated: March 31, 2026</Text>
-        <Text style={s.intro}>At BO (Bananas and Okra), we are committed to protecting your privacy and ensuring the security of your personal health information. This policy describes how we collect, use, and safeguard your data.</Text>
+        {lastUpdated ? <Text style={s.lastUpdated}>Last updated: {lastUpdated}</Text> : null}
 
-        {SECTIONS.map((sec, i) => (
-          <View key={i} style={s.section}>
-            <Text style={s.sectionTitle}>{sec.title}</Text>
-            <Text style={s.sectionBody}>{sec.body}</Text>
-          </View>
-        ))}
+        {loading ? (
+          <ActivityIndicator size="large" color={Colors.green} style={{ marginVertical: 40 }} />
+        ) : content ? (
+          <View style={s.markdownWrap}>{renderMarkdown(content)}</View>
+        ) : (
+          <Text style={s.sectionBody}>
+            At BO (Bananas and Okra), we are committed to protecting your privacy and ensuring the security of your personal health information. Please review our full privacy policy at bo.app/privacy.
+          </Text>
+        )}
       </ScrollView>
 
       <View style={s.footer}>
@@ -76,10 +118,12 @@ const s = StyleSheet.create({
   badge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.greenLight, paddingVertical: 8, paddingHorizontal: 14, borderRadius: Radius.pill, alignSelf: 'flex-start', marginBottom: Spacing.md },
   badgeText: { fontSize: FontSize.caption, fontWeight: '700', color: Colors.green },
   lastUpdated: { fontSize: FontSize.caption, color: Colors.textTertiary, marginBottom: Spacing.lg },
-  intro: { fontSize: FontSize.body, color: Colors.textSecondary, lineHeight: 24, marginBottom: Spacing.lg },
-  section: { marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
+  markdownWrap: { width: '100%' },
+  h1: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.sm, marginTop: Spacing.xs },
+  sectionTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   sectionBody: { fontSize: FontSize.small, color: Colors.textSecondary, lineHeight: 22 },
+  bulletRow: { flexDirection: 'row', gap: 8, marginVertical: 2, paddingLeft: 4 },
+  bullet: { fontSize: FontSize.small, color: Colors.green, lineHeight: 22 },
   footer: { padding: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.borderLight },
   agreeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: Radius.lg, paddingVertical: 18 },
   agreeBtnText: { color: '#FFF', fontSize: FontSize.body, fontWeight: '700' },

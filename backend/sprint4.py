@@ -170,14 +170,25 @@ async def get_feed(
     request: Request,
     page: int = 1,
     limit: int = 10,
+    search: Optional[str] = None,
+    filter: Optional[str] = None,
 ):
     user = await get_user(request)
     page = max(1, page)
     limit = min(max(1, limit), 50)
     skip = (page - 1) * limit
 
-    total = await db.feed_posts.count_documents({})
-    posts = await db.feed_posts.find({}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    query: dict = {}
+    if filter == "my_posts":
+        query["user_id"] = user["id"]
+    if search and search.strip():
+        query["$or"] = [
+            {"text": {"$regex": search.strip(), "$options": "i"}},
+            {"user_name": {"$regex": search.strip(), "$options": "i"}},
+        ]
+
+    total = await db.feed_posts.count_documents(query)
+    posts = await db.feed_posts.find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
 
     result = []
     for p in posts:

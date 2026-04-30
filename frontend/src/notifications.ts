@@ -2,7 +2,39 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { router } from 'expo-router';
 import api from './api';
+
+// Maps admin-sent deep link values to Expo Router paths
+export function resolveDeepLink(link: string): string {
+  if (!link) return '';
+  const tabMap: Record<string, string> = {
+    '/home':              '/(tabs)/home',
+    '/feed':              '/(tabs)/feed',
+    '/culinary':          '/(tabs)/menu',
+    '/menu':              '/(tabs)/menu',
+    '/profile':           '/(tabs)/profile',
+    '/quick-adds':        '/(tabs)/quick-adds',
+    '/goals':             '/(tabs)/goals',
+    '/wellness-programs': '/wellness-programs',
+    '/subscription':      '/subscription',
+    '/notifications':     '/notifications',
+    '/settings':          '/settings',
+  };
+  if (tabMap[link]) return tabMap[link];
+  // Pass through dynamic routes like /meal/123 or /program/456
+  return link;
+}
+
+export function navigateDeepLink(link: string) {
+  const resolved = resolveDeepLink(link);
+  if (!resolved) return;
+  try {
+    router.push(resolved as any);
+  } catch (e) {
+    console.warn('Deep link navigation failed:', resolved, e);
+  }
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -125,9 +157,10 @@ export function usePushNotifications() {
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      if (data?.deepLink) {
-        // Navigation handled by the app
-        console.log('Notification deep link:', data.deepLink);
+      const link = data?.deepLink || data?.deep_link;
+      if (link) {
+        // Small delay lets the app fully mount before navigating
+        setTimeout(() => navigateDeepLink(link), 300);
       }
     });
 

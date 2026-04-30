@@ -103,6 +103,14 @@ async def get_privacy():
     return {"content": doc["content"], "lastUpdated": doc["last_updated"], "version": doc.get("version", "1.0")}
 
 
+@sprint6_router.get("/v1/legal/about")
+async def get_about():
+    doc = await db.legal_content.find_one({"type": "about"})
+    if not doc:
+        raise HTTPException(status_code=404, detail="About content not found")
+    return {"content": doc["content"], "lastUpdated": doc["last_updated"], "version": doc.get("version", "1.0")}
+
+
 # =========== APP VERSION ===========
 @sprint6_router.get("/v1/app/version")
 async def get_app_version():
@@ -574,9 +582,41 @@ You have the right to:
 Email: privacy@bo.app
 Address: Flynaut LLC, Florida, USA"""
 
+        about_content = """# About BO
+
+**BO** — Bananas and Okra — was inspired by two matriarchs and a simple truth: the best health is built from whole, real food and genuine community.
+
+## Our Mission
+
+We help you discover your healthiest self through personalized nutrition, smart activity tracking, AI-powered wellness insights, and a supportive community — all in one app.
+
+## What We Do
+
+BO gives you the tools to log meals, track macros and calories, monitor wellness goals, follow chef-curated recipes, and stay motivated with daily quotes and community posts.
+
+## Built With Care
+
+BO is built by Flynaut LLC, a team of engineers and wellness advocates passionate about making health accessible and enjoyable for everyone.
+
+## Security & Privacy
+
+Your data is encrypted at rest (AES-256) and in transit (TLS 1.3). We are HIPAA-aware, GDPR-compliant, and CCPA-compliant. We never sell your personal data.
+
+## Contact Us
+
+Have questions or feedback? Reach us at support@bo.app or visit our website at bo.app.
+
+## Legal
+
+- [Terms of Use](/terms)
+- [Privacy Policy](/privacy-screen)
+
+© 2026 BO by Flynaut LLC. All rights reserved."""
+
         await db.legal_content.insert_many([
             {"type": "terms", "content": terms_content, "last_updated": datetime.now(timezone.utc), "version": "1.0"},
             {"type": "privacy", "content": privacy_content, "last_updated": datetime.now(timezone.utc), "version": "1.0"},
+            {"type": "about", "content": about_content, "last_updated": datetime.now(timezone.utc), "version": "1.0"},
         ])
         logger.info("Seeded legal content")
 

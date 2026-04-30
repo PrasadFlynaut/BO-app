@@ -161,12 +161,14 @@ export default function FeedScreen() {
 
   useFocusEffect(useCallback(() => { loadFeed(1, true); }, []));
 
-  const loadFeed = async (p: number = 1, reset: boolean = false) => {
+  const loadFeed = async (p: number = 1, reset: boolean = false, searchVal?: string, filterVal?: string) => {
     if (reset) setLoading(true);
+    const sq = searchVal !== undefined ? searchVal : searchText;
+    const fq = filterVal !== undefined ? filterVal : activeFilter;
     try {
       let url = `/v1/feed?page=${p}&limit=10`;
-      if (searchText.trim()) url += `&search=${encodeURIComponent(searchText.trim())}`;
-      if (activeFilter !== 'all') url += `&filter=${activeFilter}`;
+      if (sq.trim()) url += `&search=${encodeURIComponent(sq.trim())}`;
+      if (fq !== 'all') url += `&filter=${fq}`;
       const { data } = await api.get(url);
       const newPosts = data.data || data.posts || [];
       if (reset) {
@@ -174,25 +176,25 @@ export default function FeedScreen() {
       } else {
         setPosts(prev => [...prev, ...newPosts]);
       }
-      setHasMore(data.pagination?.hasNext || (data.page < data.pages) || false);
+      setHasMore(data.pagination?.hasNext ?? false);
       setPage(p);
     } catch (e) { console.error('Feed load error:', e); }
     setLoading(false);
     setLoadingMore(false);
   };
 
-  // Debounced search
+  // Debounced search — passes fresh text directly to avoid stale closure
   const handleSearch = (text: string) => {
     setSearchText(text);
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      loadFeed(1, true);
+      loadFeed(1, true, text, activeFilter);
     }, 300);
   };
 
   const handleFilterChange = (f: 'all' | 'following' | 'my_posts') => {
     setActiveFilter(f);
-    setTimeout(() => loadFeed(1, true), 50);
+    loadFeed(1, true, searchText, f);
   };
 
   const onRefresh = async () => {
@@ -419,13 +421,11 @@ export default function FeedScreen() {
   // Share post
   const handleShare = async (post: any) => {
     try {
-      const message = post.content
-        ? `${post.user_name} on BO Wellness:\n\n"${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}"\n\nShared via BO Wellness App`
+      const body = post.text || '';
+      const message = body
+        ? `${post.user_name} on BO Wellness:\n\n"${body.substring(0, 200)}${body.length > 200 ? '...' : ''}"\n\nShared via BO Wellness App`
         : `Check out this post by ${post.user_name} on BO Wellness App!`;
-      await Share.share({
-        message,
-        title: 'BO Wellness - Community Post',
-      });
+      await Share.share({ message, title: 'BO Wellness - Community Post' });
     } catch (e) {
       console.error('Share error:', e);
     }

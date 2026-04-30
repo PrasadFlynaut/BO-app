@@ -347,6 +347,36 @@ async def admin_ingredient_suggest(request: Request, q: str = ""):
     return {"suggestions": [r.get("display", r.get("name", "")) for r in results]}
 
 
+# ===================== LEGAL CONTENT MANAGEMENT =====================
+
+class LegalContentUpdate(BaseModel):
+    content: str
+
+@sprint8_router.put("/v1/admin/legal/{page_type}")
+async def admin_update_legal(request: Request, page_type: str, body: LegalContentUpdate):
+    await require_admin(request)
+    if page_type not in ("terms", "privacy", "about"):
+        raise HTTPException(status_code=400, detail="Invalid page type. Use: terms, privacy, about")
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+    result = await db.legal_content.update_one(
+        {"type": page_type},
+        {"$set": {"content": body.content, "last_updated": now_utc(), "version": "1.0"}},
+        upsert=True,
+    )
+    return {"success": True, "type": page_type, "matched": result.matched_count, "upserted": result.upserted_id is not None}
+
+@sprint8_router.get("/v1/admin/legal/{page_type}")
+async def admin_get_legal(request: Request, page_type: str):
+    await require_admin(request)
+    if page_type not in ("terms", "privacy", "about"):
+        raise HTTPException(status_code=400, detail="Invalid page type. Use: terms, privacy, about")
+    doc = await db.legal_content.find_one({"type": page_type})
+    if not doc:
+        return {"content": "", "lastUpdated": None, "type": page_type}
+    return {"content": doc["content"], "lastUpdated": doc["last_updated"], "type": page_type}
+
+
 # ===================== MOD-023: DAILY QUOTES =====================
 
 @sprint8_router.get("/v1/admin/quotes")

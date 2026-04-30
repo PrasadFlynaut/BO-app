@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -7,68 +7,58 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import Constants from 'expo-constants';
+import api from '@/src/api';
 
 const boLogo = require('../assets/images/bo-logo-color.png');
-
-const COMPLIANCE_ITEMS = [
-  {
-    icon: 'shield-checkmark',
-    title: 'GDPR Compliant',
-    desc: 'Full compliance with EU General Data Protection Regulation. Users can request data export or deletion at any time.',
-    color: '#3B82F6',
-  },
-  {
-    icon: 'lock-closed',
-    title: 'CCPA Compliant',
-    desc: 'Adheres to California Consumer Privacy Act. Transparent data collection with opt-out rights for data selling.',
-    color: '#8B5CF6',
-  },
-  {
-    icon: 'medkit',
-    title: 'HIPAA Aware',
-    desc: 'Health data is handled following HIPAA best practices. PHI is encrypted at rest and in transit using AES-256.',
-    color: '#EF4444',
-  },
-  {
-    icon: 'server',
-    title: 'SOC 2 Type II',
-    desc: 'Infrastructure hosted on SOC 2 Type II certified cloud providers ensuring security, availability, and confidentiality.',
-    color: '#10B981',
-  },
-  {
-    icon: 'key',
-    title: 'End-to-End Encryption',
-    desc: 'All data transmitted via TLS 1.3. Sensitive health data encrypted at rest with AES-256-GCM. API keys rotated regularly.',
-    color: '#F59E0B',
-  },
-  {
-    icon: 'finger-print',
-    title: 'Biometric Authentication',
-    desc: 'Supports Face ID, Touch ID, and device biometrics for secure access. No biometric data leaves your device.',
-    color: '#EC4899',
-  },
-];
-
-const DATA_PRACTICES = [
-  { icon: 'eye-off-outline', text: 'We never sell your personal data to third parties' },
-  { icon: 'cloud-upload-outline', text: 'Health data is stored in encrypted cloud databases' },
-  { icon: 'trash-outline', text: 'Request full data deletion anytime from Settings' },
-  { icon: 'download-outline', text: 'Export all your data in machine-readable formats' },
-  { icon: 'location-outline', text: 'Location data is only used when you grant permission' },
-  { icon: 'analytics-outline', text: 'Anonymous analytics help us improve the app experience' },
-];
-
-const CERTIFICATIONS = [
-  { name: 'ISO 27001', desc: 'Information Security' },
-  { name: 'OWASP', desc: 'Mobile Security Standards' },
-  { name: 'App Store', desc: 'Review Guidelines' },
-  { name: 'Play Store', desc: 'Policy Compliance' },
-];
 
 export default function AboutScreen() {
   const router = useRouter();
   const version = Constants.expoConfig?.version || '1.0.0';
   const buildNumber = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || '1';
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/v1/legal/about');
+        setContent(data.content || '');
+      } catch (e) {
+        console.error('Failed to load about content:', e);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const renderMarkdown = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      if (line.startsWith('# ')) return <Text key={i} style={s.h1}>{line.replace(/^# /, '')}</Text>;
+      if (line.startsWith('## ')) return <Text key={i} style={s.h2}>{line.replace(/^## /, '')}</Text>;
+      if (line.startsWith('### ')) return <Text key={i} style={s.h3}>{line.replace(/^### /, '')}</Text>;
+      if (line.startsWith('- ')) return (
+        <View key={i} style={s.bulletRow}>
+          <Text style={s.bullet}>{'•'}</Text>
+          <Text style={s.bulletText}>{line.replace(/^- /, '')}</Text>
+        </View>
+      );
+      if (line.startsWith('**') && line.endsWith('**')) return <Text key={i} style={s.bold}>{line.replace(/\*\*/g, '')}</Text>;
+      if (line.trim() === '') return <View key={i} style={{ height: 8 }} />;
+      // Inline bold: replace **text** within a line
+      if (line.includes('**')) {
+        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+        return (
+          <Text key={i} style={s.paragraph}>
+            {parts.map((p, j) =>
+              p.startsWith('**') && p.endsWith('**')
+                ? <Text key={j} style={s.inlineBold}>{p.replace(/\*\*/g, '')}</Text>
+                : p
+            )}
+          </Text>
+        );
+      }
+      return <Text key={i} style={s.paragraph}>{line}</Text>;
+    });
+  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -80,7 +70,7 @@ export default function AboutScreen() {
         <View style={{ width: 40 }} />
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        {/* Logo & Brand */}
+        {/* Brand header — always static */}
         <Animated.View entering={FadeInDown.duration(350)} style={s.logoWrap}>
           <Image source={boLogo} style={s.logoImg} contentFit="contain" />
           <Text style={s.appName}>BO</Text>
@@ -90,76 +80,19 @@ export default function AboutScreen() {
           </View>
         </Animated.View>
 
-        {/* Mission */}
+        {/* Admin-managed content */}
         <Animated.View entering={FadeInDown.delay(80).duration(350)} style={[s.card, Shadow.sm]}>
-          <Text style={s.sectionTitle}>Our Mission</Text>
-          <Text style={s.description}>
-            BO was inspired by two matriarchs and stands for Bananas and Okra. We help you discover your healthiest self through personalized nutrition, smart activity tracking, AI-powered wellness insights, and a supportive community, all in one app.
-          </Text>
-        </Animated.View>
-
-        {/* Compliance & Security */}
-        <Animated.View entering={FadeInDown.delay(160).duration(350)} style={[s.card, Shadow.sm]}>
-          <View style={s.sectionHeader}>
-            <Ionicons name="shield-checkmark" size={20} color={Colors.green} />
-            <Text style={s.sectionTitle}>Security & Compliance</Text>
-          </View>
-          <Text style={s.sectionSub}>Your data protection is our top priority</Text>
-          {COMPLIANCE_ITEMS.map((item, i) => (
-            <View key={i} style={s.complianceItem}>
-              <View style={[s.complianceIcon, { backgroundColor: item.color + '15' }]}>
-                <Ionicons name={item.icon as any} size={20} color={item.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.complianceTitle}>{item.title}</Text>
-                <Text style={s.complianceDesc}>{item.desc}</Text>
-              </View>
-            </View>
-          ))}
-        </Animated.View>
-
-        {/* Data Practices */}
-        <Animated.View entering={FadeInDown.delay(240).duration(350)} style={[s.card, Shadow.sm]}>
-          <View style={s.sectionHeader}>
-            <Ionicons name="document-text" size={20} color={Colors.green} />
-            <Text style={s.sectionTitle}>Data Practices</Text>
-          </View>
-          {DATA_PRACTICES.map((item, i) => (
-            <View key={i} style={s.dataRow}>
-              <Ionicons name={item.icon as any} size={18} color={Colors.green} />
-              <Text style={s.dataText}>{item.text}</Text>
-            </View>
-          ))}
-        </Animated.View>
-
-        {/* Certifications */}
-        <Animated.View entering={FadeInDown.delay(320).duration(350)} style={[s.card, Shadow.sm]}>
-          <View style={s.sectionHeader}>
-            <Ionicons name="ribbon" size={20} color={Colors.green} />
-            <Text style={s.sectionTitle}>Standards & Certifications</Text>
-          </View>
-          <View style={s.certGrid}>
-            {CERTIFICATIONS.map((c, i) => (
-              <View key={i} style={s.certItem}>
-                <View style={s.certBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
-                </View>
-                <Text style={s.certName}>{c.name}</Text>
-                <Text style={s.certDesc}>{c.desc}</Text>
-              </View>
-            ))}
-          </View>
-        </Animated.View>
-
-        {/* Built By */}
-        <Animated.View entering={FadeInDown.delay(400).duration(350)} style={[s.card, Shadow.sm]}>
-          <Text style={s.creditsLabel}>BUILT BY</Text>
-          <Text style={s.creditsName}>Flynaut LLC</Text>
-          <Text style={s.creditsSub}>Powered by Expo, React Native & AI</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.green} style={{ marginVertical: 24 }} />
+          ) : content ? (
+            renderMarkdown(content)
+          ) : (
+            <Text style={s.paragraph}>BO was inspired by two matriarchs and stands for Bananas and Okra. We help you discover your healthiest self through personalized nutrition, smart activity tracking, AI-powered wellness insights, and a supportive community, all in one app.</Text>
+          )}
         </Animated.View>
 
         {/* Social Links */}
-        <Animated.View entering={FadeInDown.delay(480).duration(350)} style={s.socialRow}>
+        <Animated.View entering={FadeInDown.delay(160).duration(350)} style={s.socialRow}>
           {[
             { icon: 'globe-outline', url: 'https://bo.app', label: 'Website' },
             { icon: 'logo-instagram', url: 'https://instagram.com/boapp', label: 'Instagram' },
@@ -174,7 +107,7 @@ export default function AboutScreen() {
         </Animated.View>
 
         {/* Legal Links */}
-        <Animated.View entering={FadeInDown.delay(560).duration(350)} style={{ width: '100%', marginBottom: 12 }}>
+        <Animated.View entering={FadeInDown.delay(240).duration(350)} style={{ width: '100%', marginBottom: 12 }}>
           <TouchableOpacity style={s.legalRow} onPress={() => router.push('/privacy-screen')}>
             <Ionicons name="document-text-outline" size={18} color={Colors.textTertiary} />
             <Text style={s.legalText}>Privacy Policy</Text>
@@ -192,7 +125,7 @@ export default function AboutScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Text style={s.copyright}>{'\u00A9'} 2026 BO by Flynaut LLC. All rights reserved.</Text>
+        <Text style={s.copyright}>{'©'} 2026 BO by Flynaut LLC. All rights reserved.</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -212,24 +145,15 @@ const s = StyleSheet.create({
   versionBadge: { marginTop: 8, backgroundColor: Colors.greenLight, paddingHorizontal: 14, paddingVertical: 4, borderRadius: Radius.pill },
   versionText: { fontSize: FontSize.caption, color: Colors.green, fontWeight: '600' },
   card: { backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.md, width: '100%' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  sectionTitle: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary },
-  sectionSub: { fontSize: FontSize.small, color: Colors.textTertiary, marginBottom: 16 },
-  description: { fontSize: FontSize.body, color: Colors.textSecondary, lineHeight: 24 },
-  complianceItem: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-start' },
-  complianceIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  complianceTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
-  complianceDesc: { fontSize: FontSize.small, color: Colors.textSecondary, lineHeight: 20 },
-  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  dataText: { fontSize: FontSize.body, color: Colors.textSecondary, flex: 1 },
-  certGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
-  certItem: { width: '46%', padding: 14, backgroundColor: '#F9FAFB', borderRadius: Radius.md, alignItems: 'center' },
-  certBadge: { marginBottom: 6 },
-  certName: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
-  certDesc: { fontSize: FontSize.caption, color: Colors.textTertiary, textAlign: 'center', marginTop: 2 },
-  creditsLabel: { fontSize: FontSize.caption, color: '#9CA3AF', fontWeight: '600', letterSpacing: 1, marginBottom: 4 },
-  creditsName: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary },
-  creditsSub: { fontSize: FontSize.small, color: Colors.textTertiary, marginTop: 4 },
+  h1: { fontSize: FontSize.h2, fontWeight: '800', color: Colors.textPrimary, marginTop: Spacing.sm, marginBottom: 6 },
+  h2: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary, marginTop: Spacing.md, marginBottom: 4 },
+  h3: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, marginTop: 10, marginBottom: 2 },
+  bold: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, marginVertical: 4 },
+  inlineBold: { fontWeight: '700', color: Colors.textPrimary },
+  paragraph: { fontSize: FontSize.body, color: Colors.textSecondary, lineHeight: 24 },
+  bulletRow: { flexDirection: 'row', gap: 8, marginVertical: 2 },
+  bullet: { fontSize: FontSize.body, color: Colors.green, lineHeight: 24, marginTop: 1 },
+  bulletText: { fontSize: FontSize.body, color: Colors.textSecondary, lineHeight: 24, flex: 1 },
   socialRow: { flexDirection: 'row', gap: 12, marginVertical: Spacing.md, flexWrap: 'wrap', justifyContent: 'center' },
   socialBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.greenLight, paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.pill },
   socialLabel: { fontSize: FontSize.small, color: Colors.green, fontWeight: '600' },

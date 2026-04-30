@@ -10,21 +10,38 @@ ADMIN_HTML = """<!DOCTYPE html>
 <title>BO Admin Portal</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+<script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
 <style>
 :root{--bo-green:#26B50F;--bo-dark:#1E8F0C;--sidebar-w:260px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1a202c}
-.sidebar{width:var(--sidebar-w);background:#1a202c;min-height:100vh;position:fixed;top:0;left:0;z-index:50;transition:transform .3s}
-.sidebar-header{padding:24px 20px;border-bottom:1px solid #2d3748}
-.sidebar-logo{color:#fff;font-size:22px;font-weight:900;display:flex;align-items:center;gap:10px}
-.sidebar-logo span{background:var(--bo-green);width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.sidebar{width:var(--sidebar-w);background:#1a202c;min-height:100vh;position:fixed;top:0;left:0;z-index:50;transition:width .25s cubic-bezier(.4,0,.2,1);overflow:hidden}
+.sidebar-header{padding:20px;border-bottom:1px solid #2d3748;white-space:nowrap;overflow:hidden}
+.sidebar-logo{color:#fff;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px;overflow:hidden}
+.sidebar-logo span{flex-shrink:0;background:var(--bo-green);width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.sidebar-logo-text{transition:opacity .2s,max-width .25s;white-space:nowrap;overflow:hidden}
 .nav-section{padding:12px 0}
-.nav-label{color:#718096;font-size:11px;font-weight:600;letter-spacing:1.5px;padding:8px 20px;text-transform:uppercase}
-.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:#a0aec0;cursor:pointer;transition:all .15s;font-size:14px;font-weight:500;border-left:3px solid transparent}
+.nav-label{color:#718096;font-size:11px;font-weight:600;letter-spacing:1.5px;padding:8px 20px;text-transform:uppercase;white-space:nowrap;overflow:hidden;transition:opacity .2s}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:#a0aec0;cursor:pointer;transition:all .15s;font-size:14px;font-weight:500;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
 .nav-item:hover,.nav-item.active{background:#2d3748;color:#fff;border-left-color:var(--bo-green)}
-.nav-item i{width:20px;text-align:center;font-size:15px}
-.main{margin-left:var(--sidebar-w);padding:0}
-.topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
+.nav-item i{flex-shrink:0;width:20px;text-align:center;font-size:15px}
+.nav-item-text{overflow:hidden;transition:opacity .2s,max-width .2s}
+.nav-item .badge{flex-shrink:0;transition:opacity .2s}
+/* Collapsed state */
+.sidebar.collapsed{width:60px}
+.sidebar.collapsed .sidebar-logo-text{opacity:0;max-width:0;overflow:hidden}
+.sidebar.collapsed .nav-label{opacity:0}
+.sidebar.collapsed .nav-item{padding:10px;justify-content:center;gap:0}
+.sidebar.collapsed .nav-item-text{opacity:0;max-width:0}
+.sidebar.collapsed .nav-item .badge{opacity:0;max-width:0}
+.sidebar.collapsed .nav-item.active,.sidebar.collapsed .nav-item:hover{border-left-color:var(--bo-green);background:#2d3748}
+.main{margin-left:var(--sidebar-w);padding:0;transition:margin-left .25s cubic-bezier(.4,0,.2,1)}
+.main.collapsed{margin-left:60px}
+.topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;gap:12px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-hamburger{background:none;border:none;cursor:pointer;color:#718096;font-size:18px;padding:6px 8px;border-radius:8px;transition:all .15s}
+.topbar-hamburger:hover{background:#f7fafc;color:#1a202c}
 .topbar-title{font-size:20px;font-weight:700}
 .topbar-user{display:flex;align-items:center;gap:12px}
 .topbar-avatar{width:36px;height:36px;border-radius:50%;background:var(--bo-green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
@@ -75,9 +92,24 @@ tr:hover td{background:#f7fafc}
 .otp-input{display:flex;gap:8px;justify-content:center;margin:24px 0}
 .otp-input input{width:48px;height:56px;text-align:center;font-size:24px;font-weight:700;border:2px solid #e2e8f0;border-radius:12px;outline:none}
 .otp-input input:focus{border-color:var(--bo-green)}
-.toast{position:fixed;top:24px;right:24px;background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 10px 25px rgba(0,0,0,.1);display:flex;align-items:center;gap:12px;z-index:200;transform:translateX(120%);transition:transform .3s}
+.toast{position:fixed;top:24px;right:24px;background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 10px 25px rgba(0,0,0,.1);display:flex;align-items:center;gap:12px;z-index:500;transform:translateX(120%);transition:transform .3s}
 .toast.show{transform:translateX(0)}
 .toast-success{border-left:4px solid var(--bo-green)}.toast-error{border-left:4px solid #e53e3e}
+/* EasyMDE — fullscreen and side-by-side must sit above the sidebar */
+.CodeMirror-fullscreen{z-index:300!important;left:0!important;top:50px!important}
+.editor-toolbar.fullscreen{z-index:301!important;left:0!important}
+.editor-preview-side{z-index:300!important}
+.editor-preview-active-side{z-index:300!important}
+/* EasyMDE — card integration */
+.EasyMDEContainer{border:none!important}
+.EasyMDEContainer .editor-toolbar{border:none;border-bottom:1px solid #e2e8f0;background:#fafafa;border-radius:0;padding:6px 8px}
+.EasyMDEContainer .CodeMirror{border:none;border-radius:0 0 12px 12px;font-size:14px;line-height:1.7;padding:12px 16px}
+.EasyMDEContainer .editor-statusbar{border-top:1px solid #f0f0f0;padding:4px 16px;font-size:11px;color:#a0aec0}
+/* Legal pages tabs */
+.legal-tab-btn{flex:1;padding:10px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;white-space:nowrap}
+.legal-tab-btn.active{background:var(--bo-green);color:#fff}
+.legal-tab-btn:not(.active){background:none;color:#718096}
+.legal-tab-btn:not(.active):hover{background:#f7fafc;color:#1a202c}
 </style></head>
 <body>
 <div id="app">
@@ -110,45 +142,51 @@ tr:hover td{background:#f7fafc}
 
 <!-- DASHBOARD -->
 <div id="dashboardPage" style="display:none">
-<div class="sidebar">
-<div class="sidebar-header"><div class="sidebar-logo"><span>BO</span>Admin Portal</div></div>
+<div class="sidebar" id="sidebar">
+<div class="sidebar-header">
+<div class="sidebar-logo"><span>BO</span><span class="sidebar-logo-text">Admin Portal</span></div>
+</div>
 <div class="nav-section">
 <div class="nav-label">Overview</div>
-<div class="nav-item active" onclick="showPage('dashboard')"><i class="fas fa-chart-line"></i>Dashboard</div>
+<div class="nav-item active" onclick="showPage('dashboard')"><i class="fas fa-chart-line"></i><span class="nav-item-text">Dashboard</span></div>
 </div>
 <div class="nav-section">
 <div class="nav-label">Management</div>
-<div class="nav-item" onclick="showPage('users')"><i class="fas fa-users"></i>Users</div>
-<div class="nav-item" onclick="showPage('restaurants')"><i class="fas fa-utensils"></i>Restaurants</div>
-<div class="nav-item" onclick="showPage('claims')"><i class="fas fa-file-signature"></i>Claims <span id="claimBadge" class="badge badge-yellow" style="margin-left:auto;font-size:10px;display:none">0</span></div>
-<div class="nav-item" onclick="showPage('distributors')"><i class="fas fa-truck"></i>Distributors</div>
+<div class="nav-item" onclick="showPage('users')"><i class="fas fa-users"></i><span class="nav-item-text">Users</span></div>
+<div class="nav-item" onclick="showPage('restaurants')"><i class="fas fa-utensils"></i><span class="nav-item-text">Restaurants</span></div>
+<div class="nav-item" onclick="showPage('claims')"><i class="fas fa-file-signature"></i><span class="nav-item-text">Claims</span><span id="claimBadge" class="badge badge-yellow" style="margin-left:auto;font-size:10px;display:none">0</span></div>
+<div class="nav-item" onclick="showPage('distributors')"><i class="fas fa-truck"></i><span class="nav-item-text">Distributors</span></div>
 </div>
 <div class="nav-section">
 <div class="nav-label">Content</div>
-<div class="nav-item" onclick="showPage('meals')"><i class="fas fa-hamburger"></i>Manage Meals</div>
-<div class="nav-item" onclick="showPage('quotes')"><i class="fas fa-quote-left"></i>Daily Quotes</div>
-<div class="nav-item" onclick="showPage('videos')"><i class="fas fa-video"></i>Program Videos</div>
-<div class="nav-item" onclick="showPage('programs')"><i class="fas fa-dumbbell"></i>Wellness Programs</div>
-<div class="nav-item" onclick="showPage('posts')"><i class="fas fa-bullhorn"></i>My Posts</div>
-<div class="nav-item" onclick="showPage('plans')"><i class="fas fa-crown"></i>Subscription Plans</div>
+<div class="nav-item" onclick="showPage('meals')"><i class="fas fa-hamburger"></i><span class="nav-item-text">Manage Meals</span></div>
+<div class="nav-item" onclick="showPage('quotes')"><i class="fas fa-quote-left"></i><span class="nav-item-text">Daily Quotes</span></div>
+<div class="nav-item" onclick="showPage('videos')"><i class="fas fa-video"></i><span class="nav-item-text">Program Videos</span></div>
+<div class="nav-item" onclick="showPage('programs')"><i class="fas fa-dumbbell"></i><span class="nav-item-text">Wellness Programs</span></div>
+<div class="nav-item" onclick="showPage('posts')"><i class="fas fa-bullhorn"></i><span class="nav-item-text">My Posts</span></div>
+<div class="nav-item" onclick="showPage('plans')"><i class="fas fa-crown"></i><span class="nav-item-text">Subscription Plans</span></div>
 </div>
 <div class="nav-section">
 <div class="nav-label">Support</div>
-<div class="nav-item" onclick="showPage('support')"><i class="fas fa-headset"></i>Help &amp; Support <span id="ticketBadge" class="badge badge-red" style="margin-left:auto;font-size:10px;display:none">0</span></div>
-<div class="nav-item" onclick="showPage('notifications')"><i class="fas fa-bell"></i>Notifications</div>
-<div class="nav-item" onclick="showPage('profile')"><i class="fas fa-user-shield"></i>My Profile</div>
+<div class="nav-item" onclick="showPage('support')"><i class="fas fa-headset"></i><span class="nav-item-text">Help &amp; Support</span><span id="ticketBadge" class="badge badge-red" style="margin-left:auto;font-size:10px;display:none">0</span></div>
+<div class="nav-item" onclick="showPage('notifications')"><i class="fas fa-bell"></i><span class="nav-item-text">Notifications</span></div>
+<div class="nav-item" onclick="showPage('legal')"><i class="fas fa-file-alt"></i><span class="nav-item-text">Legal Pages</span></div>
+<div class="nav-item" onclick="showPage('profile')"><i class="fas fa-user-shield"></i><span class="nav-item-text">My Profile</span></div>
 </div>
 <div class="nav-section">
 <div class="nav-label">Support</div>
-<div class="nav-item" onclick="showPage('tickets')"><i class="fas fa-ticket-alt"></i>Tickets</div>
+<div class="nav-item" onclick="showPage('tickets')"><i class="fas fa-ticket-alt"></i><span class="nav-item-text">Tickets</span></div>
 </div>
 <div class="nav-section" style="position:absolute;bottom:0;left:0;right:0;border-top:1px solid #2d3748">
-<div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i>Logout</div>
+<div class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span class="nav-item-text">Logout</span></div>
 </div>
 </div>
-<div class="main">
+<div class="main" id="mainContent">
 <div class="topbar">
+<div class="topbar-left">
+<button class="topbar-hamburger" onclick="toggleSidebar()" title="Toggle sidebar"><i class="fas fa-bars"></i></button>
 <div class="topbar-title" id="pageTitle">Dashboard</div>
+</div>
 <div class="topbar-user"><span id="adminName" style="font-size:14px;color:#718096"></span><div class="topbar-avatar" id="adminAvatar">A</div></div>
 </div>
 <div class="content">
@@ -415,7 +453,7 @@ tr:hover td{background:#f7fafc}
 <div id="notifUserSelected" style="margin-top:6px;display:none;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px;padding:8px 12px;font-size:13px;color:#22543d"></div>
 </div>
 </div>
-<div class="form-group"><label class="form-label">Deep Link (optional)</label><select id="notifDeepLink" class="form-select"><option value="">None</option><option value="/home">Home</option><option value="/feed">Feed</option><option value="/culinary">Culinary Blueprint</option><option value="/profile">Profile</option><option value="/wellness-programs">Wellness Programs</option><option value="/quick-adds">Quick Add</option></select></div>
+<div class="form-group"><label class="form-label">Deep Link (optional)</label><select id="notifDeepLink" class="form-select"><option value="">None</option><option value="/home">Home</option><option value="/feed">Feed</option><option value="/menu">Culinary Blueprint</option><option value="/profile">Profile</option><option value="/wellness-programs">Wellness Programs</option><option value="/quick-adds">Quick Add</option></select></div>
 <div id="notifPreview" style="background:#f7fafc;border-radius:12px;padding:16px;margin:16px 0;display:none">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:24px;height:24px;border-radius:6px;background:#26B50F;display:flex;align-items:center;justify-content:center"><i class="fas fa-bell" style="color:white;font-size:10px"></i></div><strong style="font-size:12px">BO Wellness</strong><span style="font-size:11px;color:#a0aec0;margin-left:auto">now</span></div>
 <div style="font-size:13px;font-weight:600" id="previewTitle"></div>
@@ -461,6 +499,74 @@ tr:hover td{background:#f7fafc}
 <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()"><i class="fas fa-plus"></i> Add Admin</button>
 </div>
 <div class="card"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead><tbody id="teamBody"></tbody></table></div>
+</div>
+</div>
+<!-- LEGAL PAGES -->
+<div class="page" id="page-legal">
+<!-- Header Banner -->
+<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px">
+<div style="flex-shrink:0;width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#f0fff4,#dcfce7);border:1px solid #bbf7d0;display:flex;align-items:center;justify-content:center">
+<i class="fas fa-file-contract" style="font-size:20px;color:var(--bo-green)"></i>
+</div>
+<div style="flex:1">
+<h2 style="font-size:17px;font-weight:700;margin-bottom:3px">Legal Pages</h2>
+<p style="font-size:13px;color:#718096;margin:0">Manage your Terms of Use, Privacy Policy, and About Us pages. Write in Markdown — updates publish instantly to the app.</p>
+</div>
+<span id="legalSaveStatus" style="display:none;align-items:center;gap:6px;font-size:13px;color:var(--bo-green);font-weight:600;background:#f0fff4;padding:8px 14px;border-radius:8px;border:1px solid #bbf7d0;white-space:nowrap">
+<i class="fas fa-check-circle"></i> Saved
+</span>
+</div>
+<!-- Tab Bar -->
+<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:6px;margin-bottom:20px;display:flex;gap:4px">
+<button id="legalTab-Terms" class="legal-tab-btn active" onclick="showLegalTab('terms')"><i class="fas fa-file-alt"></i><span>Terms of Use</span></button>
+<button id="legalTab-Privacy" class="legal-tab-btn" onclick="showLegalTab('privacy')"><i class="fas fa-shield-alt"></i><span>Privacy Policy</span></button>
+<button id="legalTab-About" class="legal-tab-btn" onclick="showLegalTab('about')"><i class="fas fa-info-circle"></i><span>About Us</span></button>
+</div>
+<!-- Editor Panels -->
+<div id="legalPanel-terms">
+<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
+<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div>
+<h3 style="font-size:15px;font-weight:700;margin-bottom:2px">Terms of Use</h3>
+<p style="font-size:12px;color:#a0aec0;margin:0"><span id="legalLastUpdated-terms"></span></p>
+</div>
+<button class="btn btn-primary btn-sm" onclick="saveLegalPage('terms')"><i class="fas fa-save"></i> Save Changes</button>
+</div>
+<div style="font-size:11px;color:#a0aec0;padding:8px 16px;background:#fafafa;border-bottom:1px solid #f0f0f0">
+<i class="fas fa-lightbulb" style="color:#f6ad55"></i>&nbsp; Markdown tips: <code style="background:#f0f0f0;padding:1px 4px;border-radius:3px"># Heading 1</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">## Heading 2</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">**bold**</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">- list item</code>
+</div>
+<textarea id="legalEditor-terms"></textarea>
+</div>
+</div>
+<div id="legalPanel-privacy" style="display:none">
+<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
+<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div>
+<h3 style="font-size:15px;font-weight:700;margin-bottom:2px">Privacy Policy</h3>
+<p style="font-size:12px;color:#a0aec0;margin:0"><span id="legalLastUpdated-privacy"></span></p>
+</div>
+<button class="btn btn-primary btn-sm" onclick="saveLegalPage('privacy')"><i class="fas fa-save"></i> Save Changes</button>
+</div>
+<div style="font-size:11px;color:#a0aec0;padding:8px 16px;background:#fafafa;border-bottom:1px solid #f0f0f0">
+<i class="fas fa-lightbulb" style="color:#f6ad55"></i>&nbsp; Markdown tips: <code style="background:#f0f0f0;padding:1px 4px;border-radius:3px"># Heading 1</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">## Heading 2</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">**bold**</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">- list item</code>
+</div>
+<textarea id="legalEditor-privacy"></textarea>
+</div>
+</div>
+<div id="legalPanel-about" style="display:none">
+<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
+<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div>
+<h3 style="font-size:15px;font-weight:700;margin-bottom:2px">About Us</h3>
+<p style="font-size:12px;color:#a0aec0;margin:0"><span id="legalLastUpdated-about"></span></p>
+</div>
+<button class="btn btn-primary btn-sm" onclick="saveLegalPage('about')"><i class="fas fa-save"></i> Save Changes</button>
+</div>
+<div style="font-size:11px;color:#a0aec0;padding:8px 16px;background:#fafafa;border-bottom:1px solid #f0f0f0">
+<i class="fas fa-lightbulb" style="color:#f6ad55"></i>&nbsp; Markdown tips: <code style="background:#f0f0f0;padding:1px 4px;border-radius:3px"># Heading 1</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">## Heading 2</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">**bold**</code> &nbsp;<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px">- list item</code>
+</div>
+<textarea id="legalEditor-about"></textarea>
+</div>
 </div>
 </div>
 </div></div></div>
@@ -682,11 +788,24 @@ async function verify2FA(){
 
 function logout(){adminToken='';document.getElementById('dashboardPage').style.display='none';document.getElementById('loginPage').style.display='block';document.getElementById('loginStep1').style.display='block';document.getElementById('loginStep2').style.display='none'}
 
+function toggleSidebar(){
+  const sidebar=document.getElementById('sidebar');
+  const main=document.getElementById('mainContent');
+  sidebar.classList.toggle('collapsed');
+  main.classList.toggle('collapsed');
+  localStorage.setItem('sidebarCollapsed',sidebar.classList.contains('collapsed')?'1':'0');
+}
+
+if(localStorage.getItem('sidebarCollapsed')==='1'){
+  const s=document.getElementById('sidebar'),m=document.getElementById('mainContent');
+  if(s)s.classList.add('collapsed');if(m)m.classList.add('collapsed');
+}
+
 function showPage(p){document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');
-const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',videos:'Program Videos',programs:'Wellness Programs',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
+const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',videos:'Program Videos',programs:'Wellness Programs',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',legal:'Legal Pages',profile:'My Profile'};
 document.getElementById('pageTitle').textContent=titles[p]||p;
-if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='videos')loadVideos();if(p==='programs')loadWellnessPrograms();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
+if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='videos')loadVideos();if(p==='programs')loadWellnessPrograms();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='legal')initLegalPage();if(p==='profile')loadProfile()}
 
 const hdr=()=>({'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'});
 
@@ -1649,6 +1768,76 @@ async function createAdmin(){
   if(!body.name||!body.email){alert('Name and email required');return}
   try{var r=await fetch(API+'/v1/admin/users/create-admin',{method:'POST',headers:hdr(),body:JSON.stringify(body)});
   var d=await r.json();if(r.ok){closeModal('addAdminModal');loadTeam();alert('Admin created!\\nTemp password: '+d.tempPassword+'\\n\\nPlease share this securely.')}else{showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+}
+
+// ===== LEGAL PAGES =====
+let legalEditors={};
+let legalPageInited=false;
+
+function initLegalPage(){
+  if(!legalPageInited){
+    legalPageInited=true;
+    showLegalTab('terms');
+  }
+}
+
+async function showLegalTab(type){
+  ['terms','privacy','about'].forEach(t=>{
+    const panel=document.getElementById('legalPanel-'+t);
+    const cap=t.charAt(0).toUpperCase()+t.slice(1);
+    const btn=document.getElementById('legalTab-'+cap);
+    if(panel)panel.style.display=t===type?'block':'none';
+    if(btn){btn.className=t===type?'legal-tab-btn active':'legal-tab-btn';}
+  });
+  if(!legalEditors[type])await loadLegalContent(type);
+}
+
+function fmtDate(d){if(!d)return'';try{return'Last updated: '+new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}catch(e){return''}}
+
+async function loadLegalContent(type){
+  try{
+    const r=await fetch(API+'/v1/admin/legal/'+type,{headers:hdr()});
+    const d=await r.json();
+    const ta=document.getElementById('legalEditor-'+type);
+    if(!ta)return;
+    const luEl=document.getElementById('legalLastUpdated-'+type);
+    if(luEl)luEl.textContent=fmtDate(d.lastUpdated);
+    if(!legalEditors[type]){
+      legalEditors[type]=new EasyMDE({
+        element:ta,
+        initialValue:d.content||'',
+        spellChecker:false,
+        autosave:{enabled:false},
+        toolbar:['bold','italic','heading-2','heading-3','|','quote','unordered-list','ordered-list','|','link','|','preview','side-by-side','fullscreen','|','guide'],
+        minHeight:'520px',
+        placeholder:'Write content in Markdown...',
+        status:['lines','words','cursor'],
+        renderingConfig:{singleLineBreaks:false},
+      });
+    }else{
+      legalEditors[type].value(d.content||'');
+    }
+  }catch(e){console.error('Failed to load legal content:',e)}
+}
+
+async function saveLegalPage(type){
+  const editor=legalEditors[type];
+  if(!editor){showToast('Editor not ready','error');return}
+  const content=editor.value().trim();
+  if(!content){showToast('Content cannot be empty','error');return}
+  try{
+    const r=await fetch(API+'/v1/admin/legal/'+type,{method:'PUT',headers:hdr(),body:JSON.stringify({content})});
+    if(r.ok){
+      const luEl=document.getElementById('legalLastUpdated-'+type);
+      if(luEl)luEl.textContent=fmtDate(new Date().toISOString());
+      const status=document.getElementById('legalSaveStatus');
+      status.style.display='inline-flex';
+      setTimeout(()=>{status.style.display='none'},3500);
+      showToast('Legal page saved successfully','success');
+    }else{
+      const d=await r.json();showToast(d.detail||'Save failed','error');
+    }
+  }catch(e){showToast('Error saving page','error')}
 }
 </script>
 </body></html>"""
