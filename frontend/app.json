@@ -86,12 +86,6 @@
           "defaultChannel": "default"
         }
       ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "AIzaSyChqTKec2Q-rntZj9u3TX_6UMEZDYZL7ok"
-        }
-      ],
       "expo-web-browser"
     ],
     "experiments": {
