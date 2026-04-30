@@ -10,6 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
+import EmptyState from '@/src/components/EmptyState';
 
 type Faq = { id: string; question: string; answer: string; display_order: number };
 type Category = { name: string; faqs: Faq[]; count: number };
@@ -124,10 +125,13 @@ export default function HelpScreen() {
           {faqLoading ? <ActivityIndicator size="large" color={Colors.green} style={{ marginTop: 40 }} /> : (
             <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg }}>
               {filteredCats.length === 0 ? (
-                <View style={s.emptyWrap}>
-                  <Ionicons name="search" size={40} color="#D1D5DB" />
-                  <Text style={s.emptyText}>No FAQs match your search. Try different keywords or contact support.</Text>
-                </View>
+                <EmptyState
+                  icon="search-outline"
+                  title="No results found"
+                  subtitle="No FAQs match your search. Try different keywords or contact support."
+                  variant="gray"
+                  compact
+                />
               ) : filteredCats.map((cat, ci) => (
                 <Animated.View key={ci} entering={FadeInDown.delay(ci * 60).duration(350)} style={{ marginBottom: Spacing.sm }}>
                   <TouchableOpacity style={s.catRow} onPress={() => setExpandedCat(expandedCat === cat.name ? null : cat.name)} activeOpacity={0.7}>
@@ -172,15 +176,13 @@ export default function HelpScreen() {
           </ScrollView>
 
           {ticketLoading ? <ActivityIndicator size="large" color={Colors.green} style={{ marginTop: 40 }} /> : tickets.length === 0 ? (
-            <View style={s.emptyWrap}>
-              <Ionicons name="ticket-outline" size={40} color="#D1D5DB" />
-              <Text style={s.emptyText}>No support tickets. Create one if you need help!</Text>
-              <TouchableOpacity onPress={() => setShowCreate(true)}>
-                <LinearGradient colors={[Colors.green, Colors.greenDark]} style={[s.ctaBtn, { marginTop: Spacing.md }]}>
-                  <Text style={s.ctaBtnText}>Create Ticket</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              icon="headset-outline"
+              title="No support tickets"
+              subtitle="Have an issue? Create a ticket and our team will get back to you."
+              action={{ label: 'Create Ticket', onPress: () => setShowCreate(true) }}
+              variant="green"
+            />
           ) : (
             <FlatList
               data={tickets}

@@ -9,6 +9,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import EmptyState from '@/src/components/EmptyState';
 import { boLogoColor } from '@/src/assets';
 import api from '@/src/api';
 
@@ -151,11 +152,12 @@ export default function NotificationsScreen() {
           onEndReached={() => hasMore && loadNotifs(page + 1)}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <Animated.View entering={FadeIn.duration(400)} style={ns.emptyWrap}>
-              <Ionicons name="notifications-off-outline" size={56} color={Colors.textTertiary} />
-              <Text style={ns.emptyTitle}>All caught up!</Text>
-              <Text style={ns.emptySub}>You'll see reminders and updates here</Text>
-            </Animated.View>
+            <EmptyState
+              icon="notifications-outline"
+              title="All caught up!"
+              subtitle="You'll see reminders, badges, and updates here as they arrive."
+              variant="green"
+            />
           }
         />
       )}
@@ -181,7 +183,4 @@ const ns = StyleSheet.create({
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.green },
   notifBody: { fontSize: FontSize.small, color: Colors.textSecondary, marginTop: 2, lineHeight: 20 },
   notifTime: { fontSize: FontSize.caption, color: Colors.textTertiary, marginTop: 4 },
-  emptyWrap: { alignItems: 'center', paddingTop: 120, gap: Spacing.sm },
-  emptyTitle: { fontSize: FontSize.h3, fontWeight: '700', color: Colors.textPrimary },
-  emptySub: { fontSize: FontSize.body, color: Colors.textTertiary },
 });

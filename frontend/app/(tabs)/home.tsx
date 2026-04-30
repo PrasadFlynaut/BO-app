@@ -21,6 +21,7 @@ import SidebarPanel from '@/src/components/SidebarPanel';
 import ProgramModal from '@/src/components/ProgramModal';
 import FallbackImage from '@/src/components/FallbackImage';
 import SearchBar from '@/src/components/SearchBar';
+import EmptyState from '@/src/components/EmptyState';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -341,11 +342,13 @@ export default function HomeScreen() {
 
           {/* Location status + search */}
           {locationDenied ? (
-            <View style={[s.locationFallbackCard, Shadow.sm]}>
-              <Ionicons name="location-outline" size={32} color={Colors.textTertiary} />
-              <Text style={s.locationFallbackTitle}>Your location is unavailable</Text>
-              <Text style={s.locationFallbackText}>Update your settings to enable the map.</Text>
-            </View>
+            <EmptyState
+              icon="location-outline"
+              title="Location unavailable"
+              subtitle="Enable location access in your device settings to see nearby restaurants on the map."
+              variant="gray"
+              compact
+            />
           ) : mapLoading ? (
             <View style={s.skeletonCard}>
               <View style={s.skeletonBar} />
@@ -388,11 +391,13 @@ export default function HomeScreen() {
           {loading ? (
             <View style={s.loadingWrap}><ActivityIndicator size="large" color={Colors.green} /></View>
           ) : restaurants.length === 0 ? (
-            <View style={s.emptyWrap}>
-              <Ionicons name="restaurant-outline" size={48} color={Colors.textTertiary} />
-              <Text style={s.emptyText}>No nearby spots found for your Culinary Blueprint</Text>
-              <Text style={s.emptySubtext}>Try expanding your preferences in settings.</Text>
-            </View>
+            <EmptyState
+              icon="restaurant-outline"
+              title="No restaurants found"
+              subtitle={activeFilter === 'Nearby' ? 'No spots near your location. Try a different filter.' : search.trim() ? `No results for "${search}". Try a different keyword.` : 'No restaurants match your current filter.'}
+              action={{ label: 'Clear Filter', onPress: () => handleFilter('All') }}
+              variant="green"
+            />
           ) : (
             <>
               {restaurants.map((r, i) => (
@@ -694,9 +699,6 @@ const s = StyleSheet.create({
   filterTextActive: { color: Colors.green, fontWeight: '700' },
 
   loadingWrap: { paddingVertical: 60, alignItems: 'center' },
-  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
-  emptyText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textSecondary },
-  emptySubtext: { fontSize: FontSize.small, color: Colors.textTertiary },
   seeAllRestaurants: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginHorizontal: Spacing.lg, marginTop: Spacing.sm, paddingVertical: 14, borderRadius: Radius.lg, backgroundColor: Colors.greenLight },
   seeAllRestaurantsText: { fontSize: FontSize.body, fontWeight: '600', color: Colors.green },
 
@@ -715,15 +717,6 @@ const s = StyleSheet.create({
   distText: { fontSize: FontSize.small, color: Colors.textSecondary },
   headerQuote: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
   headerQuoteAuthor: { fontSize: FontSize.caption, color: Colors.textTertiary },
-
-  // Geolocation fallback card
-  locationFallbackCard: {
-    marginHorizontal: Spacing.lg, marginBottom: Spacing.md, padding: 24,
-    borderRadius: Radius.lg, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: Colors.borderLight,
-    alignItems: 'center', gap: 8,
-  },
-  locationFallbackTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
-  locationFallbackText: { fontSize: FontSize.small, color: Colors.textSecondary, textAlign: 'center' },
 
   // Skeleton loader
   skeletonCard: {
