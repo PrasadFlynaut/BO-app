@@ -123,11 +123,15 @@ async def admin_list_meals(
     sort: str = "-created_at"
 ):
     await require_admin(request)
+    page = max(1, page)
+    limit = min(max(1, limit), 100)
+    skip = (page - 1) * limit
+
     query = {"deleted": {"$ne": True}}
     if category:
-        query["category"] = category
+        query["category"] = {"$regex": category, "$options": "i"}
     if menuType:
-        query["menuType"] = menuType
+        query["menuType"] = {"$regex": menuType, "$options": "i"}
     if source == "admin":
         query["user_generated"] = False
     elif source == "user":
@@ -135,12 +139,18 @@ async def admin_list_meals(
     if status:
         query["status"] = status
     if search:
-        query["title"] = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"about": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"category": {"$regex": search, "$options": "i"}},
+        ]
 
     sort_field = sort.lstrip("-")
     sort_dir = -1 if sort.startswith("-") else 1
     total = await db.admin_meals.count_documents(query)
-    meals = await db.admin_meals.find(query).sort(sort_field, sort_dir).skip((page - 1) * limit).limit(limit).to_list(limit)
+    total_pages = max(1, (total + limit - 1) // limit)
+    meals = await db.admin_meals.find(query).sort(sort_field, sort_dir).skip(skip).limit(limit).to_list(limit)
 
     return {
         "data": [{
@@ -165,7 +175,10 @@ async def admin_list_meals(
             "createdAt": m.get("created_at", ""),
             "createdBy": m.get("created_by", ""),
         } for m in meals],
-        "pagination": {"page": page, "limit": limit, "total": total, "pages": max(1, (total + limit - 1) // limit)},
+        "pagination": {
+            "page": page, "limit": limit, "total": total,
+            "pages": total_pages, "hasNext": page < total_pages, "hasPrev": page > 1,
+        },
         "categories": MEAL_CATEGORIES,
         "menuTypes": MENU_TYPES,
     }

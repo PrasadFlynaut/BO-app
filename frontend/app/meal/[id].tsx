@@ -126,11 +126,13 @@ export default function MealDetailScreen() {
           {/* Title & Category */}
           <Animated.View entering={FadeInDown.duration(350)}>
             <View style={ms.tagRow}>
-              <View style={ms.tag}><Text style={ms.tagText}>{meal.category}</Text></View>
-              <View style={[ms.tag, { backgroundColor: Colors.waterSurface }]}><Text style={[ms.tagText, { color: Colors.waterBlue }]}>{meal.meal_type}</Text></View>
+              {!!meal.category && <View style={ms.tag}><Text style={ms.tagText}>{meal.category}</Text></View>}
+              {!!meal.meal_type && <View style={[ms.tag, { backgroundColor: Colors.waterSurface }]}><Text style={[ms.tagText, { color: Colors.waterBlue }]}>{meal.meal_type}</Text></View>}
             </View>
             <Text style={ms.mealTitle}>{meal.title}</Text>
-            {meal.about && <Text style={ms.mealAbout}>{meal.about}</Text>}
+            {!!(meal.description || meal.about) && (
+              <Text style={ms.mealAbout}>{meal.description || meal.about}</Text>
+            )}
           </Animated.View>
 
           {/* Macros Grid */}
@@ -144,35 +146,34 @@ export default function MealDetailScreen() {
             ))}
           </Animated.View>
 
-          {/* Description */}
-          {meal.description && (
-            <Animated.View entering={FadeInDown.delay(150).duration(350)} style={ms.section}>
-              <Text style={ms.sectionTitle}>About</Text>
-              <Text style={ms.descText}>{meal.description}</Text>
-            </Animated.View>
-          )}
-
           {/* Ingredients */}
           {meal.ingredients && meal.ingredients.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(200).duration(350)} style={ms.section}>
+            <Animated.View entering={FadeInDown.delay(150).duration(350)} style={ms.section}>
               <Text style={ms.sectionTitle}>Ingredients</Text>
               <View style={ms.ingredientList}>
-                {meal.ingredients.map((ing: any, i: number) => (
-                  <View key={i} style={ms.ingredientRow}>
-                    <View style={ms.ingredientDot} />
-                    <Text style={ms.ingredientName}>{ing.name}</Text>
-                    <Text style={ms.ingredientQty}>{ing.quantity}</Text>
-                  </View>
-                ))}
+                {meal.ingredients.map((ing: any, i: number) => {
+                  const qty = typeof ing === 'string' ? ing : [ing.quantity, ing.unit].filter(Boolean).join(' ');
+                  const name = typeof ing === 'string' ? ing : ing.name;
+                  return (
+                    <View key={i} style={ms.ingredientRow}>
+                      <View style={ms.ingredientDot} />
+                      <Text style={ms.ingredientName}>{name}</Text>
+                      {!!qty && <Text style={ms.ingredientQty}>{qty}</Text>}
+                    </View>
+                  );
+                })}
               </View>
             </Animated.View>
           )}
 
           {/* Directions */}
-          {meal.directions && (
-            <Animated.View entering={FadeInDown.delay(250).duration(350)} style={ms.section}>
+          {meal.directions && meal.directions.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(200).duration(350)} style={ms.section}>
               <Text style={ms.sectionTitle}>Directions</Text>
-              {meal.directions.split('\n').filter((s: string) => s.trim()).map((step: string, i: number) => (
+              {(Array.isArray(meal.directions)
+                ? meal.directions
+                : meal.directions.split('\n').filter((s: string) => s.trim())
+              ).map((step: string, i: number) => (
                 <View key={i} style={ms.stepRow}>
                   <View style={ms.stepNum}><Text style={ms.stepNumText}>{i + 1}</Text></View>
                   <Text style={ms.stepText}>{step.replace(/^\d+\.\s*/, '')}</Text>

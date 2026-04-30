@@ -223,7 +223,15 @@ tr:hover td{background:#f7fafc}
 </div>
 <button class="btn btn-primary" onclick="openMealModal()"><i class="fas fa-plus"></i> Add New Meal</button>
 </div>
-<div class="card"><table><thead><tr><th>Meal</th><th>Category</th><th>Type</th><th>Calories</th><th>Source</th><th>Status</th><th style="width:150px">Actions</th></tr></thead><tbody id="mealsBody"></tbody></table></div></div>
+<div class="card"><table><thead><tr><th>Meal</th><th>Category</th><th>Type</th><th>Calories</th><th>Source</th><th>Status</th><th style="width:150px">Actions</th></tr></thead><tbody id="mealsBody"></tbody></table></div>
+<div id="mealsPagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-top:4px">
+<span id="mealsPageInfo" style="font-size:13px;color:#718096"></span>
+<div style="display:flex;gap:8px">
+<button id="mealsPrevBtn" class="btn btn-outline btn-sm" onclick="loadMeals(undefined,currentMealPage-1)" disabled><i class="fas fa-chevron-left"></i> Prev</button>
+<button id="mealsNextBtn" class="btn btn-outline btn-sm" onclick="loadMeals(undefined,currentMealPage+1)" disabled>Next <i class="fas fa-chevron-right"></i></button>
+</div>
+</div>
+</div>
 <!-- QUOTES PAGE -->
 <div class="page" id="page-quotes">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -614,7 +622,7 @@ tr:hover td{background:#f7fafc}
 <script>
 const API=window.location.origin+'/api';
 let adminToken='',preToken='',editingRestId=null,editingDistId=null,deleteType='',deleteId='';
-let editingMealId=null,editingQuoteId=null,editingPostId=null,editingPlanId=null,mealCategories=[];
+let editingMealId=null,editingQuoteId=null,editingPostId=null,editingPlanId=null,mealCategories=[],currentMealPage=1,mealsCache={};
 let currentTicketId=null,editingFaqId=null,viewingUserId=null;
 
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.className='toast toast-'+type+' show';document.getElementById('toastMsg').textContent=msg;setTimeout(()=>t.classList.remove('show'),3000)}
@@ -823,7 +831,7 @@ async function confirmDelete(){
   if(r.ok){closeModal('deleteModal');
   if(deleteType==='restaurant')loadRestaurants();
   else if(deleteType==='distributor')loadDistributors();
-  else if(deleteType==='meal')loadMeals();
+  else if(deleteType==='meal')loadMeals(undefined,currentMealPage);
   else if(deleteType==='quote')loadQuotes();
   else if(deleteType==='post')loadPosts();
   else if(deleteType==='plan')loadPlans();
@@ -834,12 +842,25 @@ async function confirmDelete(){
 }
 
 // ======== MEALS ========
-async function loadMeals(search=''){
-  try{var cat=document.getElementById('mealCatFilter').value;var mt=document.getElementById('mealTypeFilter').value;var src=document.getElementById('mealSourceFilter').value;
-  var url=API+'/v1/admin/meal?limit=50&search='+encodeURIComponent(search);
-  if(cat)url+='&category='+encodeURIComponent(cat);if(mt)url+='&menuType='+encodeURIComponent(mt);if(src)url+='&source='+src;
+async function loadMeals(search,page){
+  try{
+  if(search===undefined)search=document.querySelector('#page-meals .search-box input').value||'';
+  if(page===undefined)page=1;
+  currentMealPage=page;
+  var cat=document.getElementById('mealCatFilter').value;
+  var mt=document.getElementById('mealTypeFilter').value;
+  var src=document.getElementById('mealSourceFilter').value;
+  var url=API+'/v1/admin/meal?limit=25&page='+page+'&search='+encodeURIComponent(search);
+  if(cat)url+='&category='+encodeURIComponent(cat);
+  if(mt)url+='&menuType='+encodeURIComponent(mt);
+  if(src)url+='&source='+src;
   var r=await fetch(url,{headers:hdr()});var d=await r.json();
   if(d.categories&&mealCategories.length===0){mealCategories=d.categories;var sel=document.getElementById('mealCatFilter');d.categories.forEach(function(c){var o=document.createElement('option');o.textContent=c;o.value=c;sel.appendChild(o)})}
+  mealsCache={};(d.data||[]).forEach(function(m){mealsCache[m.id]=m});
+  var pg=d.pagination||{};
+  document.getElementById('mealsPageInfo').textContent='Showing '+(d.data||[]).length+' of '+(pg.total||0)+' meals (page '+pg.page+' of '+pg.pages+')';
+  document.getElementById('mealsPrevBtn').disabled=!pg.hasPrev;
+  document.getElementById('mealsNextBtn').disabled=!pg.hasNext;
   document.getElementById('mealsBody').innerHTML=(d.data||[]).map(function(m){var sn=m.title.replace(/'/g,'&#39;');
   var statusBadge=m.status==='active'?'badge-green':m.status==='pending_review'?'badge-yellow':'badge-red';
   var sourceBadge=m.source==='Admin'?'badge-green':'badge-blue';
@@ -848,8 +869,8 @@ async function loadMeals(search=''){
   return '<tr><td><div style="display:flex;align-items:center;gap:10px">'+(m.imageUrl?'<img src="'+m.imageUrl+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover">':'<div style="width:48px;height:48px;border-radius:8px;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><i class="fas fa-image" style="color:#ccc"></i></div>')+'<strong>'+m.title+'</strong></div></td><td><span class="badge badge-gray">'+m.category+'</span></td><td>'+m.menuType+'</td><td>'+m.calories+' kcal</td><td><span class="badge '+sourceBadge+'">'+m.source+'</span></td><td><span class="badge '+statusBadge+'">'+m.status+'</span></td><td>'+actions+'</td></tr>'}).join('')||'<tr><td colspan="7" style="text-align:center;color:#a0aec0;padding:40px"><i class="fas fa-hamburger" style="font-size:30px;margin-bottom:8px;display:block"></i>No meals found. Add your first meal!</td></tr>';
   }catch(e){console.error(e)}
 }
-function searchMeals(v){loadMeals(v)}
-function filterMeals(){loadMeals(document.querySelector('#page-meals .search-box input').value||'')}
+function searchMeals(v){loadMeals(v,1)}
+function filterMeals(){loadMeals(undefined,1)}
 
 function openMealModal(id){editingMealId=id||null;document.getElementById('mealModalTitle').textContent=id?'Edit Meal':'Add New Meal';
 ['mealTitle','mealAbout','mealCalories','mealProteins','mealFat','mealCarbs','mealImage','mealVideo','mealNotes'].forEach(function(f){document.getElementById(f).value=''});
@@ -861,8 +882,9 @@ document.getElementById('directionsList').innerHTML='';addDirectionRow();
 document.getElementById('mealModal').classList.add('show')}
 
 async function editMeal(id){
-  var r=await fetch(API+'/v1/admin/meal?limit=100',{headers:hdr()});var d=await r.json();
-  var meal=(d.data||[]).find(function(x){return x.id===id});if(!meal)return;
+  var meal=mealsCache[id];
+  if(!meal){var r=await fetch(API+'/v1/admin/meal?limit=25&search=',{headers:hdr()});var d=await r.json();meal=(d.data||[]).find(function(x){return x.id===id})}
+  if(!meal)return;
   openMealModal(id);editingMealId=id;
   document.getElementById('mealTitle').value=meal.title;document.getElementById('mealAbout').value=meal.about||'';
   document.getElementById('mealCalories').value=meal.calories||'';document.getElementById('mealProteins').value=meal.proteins||'';
@@ -902,17 +924,17 @@ async function saveMeal(){
   var url=editingMealId?API+'/v1/admin/meal/'+editingMealId:API+'/v1/admin/meal';
   var method=editingMealId?'PUT':'POST';
   var r=await fetch(url,{method:method,headers:hdr(),body:JSON.stringify(body)});
-  if(r.ok){closeModal('mealModal');loadMeals();showToast(editingMealId?'Meal updated successfully.':'Meal added successfully.')}else{var d=await r.json();alert(d.detail||'Error')}
+  if(r.ok){closeModal('mealModal');loadMeals(undefined,editingMealId?currentMealPage:1);showToast(editingMealId?'Meal updated successfully.':'Meal added successfully.')}else{var d=await r.json();alert(d.detail||'Error')}
 }
 
 async function approveMeal(id){
   var r=await fetch(API+'/v1/admin/meal/'+id+'/approve',{method:'PUT',headers:hdr()});
-  if(r.ok){loadMeals();showToast('Meal approved successfully.')}else{var d=await r.json();showToast(d.detail||'Approve failed','error')}
+  if(r.ok){loadMeals(undefined,currentMealPage);showToast('Meal approved successfully.')}else{var d=await r.json();showToast(d.detail||'Approve failed','error')}
 }
 async function rejectMeal(id){
   var reason=prompt('Reason for rejection (optional):');
   var r=await fetch(API+'/v1/admin/meal/'+id+'/reject',{method:'PUT',headers:hdr(),body:JSON.stringify({reason:reason||''})});
-  if(r.ok){loadMeals();showToast('Meal rejected.')}else{var d=await r.json();showToast(d.detail||'Reject failed','error')}
+  if(r.ok){loadMeals(undefined,currentMealPage);showToast('Meal rejected.')}else{var d=await r.json();showToast(d.detail||'Reject failed','error')}
 }
 
 // ======== AI RECIPE INFO ========
