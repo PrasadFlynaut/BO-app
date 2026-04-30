@@ -6,7 +6,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeInDown, FadeIn, FadeInUp, FadeOut, SlideInDown, SlideOutDown,
@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
+import EmptyState from '@/src/components/EmptyState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -241,10 +242,15 @@ const ms = StyleSheet.create({
 // ============ MAIN SCREEN ============
 export default function QuickAddsScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const params = useLocalSearchParams<{ zone?: string; slot?: string }>();
   const [activeZone, setActiveZone] = useState(params.zone || 'meals');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Goals from backend
+  const [calorieGoal, setCalorieGoal] = useState(2000);
+  const [waterGoal, setWaterGoal] = useState(8);
 
   // Meal
   const [mealLogs, setMealLogs] = useState<any[]>([]);
@@ -255,7 +261,6 @@ export default function QuickAddsScreen() {
 
   // Water
   const [waterTotal, setWaterTotal] = useState(0);
-  const [waterGoal] = useState(8);
 
   // Sleep
   const [sleepLogs, setSleepLogs] = useState<any[]>([]);
@@ -333,7 +338,7 @@ export default function QuickAddsScreen() {
     setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes, summaryRes] = await Promise.all([
+      const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes, dashRes] = await Promise.all([
         api.get(`/v1/meals/log?date=${today}`).catch(() => ({ data: { logs: [] } })),
         api.get(`/v1/trackers/water?date=${today}`).catch(() => ({ data: { logs: [] } })),
         api.get('/v1/trackers/sleep').catch(() => ({ data: { logs: [] } })),
@@ -341,8 +346,12 @@ export default function QuickAddsScreen() {
         api.get('/v1/trackers/met').catch(() => ({ data: { logs: [] } })),
         api.get('/v1/journal?limit=30').catch(() => ({ data: { data: [] } })),
         api.get(`/v1/trackers/timeline?date=${selectedDate}`).catch(() => ({ data: { events: [] } })),
-        api.get(`/v1/trackers/summary?date=${today}`).catch(() => ({ data: {} })),
+        api.get('/dashboard').catch(() => ({ data: {} })),
       ]);
+      // Apply goals from backend
+      const dash = dashRes.data;
+      if (dash.calorie_goal) setCalorieGoal(dash.calorie_goal);
+      if (dash.water_goal_ml) setWaterGoal(Math.round(dash.water_goal_ml / 250));
       setMealLogs(mealsRes.data.logs || []);
       const wLogs = waterRes.data.logs || [];
       setWaterTotal(wLogs.reduce((s: number, w: any) => s + (w.glasses || 0), 0));
@@ -486,7 +495,6 @@ export default function QuickAddsScreen() {
   const toggleLike = async (id: string) => { try { await api.post('/v1/journal/like', { journal_id: id }); loadAllData(); } catch (e) { console.error(e); } };
 
   const totalCalories = mealLogs.reduce((s, m) => s + (m.calories || 0), 0);
-  const calorieGoal = 2000;
   const totalStepsWeek = walkLogs.reduce((t: number, w: any) => t + (w.steps || 0), 0);
   const totalMetWeek = metLogs.reduce((t: number, m: any) => t + (m.met_minutes || 0), 0);
 
@@ -638,10 +646,13 @@ export default function QuickAddsScreen() {
       {/* Recent workouts */}
       <Text style={[s.sectionTitle, { marginTop: Spacing.lg }]}>Recent Workouts</Text>
       {workoutList.length === 0 ? (
-        <View style={s.emptyBox}>
-          <Ionicons name="barbell-outline" size={36} color={Colors.textTertiary} />
-          <Text style={s.emptyText}>No workouts logged yet</Text>
-        </View>
+        <EmptyState
+          icon="barbell-outline"
+          title="No workouts yet"
+          subtitle="Log your first workout above or sync from your smartwatch."
+          variant="purple"
+          compact
+        />
       ) : (
         workoutList.slice(0, 5).map((w: any, i: number) => {
           const wkCfg = WK_TYPES.find(t => t.key === w.type) || WK_TYPES[7];
@@ -877,11 +888,13 @@ export default function QuickAddsScreen() {
       </Animated.View>
 
       {filteredJournals.length === 0 ? (
-        <Animated.View entering={FadeIn.duration(500)} style={s.emptyState}>
-          <Ionicons name="book-outline" size={48} color={Colors.textTertiary} />
-          <Text style={s.emptyTitle}>{journalSearch ? 'No results' : 'Start your journal'}</Text>
-          <Text style={s.emptySubtext}>{journalSearch ? 'Try different keywords' : 'Tap + to write your first entry.'}</Text>
-        </Animated.View>
+        <EmptyState
+          icon={journalSearch ? 'search-outline' : 'book-outline'}
+          title={journalSearch ? 'No results' : 'Start your journal'}
+          subtitle={journalSearch ? 'Try different keywords.' : 'Write your first entry and track your wellness journey.'}
+          action={journalSearch ? undefined : { label: 'New Entry', onPress: openNewJournal }}
+          variant={journalSearch ? 'gray' : 'green'}
+        />
       ) : (
         filteredJournals.map((j: any, idx: number) => (
           <Animated.View key={j.id} entering={FadeInDown.delay(idx * 60).duration(350)}>
@@ -1038,11 +1051,13 @@ export default function QuickAddsScreen() {
               </Text>
             </View>
             {timelineEvents.length === 0 ? (
-              <View style={s.emptyState}>
-                <Ionicons name="time-outline" size={48} color={Colors.textTertiary} />
-                <Text style={s.emptyTitle}>No activities</Text>
-                <Text style={s.emptySubtext}>No tracker events for this date</Text>
-              </View>
+              <EmptyState
+                icon="time-outline"
+                title="No activities"
+                subtitle="No tracker events logged for this date."
+                variant="gray"
+                compact
+              />
             ) : (
               timelineEvents.map((ev: any, idx: number) => (
                 <Animated.View key={idx} entering={FadeInDown.delay(idx * 60).duration(350)}>
@@ -1463,11 +1478,6 @@ const s = StyleSheet.create({
   timelineCardTitle: { fontSize: FontSize.small, fontWeight: '700', color: Colors.textPrimary },
   timelineCardDesc: { fontSize: FontSize.caption, color: Colors.textSecondary },
 
-  // Empty
-  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 8 },
-  emptyTitle: { fontSize: FontSize.body, fontWeight: '600', color: Colors.textSecondary },
-  emptySubtext: { fontSize: FontSize.small, color: Colors.textTertiary },
-
   // Modal (shared)
   modalTitle: { fontSize: FontSize.h3, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4, marginTop: Spacing.sm },
   inputLabel: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6, marginTop: 10 },
@@ -1537,8 +1547,6 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.md },
   addWorkoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: Spacing.md, backgroundColor: Colors.greenLight, borderRadius: Radius.lg, paddingVertical: 14, marginBottom: Spacing.sm },
   addWorkoutText: { color: Colors.green, fontWeight: '700', fontSize: FontSize.body },
-  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-  emptyText: { fontSize: FontSize.small, color: Colors.textTertiary },
   workoutCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, backgroundColor: '#FFF', borderRadius: Radius.lg, padding: 14 },
   workoutIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   workoutType: { fontSize: FontSize.body, fontWeight: '700', color: Colors.textPrimary },
