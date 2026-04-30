@@ -307,8 +307,8 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.avatar}>
-              {user?.profile_photo_url ? (
-                <Image source={{ uri: user.profile_photo_url }} style={s.avatarImg} contentFit="cover" />
+              {user?.avatar_url || user?.profile_image ? (
+                <Image source={{ uri: user.avatar_url || user.profile_image }} style={s.avatarImg} contentFit="cover" />
               ) : (
                 <Text style={s.avatarInitial}>{(user?.first_name || user?.name || '?')[0].toUpperCase()}</Text>
               )}
