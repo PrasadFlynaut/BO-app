@@ -5,8 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
+import OnboardingProgress from '@/src/components/OnboardingProgress';
 
 const LIFE_GOALS = [
   { id: 'stay_fit', label: 'Stay Fit', icon: 'fitness-outline' as const, color: Colors.green, bg: Colors.greenLight },
@@ -22,7 +24,11 @@ export default function LifeGoalsScreen() {
   const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
 
   const handleContinue = async () => {
-    try { await api.put('/onboarding/life-goals', { life_goals: selected, happiness_level: 5, review_text: '' }); } catch (e) { console.error(e); }
+    // Read review_text saved by happiness.tsx so it isn't lost
+    const reviewText = await AsyncStorage.getItem('ob_review_text') || '';
+    try {
+      await api.put('/onboarding/life-goals', { life_goals: selected, happiness_level: 5, review_text: reviewText });
+    } catch (e) { console.error(e); }
     router.push('/(onboarding)/permissions');
   };
 
@@ -30,9 +36,7 @@ export default function LifeGoalsScreen() {
     <SafeAreaView style={st.safe}>
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)}>
-          <LinearGradient colors={[Colors.socialTeal + '15', 'transparent']} style={st.stepBadge}>
-            <Text style={st.step}>Step 6 of 8</Text>
-          </LinearGradient>
+          <OnboardingProgress step={6} />
           <Text style={st.title}>Life Goals</Text>
           <Text style={st.subtitle}>What drives you every day?</Text>
         </Animated.View>
@@ -68,8 +72,6 @@ export default function LifeGoalsScreen() {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xl },
-  stepBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill, marginBottom: Spacing.md },
-  step: { color: Colors.socialTeal, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.xl, lineHeight: 24 },
   card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.bgBase, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1.5, borderColor: Colors.borderLight },

@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  FadeInDown,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
+import OnboardingProgress from '@/src/components/OnboardingProgress';
 
 const DIETS = [
   { id: 'keto', label: 'Keto', icon: 'flame-outline' as const, color: '#FF6B35', bg: Colors.nutritionSurface },
@@ -36,7 +32,6 @@ export default function DietaryScreen() {
   const [diets, setDiets] = useState<string[]>([]);
   const [allergies, setAllergies] = useState<string[]>([]);
   const router = useRouter();
-  const params = useLocalSearchParams();
   const toggleDiet = (id: string) => setDiets(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
   const toggleAllergy = (a: string) => {
     if (a === 'None') { setAllergies(['None']); return; }
@@ -48,13 +43,13 @@ export default function DietaryScreen() {
   const btnScale = useSharedValue(1);
   const btnAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
 
+  const canContinue = diets.length > 0;
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)}>
-          <LinearGradient colors={[Colors.nutritionOrange + '15', 'transparent']} style={styles.stepBadge}>
-            <Text style={styles.step}>Step 4 of 8</Text>
-          </LinearGradient>
+          <OnboardingProgress step={4} />
           <Text style={styles.title}>Dietary Preferences</Text>
           <Text style={styles.subtitle}>What type of diet interests you?</Text>
         </Animated.View>
@@ -114,6 +109,7 @@ export default function DietaryScreen() {
         <Animated.View entering={FadeInDown.delay(800).duration(500)} style={btnAnimStyle}>
           <TouchableOpacity
             testID="dietary-continue-button"
+            disabled={!canContinue}
             onPress={() => {
               btnScale.value = withSpring(0.95, { stiffness: 400 });
               setTimeout(async () => {
@@ -127,9 +123,9 @@ export default function DietaryScreen() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={[Colors.nutritionOrange, '#E88A10']}
+              colors={canContinue ? [Colors.nutritionOrange, '#E88A10'] : [Colors.textTertiary, Colors.textTertiary]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={[styles.button, Shadow.md]}
+              style={[styles.button, Shadow.md, !canContinue && { opacity: 0.5 }]}
             >
               <Text style={styles.buttonText}>Continue</Text>
               <Ionicons name="arrow-forward" size={20} color="#FFF" />
@@ -144,8 +140,6 @@ export default function DietaryScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xl },
-  stepBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill, marginBottom: Spacing.md },
-  step: { color: Colors.nutritionOrange, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.lg, lineHeight: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },

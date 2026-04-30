@@ -42,11 +42,11 @@ export default function TabLayout() {
         sceneStyle: { backgroundColor: '#FFFFFF' },
       }}
     >
-      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="menu" options={{ title: 'Culinary', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="quick-adds" options={{ title: 'Quick Add', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="goals" options={{ title: 'My Goals', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'trophy' : 'trophy-outline'} size={24} color={color} /></View> }} />
-      <Tabs.Screen name="feed" options={{ title: 'Connect', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : undefined}><Ionicons name={focused ? 'people' : 'people-outline'} size={24} color={color} /></View> }} />
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : styles.inactiveIcon}><Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} /></View> }} />
+      <Tabs.Screen name="menu" options={{ title: 'Culinary', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : styles.inactiveIcon}><Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={22} color={color} /></View> }} />
+      <Tabs.Screen name="quick-adds" options={{ title: 'Quick Add', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : styles.inactiveIcon}><Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={22} color={color} /></View> }} />
+      <Tabs.Screen name="goals" options={{ title: 'My Goals', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : styles.inactiveIcon}><Ionicons name={focused ? 'trophy' : 'trophy-outline'} size={22} color={color} /></View> }} />
+      <Tabs.Screen name="feed" options={{ title: 'Connect', tabBarIcon: ({ color, focused }) => <View style={focused ? styles.activeIcon : styles.inactiveIcon}><Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} /></View> }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="chat" options={{ href: null }} />
     </Tabs>
@@ -69,9 +69,17 @@ const styles = StyleSheet.create({
     ...Shadow.lg,
   },
   activeIcon: {
-    backgroundColor: Colors.greenLight,
+    width: 44,
+    height: 28,
     borderRadius: 14,
-    padding: 6,
-    marginBottom: -4,
+    backgroundColor: Colors.greenLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inactiveIcon: {
+    width: 44,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

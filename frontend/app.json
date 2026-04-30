@@ -11,6 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bowellness.app",
+       "config": {
+        "googleMapsApiKey": "AIzaSyChqTKec2Q-rntZj9u3TX_6UMEZDYZL7ok"
+      },
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos to share in feed posts",
@@ -45,7 +48,12 @@
         "ACTIVITY_RECOGNITION",
         "BODY_SENSORS",
         "POST_NOTIFICATIONS"
-      ]
+      ],
+       "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyChqTKec2Q-rntZj9u3TX_6UMEZDYZL7ok"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -69,7 +77,22 @@
           "resizeMode": "contain",
           "backgroundColor": "#26B50F"
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#26B50F",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "googleMapsApiKey": "AIzaSyChqTKec2Q-rntZj9u3TX_6UMEZDYZL7ok"
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
+import OnboardingProgress from '@/src/components/OnboardingProgress';
 
 const FAST_FOODS = ['Pizza', 'Burgers', 'Tacos', 'Fried Chicken', 'Sushi', 'Salads', 'None'];
 const ACTIVITY_LEVELS = [
@@ -59,9 +60,7 @@ export default function QuestionnaireScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(500)}>
-            <LinearGradient colors={[Colors.waterBlue + '15', 'transparent']} style={st.stepBadge}>
-              <Text style={st.step}>Step 5 of 8</Text>
-            </LinearGradient>
+            <OnboardingProgress step={5} />
             <Text style={st.title}>About You</Text>
             <Text style={st.subtitle}>Help us create your personalized plan</Text>
           </Animated.View>
@@ -159,8 +158,6 @@ export default function QuestionnaireScreen() {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.xxl },
-  stepBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill, marginBottom: Spacing.md },
-  step: { color: Colors.waterBlue, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.lg, lineHeight: 24 },
   label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', marginBottom: Spacing.xs, marginTop: Spacing.lg, textTransform: 'uppercase', letterSpacing: 1 },

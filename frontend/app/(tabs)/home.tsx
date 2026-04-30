@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert,
   Dimensions, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -19,24 +19,12 @@ import { boLogoColor, boLogoWhite } from '@/src/assets';
 import HappinessModal from '@/src/components/HappinessModal';
 import SidebarPanel from '@/src/components/SidebarPanel';
 import ProgramModal from '@/src/components/ProgramModal';
+import FallbackImage from '@/src/components/FallbackImage';
+import SearchBar from '@/src/components/SearchBar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const FILTERS = ['All', 'Nearby', 'Top Rated', 'BO Verified', 'BO Partner'];
-
-// Fallback placeholder for images not available
-const boLogoGrey = require('../../assets/images/bo-logo-color.png');
-const FallbackImage = ({ uri, style }: { uri?: string; style: any }) => {
-  const [failed, setFailed] = React.useState(false);
-  if (!uri || failed) {
-    return (
-      <View style={[style, { backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }]}>
-        <Image source={boLogoGrey} style={{ width: '50%', height: '50%', opacity: 0.18 }} contentFit="contain" />
-      </View>
-    );
-  }
-  return <Image source={{ uri }} style={style} contentFit="cover" transition={200} onError={() => setFailed(true)} />;
-};
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -76,7 +64,8 @@ export default function HomeScreen() {
   const [mapLoading, setMapLoading] = useState(true);
   const [locationName, setLocationName] = useState('');
 
-  // ... existing code below
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const firstName = user?.first_name || user?.name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -175,26 +164,51 @@ export default function HomeScreen() {
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
-  const handleSearch = async (q: string) => {
-    setSearch(q);
-    if (!q.trim()) { loadData(); return; }
+  const fetchRestaurants = async (filter: string, query: string) => {
+    setLoading(true);
     try {
-      const { data } = await api.get(`/restaurants/search?q=${encodeURIComponent(q)}`);
+      let url: string;
+      if (filter === 'Nearby') {
+        if (!userLocation) { setRestaurants([]); setLoading(false); return; }
+        const p = new URLSearchParams({
+          lat: String(userLocation.latitude),
+          lng: String(userLocation.longitude),
+          limit: '10',
+        });
+        if (query.trim()) p.set('q', query.trim());
+        url = `/restaurants/nearby?${p.toString()}`;
+      } else if (filter === 'Top Rated') {
+        const p = new URLSearchParams({ min_rating: '4', sort: 'rating' });
+        if (query.trim()) p.set('q', query.trim());
+        url = `/restaurants/search?${p.toString()}`;
+      } else if (filter === 'BO Verified') {
+        const p = new URLSearchParams({ bo_verified: 'true' });
+        if (query.trim()) p.set('q', query.trim());
+        url = `/restaurants/search?${p.toString()}`;
+      } else if (filter === 'BO Partner') {
+        const p = new URLSearchParams({ bo_partner: 'true' });
+        if (query.trim()) p.set('q', query.trim());
+        url = `/restaurants/search?${p.toString()}`;
+      } else if (query.trim()) {
+        url = `/restaurants/search?q=${encodeURIComponent(query.trim())}`;
+      } else {
+        url = '/restaurants?limit=10&sort=rating';
+      }
+      const { data } = await api.get(url);
       setRestaurants(data.data || []);
     } catch (e) { console.error(e); }
+    setLoading(false);
   };
 
-  const handleFilter = async (filter: string) => {
+  const handleSearch = (q: string) => {
+    setSearch(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => fetchRestaurants(activeFilter, q), 400);
+  };
+
+  const handleFilter = (filter: string) => {
     setActiveFilter(filter);
-    let params = '';
-    if (filter === 'Top Rated') params = '?min_rating=4&sort=rating';
-    else if (filter === 'BO Verified') params = '?bo_verified=true';
-    else if (filter === 'BO Partner') params = '?bo_partner=true';
-    else params = '?sort=rating';
-    try {
-      const { data } = await api.get(`/restaurants/search${params}`);
-      setRestaurants(data.data || []);
-    } catch (e) { console.error(e); }
+    fetchRestaurants(filter, search);
   };
 
   const openProgram = (p: any) => {
@@ -321,25 +335,26 @@ export default function HomeScreen() {
             <>
               <View style={s.locationRow}>
                 <Ionicons name="location" size={16} color={Colors.green} />
-                <Text style={s.locationText}>
+                <Text style={[s.locationText, { flex: 1 }]} numberOfLines={1}>
                   {locationName || 'Location unavailable'}
                 </Text>
+                <TouchableOpacity
+                  style={s.mapIconBtn}
+                  onPress={() => router.push({ pathname: '/restaurant-map', params: { lat: userLocation?.latitude ?? 0, lng: userLocation?.longitude ?? 0 } } as any)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="map-outline" size={17} color={Colors.green} />
+                </TouchableOpacity>
               </View>
               <Text style={s.findTitle}>Find your healthiest meal today</Text>
             </>
           )}
 
-          <View style={s.searchRow}>
-            <Ionicons name="search" size={18} color={Colors.textTertiary} />
-            <TextInput
-              style={s.searchInput}
-              placeholder="Search restaurants, cuisines..."
-              placeholderTextColor={Colors.textTertiary}
-              value={search}
-              onChangeText={handleSearch}
-            />
-            <TouchableOpacity accessibilityLabel="Filter options"><Ionicons name="options-outline" size={18} color={Colors.textTertiary} /></TouchableOpacity>
-          </View>
+          <SearchBar
+            value={search}
+            onChangeText={handleSearch}
+            placeholder="Search restaurants, cuisines..."
+          />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
             {FILTERS.map(f => (
               <TouchableOpacity key={f} style={[s.filterChip, activeFilter === f && s.filterActive]} onPress={() => handleFilter(f)} activeOpacity={0.7} accessibilityLabel={`Filter: ${f}`}>
@@ -624,10 +639,8 @@ const s = StyleSheet.create({
 
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.lg, marginTop: Spacing.lg },
   locationText: { fontSize: FontSize.small, color: Colors.textSecondary, fontWeight: '500' },
+  mapIconBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.greenLight, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.green + '40' },
   findTitle: { fontSize: FontSize.h4, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.lg, marginTop: Spacing.sm },
-  searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.greenLight, borderRadius: Radius.lg, marginHorizontal: Spacing.lg, marginTop: Spacing.md, paddingHorizontal: 14, height: 48, gap: 8 },
-  searchInput: { flex: 1, fontSize: FontSize.body, color: Colors.textPrimary, outlineStyle: 'none' as any },
-
   filterScroll: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: 8 },
   filterChip: { borderRadius: Radius.pill, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1.5, borderColor: Colors.borderLight, backgroundColor: Colors.bgBase },
   filterActive: { borderColor: Colors.green, backgroundColor: Colors.greenLight },

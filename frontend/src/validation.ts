@@ -61,3 +61,17 @@ export function runValidations(...results: ValidationResult[]): string | null {
 export function isPasswordValid(password: string): boolean {
   return validatePassword(password).valid;
 }
+
+export type PasswordStrength = { score: 0 | 1 | 2 | 3 | 4; label: string; color: string };
+
+export function getPasswordStrength(password: string): PasswordStrength {
+  if (!password) return { score: 0, label: '', color: 'transparent' };
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (SPECIAL_RE.test(password)) score++;
+  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  const colors = ['transparent', '#EF4444', '#F97316', '#EAB308', '#22C55E'];
+  return { score: score as PasswordStrength['score'], label: labels[score], color: colors[score] };
+}

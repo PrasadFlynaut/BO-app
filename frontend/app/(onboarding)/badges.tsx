@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
+import OnboardingProgress from '@/src/components/OnboardingProgress';
 
 const BADGES = [
   { icon: 'trophy', label: 'First Steps', desc: 'Complete your onboarding', color: Colors.nutritionOrange, bg: Colors.nutritionSurface },
@@ -23,9 +24,7 @@ export default function BadgesScreen() {
     <SafeAreaView style={st.safe}>
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)}>
-          <LinearGradient colors={[Colors.nutritionOrange + '15', 'transparent']} style={st.stepBadge}>
-            <Text style={st.step}>Step 2 of 8</Text>
-          </LinearGradient>
+          <OnboardingProgress step={2} />
           <Text style={st.title}>Earn Badges</Text>
           <Text style={st.subtitle}>Complete challenges to earn rewards and track your progress</Text>
         </Animated.View>
@@ -58,8 +57,6 @@ export default function BadgesScreen() {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xl },
-  stepBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill, marginBottom: Spacing.md },
-  step: { color: Colors.nutritionOrange, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.xl, lineHeight: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },

@@ -8,16 +8,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '@/src/auth';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
-import { validateEmail, validatePassword, validateDateOfBirth, validatePhone, validateName, runValidations, isPasswordValid } from '@/src/validation';
+import {
+  validateEmail, validatePassword, validateDateOfBirth, validatePhone, validateName,
+  isPasswordValid, getPasswordStrength, ValidationResult,
+} from '@/src/validation';
 
-// Reusable focused input with highlight + optional info icon
-function FocusInput({ label, info, ...props }: TextInputProps & { label: string; info?: string }) {
+type FieldErrors = Partial<Record<'firstName' | 'lastName' | 'email' | 'password' | 'dob' | 'phone', string>>;
+
+function FocusInput({
+  label, info, hasError, errorMsg, ...props
+}: TextInputProps & { label: string; info?: string; hasError?: boolean; errorMsg?: string }) {
   const [focused, setFocused] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   return (
     <View style={fi.wrap}>
       <View style={fi.labelRow}>
-        <Text style={fi.label}>{label}</Text>
+        <Text style={[fi.label, hasError && fi.labelError]}>{label}</Text>
         {info && (
           <TouchableOpacity onPress={() => setShowInfo(!showInfo)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="information-circle-outline" size={16} color={showInfo ? Colors.green : Colors.textTertiary} />
@@ -32,10 +38,16 @@ function FocusInput({ label, info, ...props }: TextInputProps & { label: string;
       )}
       <TextInput
         {...props}
-        style={[fi.input, focused && fi.inputFocused]}
+        style={[fi.input, focused && fi.inputFocused, hasError && !focused && fi.inputError]}
         onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
       />
+      {hasError && errorMsg && (
+        <View style={fi.errorRow}>
+          <Ionicons name="alert-circle-outline" size={13} color={Colors.danger} />
+          <Text style={fi.errorText}>{errorMsg}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -44,10 +56,14 @@ const fi = StyleSheet.create({
   wrap: {},
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, marginTop: 14 },
   label: { color: Colors.textSecondary, fontSize: FontSize.caption, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  labelError: { color: Colors.danger },
   infoBubble: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.nutritionSurface, borderRadius: Radius.md, paddingVertical: 6, paddingHorizontal: 10, marginBottom: 6 },
   infoText: { fontSize: 11, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
   input: { backgroundColor: Colors.greenLight, borderRadius: Radius.lg, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.body, borderWidth: 2, borderColor: 'transparent', outlineStyle: 'none' as any },
   inputFocused: { borderColor: Colors.green, backgroundColor: '#FFF' },
+  inputError: { borderColor: Colors.danger, backgroundColor: '#FFF5F5' },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  errorText: { fontSize: 11, color: Colors.danger, flex: 1, lineHeight: 16 },
 });
 
 export default function RegisterScreen() {
@@ -58,6 +74,7 @@ export default function RegisterScreen() {
   const [dob, setDob] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
@@ -66,7 +83,6 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (user && success) {
-      // Short delay to show success message
       const timer = setTimeout(() => {
         if (!user.onboarding_complete) router.replace('/(onboarding)/activities');
         else router.replace('/(tabs)/home');
@@ -78,16 +94,32 @@ export default function RegisterScreen() {
     }
   }, [user, success]);
 
+  const clearFieldError = (field: keyof FieldErrors) =>
+    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+
+  const applyBlur = (field: keyof FieldErrors, result: ValidationResult) =>
+    setFieldErrors(prev => ({ ...prev, [field]: result.valid ? undefined : result.message }));
+
   const handleRegister = async () => {
-    const validationError = runValidations(
-      validateName(firstName, 'First name'),
-      validateName(lastName, 'Last name'),
-      validateEmail(email),
-      validatePassword(password),
-      validateDateOfBirth(dob),
-      validatePhone(phone),
-    );
-    if (validationError) { setError(validationError); return; }
+    const checks: [keyof FieldErrors, ValidationResult][] = [
+      ['firstName', validateName(firstName, 'First name')],
+      ['lastName', validateName(lastName, 'Last name')],
+      ['email', validateEmail(email)],
+      ['password', validatePassword(password)],
+      ['dob', validateDateOfBirth(dob)],
+      ['phone', validatePhone(phone)],
+    ];
+
+    const newErrors: FieldErrors = {};
+    let firstError = '';
+    for (const [field, result] of checks) {
+      if (!result.valid) {
+        newErrors[field] = result.message;
+        if (!firstError) firstError = result.message;
+      }
+    }
+
+    if (firstError) { setFieldErrors(newErrors); setError(firstError); return; }
     if (!agreedPrivacy) { setError('Please agree to the Privacy Policy to continue'); return; }
 
     setLoading(true); setError('');
@@ -116,6 +148,7 @@ export default function RegisterScreen() {
   };
 
   const canSubmit = agreedPrivacy && !!firstName.trim() && !!lastName.trim() && !!email.trim() && isPasswordValid(password);
+  const pwStrength = getPasswordStrength(password);
 
   if (success) {
     return (
@@ -145,33 +178,94 @@ export default function RegisterScreen() {
             <Text style={styles.subtitle}>Start your personalized wellness journey</Text>
           </Animated.View>
 
-          {error ? <View style={styles.errorBox}><Text style={styles.error}>{error}</Text></View> : null}
+          {error ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
 
           <Animated.View entering={FadeInDown.delay(80).duration(500)}>
             <View style={styles.nameRow}>
               <View style={{ flex: 1 }}>
-                <FocusInput label="First Name" placeholder="First" placeholderTextColor={Colors.textTertiary} value={firstName} onChangeText={setFirstName} autoCapitalize="words" testID="register-first-name" />
+                <FocusInput
+                  label="First Name" placeholder="First" placeholderTextColor={Colors.textTertiary}
+                  value={firstName} onChangeText={t => { setFirstName(t); clearFieldError('firstName'); }}
+                  autoCapitalize="words" testID="register-first-name"
+                  hasError={!!fieldErrors.firstName} errorMsg={fieldErrors.firstName}
+                  onBlur={() => applyBlur('firstName', validateName(firstName, 'First name'))}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <FocusInput label="Last Name" placeholder="Last" placeholderTextColor={Colors.textTertiary} value={lastName} onChangeText={setLastName} autoCapitalize="words" testID="register-last-name" />
+                <FocusInput
+                  label="Last Name" placeholder="Last" placeholderTextColor={Colors.textTertiary}
+                  value={lastName} onChangeText={t => { setLastName(t); clearFieldError('lastName'); }}
+                  autoCapitalize="words" testID="register-last-name"
+                  hasError={!!fieldErrors.lastName} errorMsg={fieldErrors.lastName}
+                  onBlur={() => applyBlur('lastName', validateName(lastName, 'Last name'))}
+                />
               </View>
             </View>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(120).duration(500)}>
-            <FocusInput label="Email" info="We'll use this to verify your account and send important updates" placeholder="Enter your email" placeholderTextColor={Colors.textTertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" testID="register-email-input" />
+            <FocusInput
+              label="Email" info="We'll use this to verify your account and send important updates"
+              placeholder="Enter your email" placeholderTextColor={Colors.textTertiary}
+              value={email} onChangeText={t => { setEmail(t); clearFieldError('email'); }}
+              keyboardType="email-address" autoCapitalize="none" testID="register-email-input"
+              hasError={!!fieldErrors.email} errorMsg={fieldErrors.email}
+              onBlur={() => applyBlur('email', validateEmail(email))}
+            />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(160).duration(500)}>
-            <FocusInput label="Phone Number (Optional)" info="Used for account recovery and meal delivery notifications" placeholder="+1 (555) 000-0000" placeholderTextColor={Colors.textTertiary} value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="register-phone-input" />
+            <FocusInput
+              label="Phone Number (Optional)" info="Used for account recovery and meal delivery notifications"
+              placeholder="+1 (555) 000-0000" placeholderTextColor={Colors.textTertiary}
+              value={phone} onChangeText={t => { setPhone(t); clearFieldError('phone'); }}
+              keyboardType="phone-pad" testID="register-phone-input"
+              hasError={!!fieldErrors.phone} errorMsg={fieldErrors.phone}
+              onBlur={() => applyBlur('phone', validatePhone(phone))}
+            />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-            <FocusInput label="Date of Birth (Optional)" info="Helps personalize calorie goals and nutrition recommendations based on your age" placeholder="MM/DD/YYYY" placeholderTextColor={Colors.textTertiary} value={dob} onChangeText={setDob} testID="register-dob-input" />
+            <FocusInput
+              label="Date of Birth (Optional)" info="Helps personalize calorie goals and nutrition recommendations based on your age"
+              placeholder="MM/DD/YYYY" placeholderTextColor={Colors.textTertiary}
+              value={dob} onChangeText={t => { setDob(t); clearFieldError('dob'); }}
+              testID="register-dob-input"
+              hasError={!!fieldErrors.dob} errorMsg={fieldErrors.dob}
+              onBlur={() => applyBlur('dob', validateDateOfBirth(dob))}
+            />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(240).duration(500)}>
-            <FocusInput label="Password" info="Min 8 characters, with at least one uppercase letter, one number, and one special character (e.g. !@#$%)" placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary} value={password} onChangeText={setPassword} secureTextEntry testID="register-password-input" />
+            <FocusInput
+              label="Password" info="Min 8 characters, with at least one uppercase letter, one number, and one special character (e.g. !@#$%)"
+              placeholder="Min 8 characters" placeholderTextColor={Colors.textTertiary}
+              value={password} onChangeText={t => { setPassword(t); clearFieldError('password'); }}
+              secureTextEntry testID="register-password-input"
+              hasError={!!fieldErrors.password}
+              onBlur={() => applyBlur('password', validatePassword(password))}
+            />
+            {password.length > 0 && (
+              <View style={styles.strengthWrap}>
+                <View style={styles.strengthBars}>
+                  {[1, 2, 3, 4].map(i => (
+                    <View key={i} style={[styles.strengthBar, { backgroundColor: i <= pwStrength.score ? pwStrength.color : Colors.borderLight }]} />
+                  ))}
+                </View>
+                <Text style={[styles.strengthLabel, { color: pwStrength.color }]}>{pwStrength.label}</Text>
+              </View>
+            )}
+            {fieldErrors.password && (
+              <View style={styles.pwErrorRow}>
+                <Ionicons name="alert-circle-outline" size={13} color={Colors.danger} />
+                <Text style={styles.pwErrorText}>{fieldErrors.password}</Text>
+              </View>
+            )}
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(280).duration(500)}>
@@ -220,9 +314,15 @@ const styles = StyleSheet.create({
   logo: { width: 80, height: 80, marginBottom: Spacing.sm },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, textAlign: 'center', marginTop: Spacing.xs },
-  errorBox: { backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
-  error: { color: Colors.danger, fontSize: FontSize.small, textAlign: 'center' },
+  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF0F0', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  error: { color: Colors.danger, fontSize: FontSize.small, flex: 1 },
   nameRow: { flexDirection: 'row', gap: Spacing.sm },
+  strengthWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  strengthBars: { flexDirection: 'row', gap: 4, flex: 1 },
+  strengthBar: { flex: 1, height: 4, borderRadius: 2 },
+  strengthLabel: { fontSize: 11, fontWeight: '700', minWidth: 44, textAlign: 'right' },
+  pwErrorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  pwErrorText: { fontSize: 11, color: Colors.danger, flex: 1, lineHeight: 16 },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.lg },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center' },
   checkboxActive: { backgroundColor: Colors.green, borderColor: Colors.green },
@@ -235,7 +335,6 @@ const styles = StyleSheet.create({
   linkWrap: { marginTop: Spacing.lg, alignItems: 'center', paddingBottom: Spacing.xl },
   linkText: { color: Colors.textSecondary, fontSize: FontSize.body },
   linkBold: { color: Colors.green, fontWeight: '700' },
-  // Success state
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   successContent: { alignItems: 'center', paddingHorizontal: Spacing.lg },
   successCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.lg },

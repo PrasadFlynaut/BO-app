@@ -5,8 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import api from '@/src/api';
+import OnboardingProgress from '@/src/components/OnboardingProgress';
 
 const ASPIRATIONS = [
   { id: 'tone', label: 'Tone Up', icon: 'body-outline' as const, color: Colors.green, bg: Colors.greenLight },
@@ -21,9 +23,13 @@ export default function HappinessScreen() {
   const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
 
   const handleContinue = async () => {
+    // Read activities saved by activities.tsx so we don't overwrite them
+    const savedActivities: string[] = JSON.parse(await AsyncStorage.getItem('ob_activities') || '[]');
+    // Store review_text so life-goals.tsx can include it when saving life-goals
+    await AsyncStorage.setItem('ob_review_text', review);
     try {
-      await api.put('/onboarding/life-goals', { life_goals: [], happiness_level: 5, review_text: review });
-      await api.post('/onboarding/activities', { activities: [], fitness_goals: selected });
+      // Single combined call — activities from step 1 + fitness_goals from this step
+      await api.post('/onboarding/activities', { activities: savedActivities, fitness_goals: selected });
     } catch (e) { console.error(e); }
     router.push('/(onboarding)/dietary');
   };
@@ -32,9 +38,7 @@ export default function HappinessScreen() {
     <SafeAreaView style={st.safe}>
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.duration(500)}>
-          <LinearGradient colors={[Colors.fitnessPurple + '15', 'transparent']} style={st.stepBadge}>
-            <Text style={st.step}>Step 3 of 8</Text>
-          </LinearGradient>
+          <OnboardingProgress step={3} />
           <Text style={st.title}>Fitness Goals</Text>
           <Text style={st.subtitle}>What do you want to achieve?</Text>
         </Animated.View>
@@ -75,8 +79,6 @@ export default function HappinessScreen() {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgBase },
   scroll: { padding: Spacing.lg, paddingTop: Spacing.xl },
-  stepBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: Radius.pill, marginBottom: Spacing.md },
-  step: { color: Colors.fitnessPurple, fontSize: FontSize.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 },
   title: { color: Colors.textPrimary, fontSize: FontSize.h1, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.body, marginTop: Spacing.sm, marginBottom: Spacing.xl, lineHeight: 24 },
   card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.bgBase, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1.5, borderColor: Colors.borderLight },
