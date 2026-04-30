@@ -335,8 +335,8 @@ export default function QuickAddsScreen() {
     }
   }, [params.zone, params.slot]);
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadAllData = async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
       const [mealsRes, waterRes, sleepRes, walkRes, metRes, journalRes, timelineRes, dashRes] = await Promise.all([
@@ -354,7 +354,12 @@ export default function QuickAddsScreen() {
       if (dash.calorie_goal) setCalorieGoal(dash.calorie_goal);
       if (dash.water_goal_glasses) setWaterGoal(dash.water_goal_glasses);
       else if (dash.water_goal_ml) setWaterGoal(Math.round(dash.water_goal_ml / 250));
-      setMealLogs(mealsRes.data.logs || []);
+      // Only replace meal logs that are confirmed (not pending optimistic entries)
+      setMealLogs(prev => {
+        const pending = prev.filter(m => String(m.id).startsWith('tmp-'));
+        const confirmed = mealsRes.data.logs || [];
+        return [...pending, ...confirmed];
+      });
       const wLogs = waterRes.data.logs || [];
       setWaterTotal(wLogs.reduce((s: number, w: any) => s + (w.glasses || 0), 0));
       setSleepLogs(sleepRes.data.logs || []);
@@ -404,7 +409,7 @@ export default function QuickAddsScreen() {
     } catch (e) { console.error(e); }
   };
 
-  const onRefresh = async () => { setRefreshing(true); await loadAllData(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await loadAllData(false); setRefreshing(false); };
 
   // ===== MEAL =====
   const openMealSlot = (slot: any) => { setSelectedSlot(slot); setMealName(''); setMealCalories(''); setMealNameError(''); setShowMealModal(true); };
@@ -417,17 +422,29 @@ export default function QuickAddsScreen() {
     setShowMealModal(false);
     Keyboard.dismiss();
     try {
-      await api.post('/v1/meals/log', { meal_type: selectedSlot.type, name: mealName.trim(), calories: cal });
-      loadAllData(); // refresh with real server IDs
+      const { data } = await api.post('/v1/meals/log', { meal_type: selectedSlot.type, name: mealName.trim(), calories: cal });
+      // Replace the tmp entry with the confirmed server entry
+      const confirmed = data.mealLog;
+      if (confirmed) {
+        setMealLogs(prev => prev.map(m => m.id === optimisticEntry.id ? { ...confirmed, id: confirmed.id || confirmed._id } : m));
+      }
+      loadAllData(false); // silent background refresh to reconcile
     } catch (e) {
-      setMealLogs(prev => prev.filter(m => m.id !== optimisticEntry.id)); // revert
+      setMealLogs(prev => prev.filter(m => m.id !== optimisticEntry.id));
+      Alert.alert('Error', 'Failed to save meal. Please try again.');
       console.error(e);
     }
   };
-  const deleteMeal = (id: string) => Alert.alert('Delete Meal', 'Remove this meal log?', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/meals/log/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
-  ]);
+  const deleteMeal = (id: string) => {
+    if (String(id).startsWith('tmp-')) return; // still saving, ignore
+    Alert.alert('Delete Meal', 'Remove this meal log?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try { await api.delete(`/v1/meals/log/${id}`); loadAllData(false); }
+        catch (e) { loadAllData(false); console.error(e); }
+      }},
+    ]);
+  };
   const getMealForSlot = (type: string) => mealLogs.filter(m => m.meal_type === type);
 
   // ===== WATER =====
