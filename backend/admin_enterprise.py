@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request
 from bson import ObjectId
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
@@ -363,3 +363,197 @@ async def admin_user_full_360(request: Request, user_id: str):
         "subscriptions": [safe_ser(s) for s in subs],
         "tickets": [{"id": str(t["_id"]), "subject": t.get("subject", ""), "status": t.get("status", ""), "date": t.get("created_at", "")} for t in tickets],
     }
+
+
+# ================================================================
+# ADMIN — RESTAURANTS CRUD
+# ================================================================
+
+class RestaurantInput(BaseModel):
+    name: str
+    cuisine: str = ""
+    address: str = ""
+    phone: str = ""
+    rating: float = 0.0
+    price_level: int = 2
+    bo_verified: bool = False
+    bo_partner: bool = False
+    description: str = ""
+    image_url: str = ""
+
+def _ser_restaurant(r: dict) -> dict:
+    r["id"] = str(r.pop("_id"))
+    cuisines = r.get("cuisines", [])
+    r["cuisine"] = cuisines[0] if cuisines else r.get("cuisine", "")
+    r["rating"] = float(r.get("average_rating", r.get("rating", 0)))
+    r["boVerified"] = r.get("bo_verified", False)
+    r["boPartner"] = r.get("bo_partner", False)
+    r["priceLevel"] = r.get("price_level", 2)
+    return r
+
+@admin_enterprise_router.get("/v1/admin/restaurants")
+async def admin_list_restaurants(request: Request, limit: int = 50, search: str = ""):
+    await require_admin(request)
+    query = {} if not search else {"name": {"$regex": search, "$options": "i"}}
+    docs = await db.restaurants.find(query).sort("name", 1).limit(limit).to_list(limit)
+    return {"data": [_ser_restaurant(r) for r in docs]}
+
+@admin_enterprise_router.post("/v1/admin/restaurants")
+async def admin_create_restaurant(request: Request, inp: RestaurantInput):
+    await require_admin(request)
+    doc = {
+        "name": inp.name,
+        "cuisines": [inp.cuisine] if inp.cuisine else [],
+        "cuisine": inp.cuisine,
+        "address": inp.address,
+        "phone": inp.phone,
+        "average_rating": inp.rating,
+        "price_level": inp.price_level,
+        "bo_verified": inp.bo_verified,
+        "bo_partner": inp.bo_partner,
+        "description": inp.description,
+        "image_url": inp.image_url,
+        "is_active": True,
+        "created_at": now_utc().isoformat(),
+    }
+    result = await db.restaurants.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
+    return {"success": True, "restaurant": doc}
+
+@admin_enterprise_router.put("/v1/admin/restaurants/{restaurant_id}")
+async def admin_update_restaurant(request: Request, restaurant_id: str, inp: RestaurantInput):
+    await require_admin(request)
+    updates = {
+        "name": inp.name,
+        "cuisines": [inp.cuisine] if inp.cuisine else [],
+        "cuisine": inp.cuisine,
+        "address": inp.address,
+        "phone": inp.phone,
+        "average_rating": inp.rating,
+        "price_level": inp.price_level,
+        "bo_verified": inp.bo_verified,
+        "bo_partner": inp.bo_partner,
+        "description": inp.description,
+        "image_url": inp.image_url,
+        "updated_at": now_utc().isoformat(),
+    }
+    result = await db.restaurants.update_one({"_id": ObjectId(restaurant_id)}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+    return {"success": True}
+
+@admin_enterprise_router.delete("/v1/admin/restaurants/{restaurant_id}")
+async def admin_delete_restaurant(request: Request, restaurant_id: str):
+    await require_admin(request)
+    result = await db.restaurants.update_one(
+        {"_id": ObjectId(restaurant_id)}, {"$set": {"is_active": False}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+    return {"success": True}
+
+
+# ================================================================
+# ADMIN — WELLNESS PROGRAMS CRUD
+# ================================================================
+
+class WellnessProgramInput(BaseModel):
+    name: str
+    description: str = ""
+    duration_days: int = 7
+    image_url: str = ""
+    category: str = "Wellness"
+    is_active: bool = True
+
+def _ser_program(p: dict) -> dict:
+    p["id"] = str(p.pop("_id"))
+    return p
+
+@admin_enterprise_router.get("/v1/admin/wellness-programs")
+async def admin_list_wellness_programs(
+    request: Request,
+    page: int = 1,
+    limit: int = 10,
+    search: str = "",
+    category: str = "",
+    status: str = "",   # "active" | "inactive" | "" = all
+):
+    await require_admin(request)
+    query: dict = {}
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+    if category:
+        query["category"] = category
+    if status == "active":
+        query["is_active"] = True
+    elif status == "inactive":
+        query["is_active"] = False
+
+    total = await db.wellness_programs.count_documents(query)
+    skip = (max(1, page) - 1) * limit
+    docs = await db.wellness_programs.find(query).sort("name", 1).skip(skip).limit(limit).to_list(limit)
+    pages = max(1, (total + limit - 1) // limit)
+    return {"programs": [_ser_program(p) for p in docs], "total": total, "page": page, "pages": pages, "limit": limit}
+
+@admin_enterprise_router.get("/v1/admin/wellness-programs/{program_id}")
+async def admin_get_wellness_program(request: Request, program_id: str):
+    await require_admin(request)
+    doc = await db.wellness_programs.find_one({"_id": ObjectId(program_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return {"program": _ser_program(doc)}
+
+@admin_enterprise_router.post("/v1/admin/wellness-programs/seed")
+async def admin_seed_wellness_programs(request: Request, force: bool = False):
+    await require_admin(request)
+    from sprint2 import DEFAULT_WELLNESS_PROGRAMS
+    count = await db.wellness_programs.count_documents({})
+    if count > 0 and not force:
+        return {"success": True, "seeded": 0, "message": f"Already have {count} programs. Use ?force=true to re-seed."}
+    result = await db.wellness_programs.insert_many(DEFAULT_WELLNESS_PROGRAMS)
+    return {"success": True, "seeded": len(result.inserted_ids), "message": f"Seeded {len(result.inserted_ids)} wellness programs"}
+
+@admin_enterprise_router.post("/v1/admin/wellness-programs")
+async def admin_create_wellness_program(request: Request, inp: WellnessProgramInput):
+    await require_admin(request)
+    doc = {
+        "name": inp.name,
+        "description": inp.description,
+        "duration_days": inp.duration_days,
+        "image_url": inp.image_url,
+        "category": inp.category,
+        "is_active": inp.is_active,
+        "created_at": now_utc().isoformat(),
+    }
+    result = await db.wellness_programs.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
+    return {"success": True, "program": doc}
+
+@admin_enterprise_router.put("/v1/admin/wellness-programs/{program_id}")
+async def admin_update_wellness_program(request: Request, program_id: str, inp: WellnessProgramInput):
+    await require_admin(request)
+    updates = {
+        "name": inp.name,
+        "description": inp.description,
+        "duration_days": inp.duration_days,
+        "image_url": inp.image_url,
+        "category": inp.category,
+        "is_active": inp.is_active,
+        "updated_at": now_utc().isoformat(),
+    }
+    result = await db.wellness_programs.update_one({"_id": ObjectId(program_id)}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return {"success": True}
+
+@admin_enterprise_router.delete("/v1/admin/wellness-programs/{program_id}")
+async def admin_delete_wellness_program(request: Request, program_id: str):
+    await require_admin(request)
+    result = await db.wellness_programs.update_one(
+        {"_id": ObjectId(program_id)}, {"$set": {"is_active": False}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return {"success": True}

@@ -306,20 +306,42 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * 2 * math.asin(math.sqrt(a))
 
 # ============ SEED DATA ============
+DEFAULT_WELLNESS_PROGRAMS = [
+    # Wellness
+    {"name": "3 Day Stretch", "duration_days": 3, "category": "Wellness", "description": "A gentle introduction to daily stretching routines that improve flexibility and reduce stress.", "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600", "is_active": True},
+    {"name": "7 Day Step Out", "duration_days": 7, "category": "Wellness", "description": "Get moving with guided outdoor walking sessions designed to boost your energy and mood.", "image_url": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=600", "is_active": True},
+    {"name": "14 Day BK2NATURE", "duration_days": 14, "category": "Wellness", "description": "Reconnect with nature through outdoor activities, mindful eating, and digital detox practices.", "image_url": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600", "is_active": True},
+    {"name": "28 Day MET BUMP", "duration_days": 28, "category": "Wellness", "description": "A comprehensive metabolic boost program combining HIIT, nutrition planning, and recovery protocols.", "image_url": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600", "is_active": True},
+    # Fitness
+    {"name": "5 Day Core Blast", "duration_days": 5, "category": "Fitness", "description": "Targeted core-strengthening exercises to build a strong, stable foundation for everyday movement.", "image_url": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600", "is_active": True},
+    {"name": "10 Day Strength Foundation", "duration_days": 10, "category": "Fitness", "description": "Build functional strength with progressive resistance training designed for all fitness levels.", "image_url": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600", "is_active": True},
+    {"name": "21 Day HIIT Challenge", "duration_days": 21, "category": "Fitness", "description": "High-intensity interval training sessions that torch calories and boost cardiovascular endurance.", "image_url": "https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=600", "is_active": True},
+    # Mindfulness
+    {"name": "7 Day Mindfulness Reset", "duration_days": 7, "category": "Mindfulness", "description": "Daily guided mindfulness practices to clear mental clutter, reduce anxiety, and restore focus.", "image_url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600", "is_active": True},
+    {"name": "14 Day Meditation Journey", "duration_days": 14, "category": "Mindfulness", "description": "A structured two-week meditation program taking you from beginner to confident daily meditator.", "image_url": "https://images.unsplash.com/photo-1593811167562-9cef47bfc4d7?w=600", "is_active": True},
+    {"name": "10 Day Breathwork Series", "duration_days": 10, "category": "Mindfulness", "description": "Harness the power of conscious breathing to improve energy levels, focus, and emotional balance.", "image_url": "https://images.unsplash.com/photo-1474418397713-7ede21d49118?w=600", "is_active": True},
+    # Nutrition
+    {"name": "7 Day Clean Eating", "duration_days": 7, "category": "Nutrition", "description": "Reset your diet with whole foods, guided meal plans, and simple recipes for lasting healthy habits.", "image_url": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600", "is_active": True},
+    {"name": "21 Day Sugar Detox", "duration_days": 21, "category": "Nutrition", "description": "Break free from sugar dependency with practical substitutes, craving strategies, and balanced meal guides.", "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600", "is_active": True},
+    # Sleep
+    {"name": "7 Day Sleep Reset", "duration_days": 7, "category": "Sleep", "description": "Science-backed techniques to establish a restorative sleep routine and wake up feeling truly refreshed.", "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600", "is_active": True},
+    # Stress Relief
+    {"name": "5 Day Stress Buster", "duration_days": 5, "category": "Stress Relief", "description": "Quick daily practices combining movement, journaling, and relaxation to tackle stress at its source.", "image_url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600", "is_active": True},
+    {"name": "10 Day Anxiety Relief", "duration_days": 10, "category": "Stress Relief", "description": "Evidence-based exercises to calm the nervous system, reframe anxious thoughts, and build resilience.", "image_url": "https://images.unsplash.com/photo-1499728603263-13726abce5fd?w=600", "is_active": True},
+    # Flexibility
+    {"name": "14 Day Yoga Flow", "duration_days": 14, "category": "Flexibility", "description": "Progressive yoga sequences that improve flexibility, posture, and mind-body connection over two weeks.", "image_url": "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=600", "is_active": True},
+    {"name": "21 Day Flexibility Challenge", "duration_days": 21, "category": "Flexibility", "description": "Daily targeted stretching and mobility work to achieve lasting flexibility gains head to toe.", "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600", "is_active": True},
+]
+
 async def seed_sprint2():
     """Seed Sprint 2 data (idempotent)"""
-    # Check if already seeded
+    # Seed wellness programs independently of restaurants
+    if await db.wellness_programs.count_documents({}) == 0:
+        await db.wellness_programs.insert_many(DEFAULT_WELLNESS_PROGRAMS)
+
+    # Check if restaurants already seeded
     if await db.restaurants.count_documents({}) > 0:
         return
-
-    # 1. Wellness Programs
-    programs = [
-        {"name": "3 Day Stretch", "duration_days": 3, "description": "A gentle introduction to daily stretching routines that improve flexibility and reduce stress.", "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600", "is_active": True},
-        {"name": "7 Day Step Out", "duration_days": 7, "description": "Get moving with guided outdoor walking sessions designed to boost your energy and mood.", "image_url": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=600", "is_active": True},
-        {"name": "14 Day BK2NATURE", "duration_days": 14, "description": "Reconnect with nature through outdoor activities, mindful eating, and digital detox practices.", "image_url": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600", "is_active": True},
-        {"name": "28 Day MET BUMP", "duration_days": 28, "description": "A comprehensive metabolic boost program combining HIIT, nutrition planning, and recovery protocols.", "image_url": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600", "is_active": True},
-    ]
-    await db.wellness_programs.insert_many(programs)
 
     # 2. Meal Categories
     categories = [

@@ -124,6 +124,7 @@ tr:hover td{background:#f7fafc}
 <div class="nav-item" onclick="showPage('meals')"><i class="fas fa-hamburger"></i>Manage Meals</div>
 <div class="nav-item" onclick="showPage('quotes')"><i class="fas fa-quote-left"></i>Daily Quotes</div>
 <div class="nav-item" onclick="showPage('videos')"><i class="fas fa-video"></i>Program Videos</div>
+<div class="nav-item" onclick="showPage('programs')"><i class="fas fa-dumbbell"></i>Wellness Programs</div>
 <div class="nav-item" onclick="showPage('posts')"><i class="fas fa-bullhorn"></i>My Posts</div>
 <div class="nav-item" onclick="showPage('plans')"><i class="fas fa-crown"></i>Subscription Plans</div>
 </div>
@@ -275,6 +276,43 @@ tr:hover td{background:#f7fafc}
 </div>
 </div>
 <!-- POSTS PAGE -->
+<!-- WELLNESS PROGRAMS PAGE -->
+<div class="page" id="page-programs">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h3 style="font-size:16px;font-weight:700">Wellness Programs</h3>
+<div style="display:flex;gap:8px">
+<button class="btn btn-outline btn-sm" onclick="seedDefaultPrograms()" title="Seed default programs"><i class="fas fa-seedling"></i> Seed Defaults</button>
+<button class="btn btn-primary" onclick="openProgramModal()"><i class="fas fa-plus"></i> Add Program</button>
+</div>
+</div>
+<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+<div class="search-box" style="flex:1;min-width:200px"><i class="fas fa-search"></i><input id="progSearchInput" placeholder="Search programs..." oninput="searchWellnessPrograms(this.value)"></div>
+<select id="progCategoryFilter" class="form-select" style="width:160px" onchange="filterPrograms()"><option value="">All Categories</option><option value="Wellness">Wellness</option><option value="Fitness">Fitness</option><option value="Mindfulness">Mindfulness</option><option value="Nutrition">Nutrition</option><option value="Sleep">Sleep</option><option value="Stress Relief">Stress Relief</option><option value="Flexibility">Flexibility</option></select>
+<select id="progStatusFilter" class="form-select" style="width:130px" onchange="filterPrograms()"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+</div>
+<div class="card"><table><thead><tr><th>Name</th><th>Duration</th><th>Category</th><th>Status</th><th style="width:150px">Actions</th></tr></thead><tbody id="programsBody"></tbody></table></div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+<button id="progPrevBtn" class="btn btn-outline btn-sm" onclick="progPrevPage()"><i class="fas fa-chevron-left"></i> Prev</button>
+<span id="progPaginationInfo" style="font-size:13px;color:#718096">-</span>
+<button id="progNextBtn" class="btn btn-outline btn-sm" onclick="progNextPage()">Next <i class="fas fa-chevron-right"></i></button>
+</div>
+</div>
+<!-- Program Modal -->
+<div class="modal-backdrop" id="progModal"><div class="modal" style="max-width:560px">
+<div class="modal-header"><h3 id="progModalTitle">Add Wellness Program</h3><button class="btn btn-outline btn-sm" onclick="closeModal('progModal')"><i class="fas fa-times"></i></button></div>
+<div class="modal-body">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div class="form-group"><label class="form-label">Name *</label><input id="progName" class="form-input" placeholder="Program name"></div>
+<div class="form-group"><label class="form-label">Duration (days)</label><input id="progDays" class="form-input" type="number" min="1" placeholder="7"></div>
+<div class="form-group"><label class="form-label">Category</label><input id="progCategory" class="form-input" placeholder="e.g. Wellness"></div>
+<div class="form-group"><label class="form-label">Status</label><select id="progActive" class="form-select"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+</div>
+<div class="form-group"><label class="form-label">Description</label><textarea id="progDesc" class="form-input" rows="3" placeholder="Program description"></textarea></div>
+<div class="form-group"><label class="form-label">Image URL</label><input id="progImage" class="form-input" placeholder="https://..."></div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('progModal')">Cancel</button><button class="btn btn-primary" onclick="saveWellnessProgram()"><i class="fas fa-save"></i> Save</button></div>
+</div></div>
+
 <div class="page" id="page-posts">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
 <div class="search-box"><i class="fas fa-search"></i><input placeholder="Search posts..." oninput="searchPosts(this.value)"></div>
@@ -585,9 +623,9 @@ function logout(){adminToken='';document.getElementById('dashboardPage').style.d
 
 function showPage(p){document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');
 document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));event.currentTarget.classList.add('active');
-const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',videos:'Program Videos',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
+const titles={dashboard:'Dashboard',users:'User Management',restaurants:'Restaurant Management',claims:'Restaurant Claims',distributors:'Distributor Management',tickets:'Support Tickets',meals:'Manage Meals',quotes:'Daily Quotes',videos:'Program Videos',programs:'Wellness Programs',posts:'My Posts',plans:'Subscription Plans',support:'Help & Support',notifications:'Notifications',profile:'My Profile'};
 document.getElementById('pageTitle').textContent=titles[p]||p;
-if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='videos')loadVideos();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
+if(p==='dashboard')loadDashboard();if(p==='users')loadUsers();if(p==='restaurants')loadRestaurants();if(p==='claims')loadClaims('all');if(p==='distributors')loadDistributors();if(p==='meals')loadMeals();if(p==='quotes')loadQuotes();if(p==='posts')loadPosts();if(p==='plans')loadPlans();if(p==='videos')loadVideos();if(p==='programs')loadWellnessPrograms();if(p==='support'){loadTickets('open');loadTicketBadge()}if(p==='notifications')showNotifTab('compose');if(p==='profile')loadProfile()}
 
 const hdr=()=>({'Authorization':'Bearer '+adminToken,'Content-Type':'application/json'});
 
@@ -921,6 +959,73 @@ async function confirmDeleteVideo(){
     if(r.ok){showToast('Video deleted','success');document.getElementById('videoDeleteModal').style.display='none';loadVideos()}
     else{const e=await r.json();showToast(e.detail||'Delete failed','error')}
   }catch(e){showToast('Delete failed','error')}
+}
+
+// ======== WELLNESS PROGRAMS ========
+let editingProgId=null,progPage=1,progSearch='',progCategory='',progStatus='';
+async function loadWellnessPrograms(resetPage){
+  if(resetPage)progPage=1;
+  try{
+    const params=new URLSearchParams({page:progPage,limit:10,search:progSearch,category:progCategory,status:progStatus});
+    const r=await fetch(API+'/v1/admin/wellness-programs?'+params.toString(),{headers:hdr()});
+    const d=await r.json();
+    const progs=d.programs||[];
+    document.getElementById('programsBody').innerHTML=progs.map(function(p){
+      var sn=p.name.replace(/'/g,"&#39;");
+      var statusBadge=p.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>';
+      return '<tr><td><strong>'+p.name+'</strong></td><td>'+p.duration_days+' days</td><td>'+(p.category||'Wellness')+'</td><td>'+statusBadge+'</td><td><button class="btn btn-outline btn-sm" onclick="editWellnessProgram(\''+p.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteWellnessProgram(\''+p.id+'\',\''+sn+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }).join('')||'<tr><td colspan="5" style="text-align:center;color:#a0aec0;padding:40px">No programs found. <a href="#" onclick="seedDefaultPrograms();return false;" style="color:#26B50F;font-weight:600">Seed defaults</a></td></tr>';
+    const total=d.total||0,pages=d.pages||1;
+    document.getElementById('progPaginationInfo').textContent='Page '+progPage+' of '+pages+' ('+total+' total)';
+    document.getElementById('progPrevBtn').disabled=progPage<=1;
+    document.getElementById('progNextBtn').disabled=progPage>=pages;
+  }catch(e){showToast('Failed to load programs','error')}
+}
+function searchWellnessPrograms(v){progSearch=v;loadWellnessPrograms(true)}
+function filterPrograms(){progCategory=document.getElementById('progCategoryFilter').value;progStatus=document.getElementById('progStatusFilter').value;loadWellnessPrograms(true)}
+function progPrevPage(){if(progPage>1){progPage--;loadWellnessPrograms()}}
+function progNextPage(){progPage++;loadWellnessPrograms()}
+function openProgramModal(){
+  editingProgId=null;
+  document.getElementById('progModalTitle').textContent='Add Wellness Program';
+  document.getElementById('progName').value='';document.getElementById('progDays').value='7';
+  document.getElementById('progCategory').value='Wellness';document.getElementById('progDesc').value='';
+  document.getElementById('progImage').value='';document.getElementById('progActive').value='true';
+  document.getElementById('progModal').classList.add('show');
+}
+async function editWellnessProgram(id){
+  try{
+    const r=await fetch(API+'/v1/admin/wellness-programs/'+id,{headers:hdr()});
+    const d=await r.json();const prog=d.program;if(!prog)return;
+    editingProgId=id;
+    document.getElementById('progModalTitle').textContent='Edit Wellness Program';
+    document.getElementById('progName').value=prog.name;document.getElementById('progDays').value=prog.duration_days;
+    document.getElementById('progCategory').value=prog.category||'Wellness';document.getElementById('progDesc').value=prog.description||'';
+    document.getElementById('progImage').value=prog.image_url||'';document.getElementById('progActive').value=prog.is_active?'true':'false';
+    document.getElementById('progModal').classList.add('show');
+  }catch(e){showToast('Failed to load program','error')}
+}
+async function saveWellnessProgram(){
+  const body={name:document.getElementById('progName').value,duration_days:parseInt(document.getElementById('progDays').value)||7,category:document.getElementById('progCategory').value||'Wellness',description:document.getElementById('progDesc').value,image_url:document.getElementById('progImage').value,is_active:document.getElementById('progActive').value==='true'};
+  if(!body.name){alert('Name is required');return}
+  const url=editingProgId?API+'/v1/admin/wellness-programs/'+editingProgId:API+'/v1/admin/wellness-programs';
+  const method=editingProgId?'PUT':'POST';
+  const r=await fetch(url,{method,headers:hdr(),body:JSON.stringify(body)});
+  if(r.ok){closeModal('progModal');loadWellnessPrograms();showToast(editingProgId?'Program updated':'Program created')}
+  else{const e=await r.json();alert(e.detail||'Error')}
+}
+async function deleteWellnessProgram(id,name){
+  if(!confirm('Deactivate "'+name+'"? It will be hidden from the app.'))return;
+  const r=await fetch(API+'/v1/admin/wellness-programs/'+id,{method:'DELETE',headers:hdr()});
+  if(r.ok){loadWellnessPrograms();showToast('Program deactivated')}
+  else{showToast('Delete failed','error')}
+}
+async function seedDefaultPrograms(){
+  if(!confirm('This will insert all default wellness programs into the database. Continue?'))return;
+  const r=await fetch(API+'/v1/admin/wellness-programs/seed',{method:'POST',headers:hdr()});
+  const d=await r.json();
+  if(r.ok){loadWellnessPrograms(true);showToast(d.message||'Programs seeded')}
+  else{showToast('Seed failed','error')}
 }
 
 // ======== QUOTES ========
