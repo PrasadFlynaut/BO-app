@@ -388,8 +388,26 @@ tr:hover td{background:#f7fafc}
 <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">Send Notification</h3>
 <div class="form-group"><label class="form-label">Title *</label><input id="notifTitle" class="form-input" maxlength="200" placeholder="Notification title"></div>
 <div class="form-group"><label class="form-label">Body *</label><textarea id="notifBody" class="form-input" rows="3" maxlength="500" placeholder="Notification message"></textarea></div>
-<div class="form-group"><label class="form-label">Target Audience</label><select id="notifTarget" class="form-select"><option value="all">All Users</option><option value="pro">Pro Subscribers Only</option><option value="basic">Basic Users Only</option></select></div>
-<div class="form-group"><label class="form-label">Deep Link (optional)</label><select id="notifDeepLink" class="form-select"><option value="">None</option><option value="/home">Home</option><option value="/feed">Feed</option><option value="/culinary">Culinary Blueprint</option><option value="/profile">Profile</option></select></div>
+<div class="form-group"><label class="form-label">Target Audience</label>
+<select id="notifTarget" class="form-select" onchange="onNotifTargetChange()">
+<option value="all">All Users</option>
+<option value="pro">Pro Subscribers Only</option>
+<option value="basic">Basic (Free) Users Only</option>
+<option value="restaurant_owners">Restaurant Owners</option>
+<option value="specific_user">Specific User…</option>
+</select></div>
+<div id="notifUserSearch" style="display:none">
+<div class="form-group" style="margin-top:-8px">
+<label class="form-label">Search User</label>
+<div style="display:flex;gap:8px">
+<input id="notifUserQuery" class="form-input" placeholder="Name or email…" oninput="searchNotifUsers()" style="flex:1">
+</div>
+<div id="notifUserResults" style="margin-top:6px;max-height:160px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;display:none"></div>
+<input type="hidden" id="notifUserId" value="">
+<div id="notifUserSelected" style="margin-top:6px;display:none;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px;padding:8px 12px;font-size:13px;color:#22543d"></div>
+</div>
+</div>
+<div class="form-group"><label class="form-label">Deep Link (optional)</label><select id="notifDeepLink" class="form-select"><option value="">None</option><option value="/home">Home</option><option value="/feed">Feed</option><option value="/culinary">Culinary Blueprint</option><option value="/profile">Profile</option><option value="/wellness-programs">Wellness Programs</option><option value="/quick-adds">Quick Add</option></select></div>
 <div id="notifPreview" style="background:#f7fafc;border-radius:12px;padding:16px;margin:16px 0;display:none">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:24px;height:24px;border-radius:6px;background:#26B50F;display:flex;align-items:center;justify-content:center"><i class="fas fa-bell" style="color:white;font-size:10px"></i></div><strong style="font-size:12px">BO Wellness</strong><span style="font-size:11px;color:#a0aec0;margin-left:auto">now</span></div>
 <div style="font-size:13px;font-weight:600" id="previewTitle"></div>
@@ -1454,13 +1472,61 @@ function showNotifTab(tab){
   }
 }
 function updateNotifPreview(){var t=document.getElementById('notifTitle').value;var b=document.getElementById('notifBody').value;var p=document.getElementById('notifPreview');if(t||b){p.style.display='block';document.getElementById('previewTitle').textContent=t;document.getElementById('previewBody').textContent=b}else{p.style.display='none'}}
+function onNotifTargetChange(){var v=document.getElementById('notifTarget').value;document.getElementById('notifUserSearch').style.display=v==='specific_user'?'block':'none';if(v!=='specific_user'){document.getElementById('notifUserId').value='';document.getElementById('notifUserSelected').style.display='none';}}
+var _notifUserTimer=null;
+async function searchNotifUsers(){
+  var q=document.getElementById('notifUserQuery').value.trim();
+  if(_notifUserTimer)clearTimeout(_notifUserTimer);
+  if(q.length<2){document.getElementById('notifUserResults').style.display='none';return}
+  _notifUserTimer=setTimeout(async function(){
+    try{
+      var r=await fetch(API+'/v1/admin/users?search='+encodeURIComponent(q)+'&limit=8',{headers:hdr()});
+      var d=await r.json();
+      var users=d.users||d.data||[];
+      var res=document.getElementById('notifUserResults');
+      if(!users.length){res.style.display='none';return}
+      res.style.display='block';
+      res.innerHTML=users.map(function(u){
+        return '<div onclick="selectNotifUser(\''+u.id+'\',\''+u.name+' ('+u.email+')'+'\')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px" onmouseover="this.style.background=\'#f7fafc\'" onmouseout="this.style.background=\'\'"><i class="fas fa-user" style="color:#a0aec0"></i>'+u.name+'<span style="color:#718096;font-size:12px">'+u.email+'</span></div>';
+      }).join('');
+    }catch(e){}
+  },300);
+}
+function selectNotifUser(id,label){
+  document.getElementById('notifUserId').value=id;
+  document.getElementById('notifUserQuery').value='';
+  document.getElementById('notifUserResults').style.display='none';
+  var sel=document.getElementById('notifUserSelected');
+  sel.style.display='block';
+  sel.innerHTML='<i class="fas fa-user-check" style="color:#22543d"></i> <strong>'+label+'</strong> <a href="#" onclick="clearNotifUser();return false" style="margin-left:8px;color:#e53e3e;font-size:12px">Remove</a>';
+}
+function clearNotifUser(){document.getElementById('notifUserId').value='';document.getElementById('notifUserSelected').style.display='none';}
 async function sendNotification(){
-  var body={title:document.getElementById('notifTitle').value,body:document.getElementById('notifBody').value,targetSegment:document.getElementById('notifTarget').value,deepLink:document.getElementById('notifDeepLink').value};
-  if(!body.title||!body.body){alert('Title and body are required');return}
-  var target=body.targetSegment==='all'?'ALL users':body.targetSegment==='pro'?'Pro subscribers':'Basic users';
+  var title=document.getElementById('notifTitle').value.trim();
+  var body=document.getElementById('notifBody').value.trim();
+  var seg=document.getElementById('notifTarget').value;
+  var deepLink=document.getElementById('notifDeepLink').value;
+  if(!title||!body){alert('Title and body are required');return}
+  if(seg==='specific_user'){
+    var uid=document.getElementById('notifUserId').value;
+    if(!uid){alert('Please select a user first');return}
+    seg='user:'+uid;
+  }
+  var labels={'all':'ALL users','pro':'Pro subscribers','basic':'Free users','restaurant_owners':'Restaurant owners'};
+  var target=labels[seg]||(seg.startsWith('user:')?'1 specific user':seg);
   if(!confirm('Send notification to '+target+'?'))return;
-  try{var r=await fetch(API+'/v1/admin/notifications/broadcast',{method:'POST',headers:hdr(),body:JSON.stringify(body)});
-  var d=await r.json();if(r.ok){showToast('Sent to '+d.recipientCount+' users');document.getElementById('notifTitle').value='';document.getElementById('notifBody').value='';document.getElementById('notifPreview').style.display='none'}else{showToast(d.detail||'Failed','error')}}catch(e){showToast('Error','error')}
+  try{
+    var r=await fetch(API+'/v1/admin/notifications/broadcast',{method:'POST',headers:hdr(),body:JSON.stringify({title,body,targetSegment:seg,deepLink})});
+    var d=await r.json();
+    if(r.ok){
+      showToast('Sent to '+d.recipientCount+' user'+(d.recipientCount===1?'':'s'));
+      document.getElementById('notifTitle').value='';
+      document.getElementById('notifBody').value='';
+      document.getElementById('notifPreview').style.display='none';
+      document.getElementById('notifTarget').value='all';
+      onNotifTargetChange();
+    }else{showToast(d.detail||'Failed to send','error')}
+  }catch(e){showToast('Connection error','error')}
 }
 async function loadNotifHistory(){
   try{var r=await fetch(API+'/v1/admin/notifications/history',{headers:hdr()});var d=await r.json();

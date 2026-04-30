@@ -10,6 +10,7 @@ from bson import ObjectId
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient
+from push_service import send_bulk_push
 
 logger = logging.getLogger(__name__)
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
@@ -647,45 +648,67 @@ class BroadcastInput(BaseModel):
 @sprint9_router.post("/v1/admin/notifications/broadcast")
 async def admin_broadcast(request: Request, body: BroadcastInput):
     admin = await require_admin(request)
-    # Determine target users
-    query = {"role": {"$nin": ["admin", "super_admin"]}, "status": {"$ne": "suspended"}}
+    # Determine target users by segment
+    base_exclude = {"role": {"$nin": ["admin", "super_admin"]}, "status": {"$ne": "suspended"}}
     if body.targetSegment == "pro":
-        query["subscription"] = {"$ne": "basic"}
+        query = {**base_exclude, "subscription": {"$nin": ["basic", None, ""]}}
     elif body.targetSegment == "basic":
-        query["subscription"] = {"$in": ["basic", None, ""]}
+        query = {**base_exclude, "subscription": {"$in": ["basic", None, ""]}}
+    elif body.targetSegment == "restaurant_owners":
+        query = {"role": "restaurant_owner", "status": {"$ne": "suspended"}}
     elif body.targetSegment.startswith("user:"):
-        target_id = body.targetSegment.split(":")[1]
-        query = {"_id": ObjectId(target_id)}
+        target_id = body.targetSegment.split(":", 1)[1]
+        try:
+            query = {"_id": ObjectId(target_id)}
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid user ID")
+    else:
+        query = base_exclude
 
     users = await db.users.find(query, {"_id": 1}).to_list(10000)
-    count = len(users)
+    user_ids = [str(u["_id"]) for u in users]
+    count = len(user_ids)
+
+    # Save in-app notifications for all target users
+    now = now_utc()
+    if user_ids:
+        await db.notifications.insert_many([
+            {
+                "user_id": uid,
+                "title": body.title,
+                "body": body.body,
+                "type": "admin_broadcast",
+                "deep_link": body.deepLink or None,
+                "is_read": False,
+                "created_at": now,
+            }
+            for uid in user_ids
+        ])
+
+    # Fire real push notifications to registered devices
+    push_results = []
+    if user_ids:
+        tokens_cursor = db.push_tokens.find({"user_id": {"$in": user_ids}})
+        token_docs = await tokens_cursor.to_list(50000)
+        push_tokens = list({t["push_token"] for t in token_docs if t.get("push_token")})
+        if push_tokens:
+            push_data = {"deepLink": body.deepLink or "/home", "type": "admin_broadcast"}
+            push_results = await send_bulk_push(push_tokens, body.title, body.body, push_data)
 
     # Store in history
     notif_record = {
         "title": body.title,
         "body": body.body,
         "target_segment": body.targetSegment,
-        "deep_link": body.deepLink,
-        "scheduled_at": body.scheduledAt or None,
-        "sent_at": now_utc(),
+        "deep_link": body.deepLink or None,
+        "sent_at": now,
         "status": "sent",
         "recipient_count": count,
+        "push_tokens_sent": len(push_results),
         "created_by": admin["id"],
-        "created_at": now_utc(),
+        "created_at": now,
     }
     await db.notification_queue.insert_one(notif_record)
-
-    # Create notifications for each user
-    for u in users:
-        await db.notifications.insert_one({
-            "user_id": str(u["_id"]),
-            "title": body.title,
-            "body": body.body,
-            "type": "admin_broadcast",
-            "deep_link": body.deepLink,
-            "is_read": False,
-            "created_at": now_utc(),
-        })
 
     return {"notification": ser(notif_record), "recipientCount": count, "message": f"Notification sent to {count} users."}
 
