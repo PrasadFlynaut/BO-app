@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-  FadeInDown, FadeIn, FadeInUp, FadeOut, SlideInDown, SlideOutDown,
+  FadeInDown, FadeIn,
   useSharedValue, useAnimatedStyle, withTiming, withRepeat,
   withSequence, Easing, interpolate, withDelay,
 } from 'react-native-reanimated';
@@ -42,6 +42,16 @@ const MET_ACTIVITIES = [
   { name: 'Swimming', value: 8.0 },
   { name: 'Running', value: 9.8 },
   { name: 'Strength', value: 6.0 },
+];
+
+const WK_TYPES = [
+  { key: 'walking', icon: 'walk-outline', label: 'Walking', color: Colors.green },
+  { key: 'running', icon: 'fitness-outline', label: 'Running', color: '#E53E3E' },
+  { key: 'cycling', icon: 'bicycle-outline', label: 'Cycling', color: Colors.waterBlue },
+  { key: 'swimming', icon: 'water-outline', label: 'Swimming', color: '#00BCD4' },
+  { key: 'strength', icon: 'barbell-outline', label: 'Strength', color: Colors.nutritionOrange },
+  { key: 'hiit', icon: 'flash-outline', label: 'HIIT', color: '#FF5252' },
+  { key: 'custom', icon: 'ellipsis-horizontal-outline', label: 'Custom', color: Colors.textTertiary },
 ];
 
 // ============ ANIMATED WATER RING COMPONENT ============
@@ -159,21 +169,14 @@ const ws = StyleSheet.create({
     borderRadius: 999,
   },
   wave2: { top: -3, backgroundColor: '#8EC8FF' },
-  splashRipple: {
-    position: 'absolute', top: '30%', left: '30%',
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2, borderColor: '#4DA8FF',
-  },
   centerContent: {
     position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
     justifyContent: 'center', alignItems: 'center',
   },
   countText: { fontSize: 30, fontWeight: '800', color: Colors.waterBlue },
   countHighFill: { color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  countReached: { color: '#FFFFFF' },
   goalText: { fontSize: 11, color: '#6B7C93', marginTop: -2 },
   goalHighFill: { color: 'rgba(255,255,255,0.85)' },
-  goalReached: { color: 'rgba(255,255,255,0.85)' },
   celebrationBadge: {
     position: 'absolute', top: -4, right: -4,
     backgroundColor: '#FFF', borderRadius: 12,
@@ -398,7 +401,7 @@ export default function QuickAddsScreen() {
       }
       setActivityDates(datesMap);
     } catch (e) { console.error(e); }
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   };
 
   const loadTimelineForDate = async (dateStr: string) => {
@@ -470,7 +473,7 @@ export default function QuickAddsScreen() {
       await api.post('/v1/trackers/sleep', { bedtime, wake_time: now.toISOString(), duration: totalMins, quality: sleepQuality });
       setShowSleepModal(false);
       Keyboard.dismiss();
-      loadAllData();
+      loadAllData(false);
     } catch (e) { console.error(e); }
   };
 
@@ -482,7 +485,7 @@ export default function QuickAddsScreen() {
       await api.post('/v1/trackers/walking', { steps, duration: parseInt(walkDuration) || 0 });
       setShowWalkModal(false); setWalkSteps(''); setWalkDuration('');
       Keyboard.dismiss();
-      loadAllData();
+      loadAllData(false);
     } catch (e) { console.error(e); }
   };
 
@@ -494,7 +497,7 @@ export default function QuickAddsScreen() {
       await api.post('/v1/trackers/met', { activity_type: metActivity.name, met_value: metActivity.value, duration: dur, met_minutes: metActivity.value * dur });
       setShowMetModal(false); setMetDuration('');
       Keyboard.dismiss();
-      loadAllData();
+      loadAllData(false);
     } catch (e) { console.error(e); }
   };
 
@@ -511,14 +514,14 @@ export default function QuickAddsScreen() {
       }
       setShowJournalModal(false); setJournalTitle(''); setJournalDesc('');
       Keyboard.dismiss();
-      loadAllData();
+      loadAllData(false);
     } catch (e) { console.error(e); }
   };
   const deleteJournal = (id: string) => Alert.alert('Delete Entry', 'Delete this journal entry?', [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/journal/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
+    { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/journal/${id}`); loadAllData(false); } catch (e) { console.error(e); } }},
   ]);
-  const toggleLike = async (id: string) => { try { await api.post('/v1/journal/like', { journal_id: id }); loadAllData(); } catch (e) { console.error(e); } };
+  const toggleLike = async (id: string) => { try { await api.post('/v1/journal/like', { journal_id: id }); loadAllData(false); } catch (e) { console.error(e); } };
 
   const totalCalories = mealLogs.reduce((s, m) => s + (m.calories || 0), 0);
   const totalStepsWeek = walkLogs.reduce((t: number, w: any) => t + (w.steps || 0), 0);
@@ -529,26 +532,9 @@ export default function QuickAddsScreen() {
     : journals;
 
   // ============ WORKOUT HANDLERS ============
-  const WK_TYPES = [
-    { key: 'walking', icon: 'walk-outline', label: 'Walking', color: Colors.green },
-    { key: 'running', icon: 'fitness-outline', label: 'Running', color: '#E53E3E' },
-    { key: 'cycling', icon: 'bicycle-outline', label: 'Cycling', color: Colors.waterBlue },
-    { key: 'swimming', icon: 'water-outline', label: 'Swimming', color: '#00BCD4' },
-    { key: 'strength', icon: 'barbell-outline', label: 'Strength', color: Colors.nutritionOrange },
-    { key: 'hiit', icon: 'flash-outline', label: 'HIIT', color: '#FF5252' },
-    { key: 'custom', icon: 'ellipsis-horizontal-outline', label: 'Custom', color: Colors.textTertiary },
-  ];
 
   // Smartwatch sync
   const [syncingWatch, setSyncingWatch] = useState(false);
-  const [connectedDevices, setConnectedDevices] = useState<any[]>([]);
-
-  const loadConnectedDevices = async () => {
-    try {
-      const { data } = await api.get('/v1/wearables/connected');
-      setConnectedDevices(data.devices || []);
-    } catch {}
-  };
 
   const syncSmartwatch = async (provider: string) => {
     setSyncingWatch(true);
@@ -568,7 +554,7 @@ export default function QuickAddsScreen() {
           } catch {}
         }
       }
-      loadAllData();
+      loadAllData(false);
       Alert.alert('Synced!', `Workout data synced from ${provider}`);
     } catch (e: any) {
       const msg = e?.response?.data?.detail || e?.message || '';
@@ -591,14 +577,14 @@ export default function QuickAddsScreen() {
       });
       setShowWorkoutModal(false);
       setWkType('running'); setWkDuration(''); setWkIntensity('medium'); setWkCalories(''); setWkNotes('');
-      loadAllData();
+      loadAllData(false);
     } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || 'Failed'); }
   };
 
   const deleteWorkout = async (id: string) => {
     Alert.alert('Delete Workout', 'Remove this workout?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/workouts/${id}`); loadAllData(); } catch (e) { console.error(e); } }},
+      { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/v1/workouts/${id}`); loadAllData(false); } catch (e) { console.error(e); } }},
     ]);
   };
 
@@ -681,7 +667,7 @@ export default function QuickAddsScreen() {
         />
       ) : (
         workoutList.slice(0, 5).map((w: any, i: number) => {
-          const wkCfg = WK_TYPES.find(t => t.key === w.type) || WK_TYPES[7];
+          const wkCfg = WK_TYPES.find(t => t.key === w.type) || WK_TYPES[6];
           return (
             <Animated.View key={w.id || i} entering={FadeInDown.delay(i * 50).duration(350)}>
               <TouchableOpacity style={[s.workoutCard, Shadow.sm]} onLongPress={() => deleteWorkout(w.id)} activeOpacity={0.85}>
