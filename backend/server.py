@@ -1019,6 +1019,11 @@ app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
 app.include_router(api_router)
 
+# Root-level health check for Kubernetes probes
+@app.get("/health")
+async def root_health():
+    return {"status": "ok"}
+
 ALLOWED_ORIGINS = [
     "https://mobile-launch-45.preview.emergentagent.com",
     "https://mobile-launch-45.emergent.host",
