@@ -28,6 +28,7 @@
     "android": {
       "package": "com.bowellness.app",
       "versionCode": 1,
+      "minSdkVersion": 26,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
