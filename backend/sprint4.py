@@ -178,13 +178,15 @@ async def get_feed(
     limit = min(max(1, limit), 50)
     skip = (page - 1) * limit
 
-    query: dict = {}
+    # Exclude soft-deleted user posts (is_deleted) and soft-deleted admin posts (deleted)
+    query: dict = {"is_deleted": {"$ne": True}, "deleted": {"$ne": True}}
     if filter == "my_posts":
         query["user_id"] = user["id"]
     if search and search.strip():
         query["$or"] = [
             {"text": {"$regex": search.strip(), "$options": "i"}},
             {"user_name": {"$regex": search.strip(), "$options": "i"}},
+            {"content": {"$regex": search.strip(), "$options": "i"}},
         ]
 
     total = await db.feed_posts.count_documents(query)
@@ -216,7 +218,7 @@ async def get_feed(
 @sprint4_router.get("/v1/feed/{feed_id}")
 async def get_feed_post(feed_id: str, request: Request):
     user = await get_user(request)
-    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id)})
+    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id), "is_deleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     liked = await db.feed_likes.find_one({"user_id": user["id"], "post_id": feed_id})
@@ -229,7 +231,7 @@ async def get_feed_post(feed_id: str, request: Request):
 @sprint4_router.put("/v1/feed/{feed_id}")
 async def update_feed_post(feed_id: str, input: FeedPostInput, request: Request):
     user = await get_user(request)
-    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id)})
+    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id), "is_deleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if post["user_id"] != user["id"]:
@@ -260,14 +262,15 @@ async def update_feed_post(feed_id: str, input: FeedPostInput, request: Request)
 @sprint4_router.delete("/v1/feed/{feed_id}")
 async def delete_feed_post(feed_id: str, request: Request):
     user = await get_user(request)
-    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id)})
+    post = await db.feed_posts.find_one({"_id": ObjectId(feed_id), "is_deleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if post["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to delete this post")
-    await db.feed_posts.delete_one({"_id": ObjectId(feed_id)})
-    await db.feed_likes.delete_many({"post_id": feed_id})
-    await db.feed_comments.delete_many({"post_id": feed_id})
+    await db.feed_posts.update_one(
+        {"_id": ObjectId(feed_id)},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc).isoformat()}}
+    )
     return {"deleted": True}
 
 
@@ -275,7 +278,7 @@ async def delete_feed_post(feed_id: str, request: Request):
 @sprint4_router.post("/v1/post/like/{post_id}")
 async def toggle_like(post_id: str, request: Request):
     user = await get_user(request)
-    post = await db.feed_posts.find_one({"_id": ObjectId(post_id)})
+    post = await db.feed_posts.find_one({"_id": ObjectId(post_id), "is_deleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
@@ -326,7 +329,7 @@ async def add_comment(post_id: str, input: FeedCommentInput, request: Request):
     if len(input.text) > 500:
         raise HTTPException(status_code=400, detail="Comment must be 500 characters or less")
 
-    post = await db.feed_posts.find_one({"_id": ObjectId(post_id)})
+    post = await db.feed_posts.find_one({"_id": ObjectId(post_id), "is_deleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
@@ -1021,6 +1024,8 @@ async def setup_sprint4_indexes():
     """Create indexes for Sprint 4 collections"""
     await db.feed_posts.create_index([("created_at", -1)])
     await db.feed_posts.create_index([("user_id", 1)])
+    await db.feed_posts.create_index([("is_deleted", 1)])
+    await db.feed_posts.create_index([("deleted", 1)])
     await db.feed_likes.create_index([("user_id", 1), ("post_id", 1)], unique=True)
     await db.feed_comments.create_index([("post_id", 1), ("created_at", 1)])
     await db.sprint4_meals.create_index([("title", "text")])

@@ -47,7 +47,15 @@
         "SCHEDULE_EXACT_ALARM",
         "ACTIVITY_RECOGNITION",
         "BODY_SENSORS",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.WRITE_STEPS",
+        "android.permission.health.WRITE_ACTIVE_CALORIES_BURNED"
       ],
        "config": {
         "googleMaps": {
@@ -86,7 +94,13 @@
           "defaultChannel": "default"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-health-connect",
+        {
+          "healthConnectVersion": "LATEST"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

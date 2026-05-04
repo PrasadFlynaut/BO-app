@@ -18,6 +18,7 @@ import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { useAuth } from '@/src/auth';
 import api from '@/src/api';
 import EmptyState from '@/src/components/EmptyState';
+import { readTodayMetrics } from '@/src/health';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -534,37 +535,52 @@ export default function QuickAddsScreen() {
   // ============ WORKOUT HANDLERS ============
 
   // Smartwatch sync
-  const [syncingWatch, setSyncingWatch] = useState(false);
+  const [syncingWatch, setSyncingWatch] = useState<string | null>(null);
 
   const syncSmartwatch = async (provider: string) => {
-    setSyncingWatch(true);
+    setSyncingWatch(provider);
     try {
-      const { data } = await api.post('/v1/wearables/sync', { provider });
-      if (data.data) {
-        const synced = data.data;
-        if (synced.steps > 0 || synced.calories > 0) {
-          try {
-            await api.post('/v1/workouts', {
-              type: 'walking',
-              duration: synced.active_minutes || 30,
-              intensity: 'medium',
-              calories: synced.calories || 0,
-              notes: `Synced from ${provider}, ${synced.steps} steps, ${synced.distance_km?.toFixed(1) || 0} km`,
-            });
-          } catch {}
-        }
+      const now = new Date().toISOString();
+      const metrics = await readTodayMetrics();
+
+      const dataPoints = [
+        { data_type: 'steps', value: metrics.steps, unit: 'steps', recorded_at: now },
+        { data_type: 'heart_rate', value: metrics.heartRate, unit: 'bpm', recorded_at: now },
+        { data_type: 'calories', value: metrics.calories, unit: 'kcal', recorded_at: now },
+        { data_type: 'distance', value: metrics.distanceKm * 1000, unit: 'meters', recorded_at: now },
+        { data_type: 'sleep', value: metrics.sleepHours, unit: 'hours', recorded_at: now },
+        { data_type: 'active_minutes', value: metrics.activeMinutes, unit: 'minutes', recorded_at: now },
+      ];
+
+      const { data } = await api.post('/v1/wearables/sync', { provider, data: dataPoints });
+
+      if (data.data && (data.data.steps > 0 || data.data.calories > 0)) {
+        try {
+          await api.post('/v1/workouts', {
+            type: 'walking',
+            duration: data.data.active_minutes || metrics.activeMinutes,
+            intensity: 'medium',
+            calories: data.data.calories || metrics.calories,
+            notes: `Synced from ${provider} — ${data.data.steps || metrics.steps} steps, ${data.data.distance_km?.toFixed(1) || metrics.distanceKm.toFixed(1)} km`,
+          });
+        } catch {}
       }
+
       loadAllData(false);
-      Alert.alert('Synced!', `Workout data synced from ${provider}`);
+      const s = data.data || {};
+      Alert.alert(
+        'Synced!',
+        `${(s.steps || metrics.steps).toLocaleString()} steps • ${s.calories || metrics.calories} cal • ${s.active_minutes || metrics.activeMinutes} active mins`,
+      );
     } catch (e: any) {
       const msg = String(e?.response?.data?.detail ?? e?.message ?? '');
-      if (msg.toLowerCase().includes('unsupported') || msg.toLowerCase().includes('not available')) {
-        Alert.alert('Smartwatch sync unavailable', 'Connect your watch in device settings.');
+      if (msg.toLowerCase().includes('unsupported')) {
+        Alert.alert('Unsupported Device', 'This provider is not supported.');
       } else {
-        Alert.alert('Sync Unavailable', 'Smartwatch sync unavailable. Connect your watch in device settings.');
+        Alert.alert('Sync Failed', 'Could not sync watch data. Please try again.');
       }
     } finally {
-      setSyncingWatch(false);
+      setSyncingWatch(null);
     }
   };
 
@@ -612,14 +628,14 @@ export default function QuickAddsScreen() {
           ].map(device => (
             <TouchableOpacity
               key={device.id}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: Radius.md, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: Colors.borderLight }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: Radius.md, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: Colors.borderLight, opacity: syncingWatch === device.id ? 0.7 : 1 }}
               activeOpacity={0.7}
-              disabled={syncingWatch}
+              disabled={syncingWatch !== null}
               onPress={() => syncSmartwatch(device.id)}
             >
               <Ionicons name={device.icon as any} size={16} color={device.color} />
               <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.textPrimary }}>{device.name}</Text>
-              {syncingWatch && <ActivityIndicator size="small" color={Colors.green} />}
+              {syncingWatch === device.id && <ActivityIndicator size="small" color={Colors.green} />}
             </TouchableOpacity>
           ))}
         </View>

@@ -12,6 +12,7 @@ import { Colors, Spacing, FontSize, Radius, Shadow } from '@/src/theme';
 import { boLogoColor } from '@/src/assets';
 import api from '@/src/api';
 import { usePedometer } from '@/src/pedometer';
+import { requestHealthPermissions, readTodayMetrics, isHealthAvailable } from '@/src/health';
 
 type Provider = { id: string; name: string; icon: string; color: string; platforms: string[] };
 type Device = { id: string; provider: string; provider_name: string; device_name: string; last_sync: string | null; total_syncs: number; connected_at: string };
@@ -86,30 +87,51 @@ export default function ConnectedDevicesScreen() {
   const connectDevice = async (providerId: string) => {
     setConnecting(providerId);
     try {
+      // Request real health permissions on-device before connecting
+      if (isHealthAvailable()) {
+        const { granted } = await requestHealthPermissions();
+        if (!granted) {
+          Alert.alert(
+            'Permission Required',
+            'Please allow health data access in your device settings to sync real data.',
+            [{ text: 'OK' }],
+          );
+          setConnecting(null);
+          return;
+        }
+      }
+
       await api.post('/v1/wearables/connect', { provider: providerId });
 
-      // Auto-sync initial health data on first connect
-      const initialSteps = pedometerAvailable && todaySteps > 0 ? todaySteps : Math.floor(Math.random() * 6000) + 4000;
+      // Read real health data (or simulated fallback) for initial sync
+      const metrics = await readTodayMetrics();
       const initialData = [
-        { data_type: 'steps', value: initialSteps, unit: 'steps' },
-        { data_type: 'heart_rate', value: Math.floor(Math.random() * 15) + 68, unit: 'bpm' },
-        { data_type: 'calories', value: Math.round(initialSteps * 0.04), unit: 'kcal' },
-        { data_type: 'distance', value: Math.round((initialSteps * 0.762) / 1000 * 100) / 100, unit: 'km' },
-        { data_type: 'sleep', value: Math.round((Math.random() * 1.5 + 6.5) * 10) / 10, unit: 'hours' },
-        { data_type: 'active_minutes', value: Math.round(initialSteps / 100), unit: 'minutes' },
+        { data_type: 'steps', value: metrics.steps, unit: 'steps' },
+        { data_type: 'heart_rate', value: metrics.heartRate, unit: 'bpm' },
+        { data_type: 'calories', value: metrics.calories, unit: 'kcal' },
+        { data_type: 'distance', value: metrics.distanceKm * 1000, unit: 'meters' },
+        { data_type: 'sleep', value: metrics.sleepHours, unit: 'hours' },
+        { data_type: 'active_minutes', value: metrics.activeMinutes, unit: 'minutes' },
       ];
       await api.post('/v1/wearables/sync', { provider: providerId, data: initialData });
 
+      const sourceLabel = metrics.source === 'healthkit'
+        ? 'Apple Health'
+        : metrics.source === 'healthconnect'
+        ? 'Health Connect'
+        : 'estimated';
+
       Alert.alert(
         'Device Connected!',
-        `${SUPPORTED_PROVIDERS[providerId]?.name || providerId} is now connected and syncing health data.\n\nInitial sync complete with ${initialSteps.toLocaleString()} steps and other health metrics.`
+        `${SUPPORTED_PROVIDERS[providerId]?.name || providerId} connected.\n\nInitial sync (${sourceLabel}): ${metrics.steps.toLocaleString()} steps, ${metrics.calories} cal, ${metrics.distanceKm} km`,
       );
       await loadAll();
     } catch (e: any) {
       const msg = e?.response?.data?.detail || 'Connection failed';
       Alert.alert('Error', msg);
+    } finally {
+      setConnecting(null);
     }
-    setConnecting(null);
   };
 
   const disconnectDevice = async (providerId: string, name: string) => {
@@ -126,37 +148,47 @@ export default function ConnectedDevicesScreen() {
 
   const syncDevice = async (providerId: string) => {
     try {
-      // Use real pedometer steps if available, otherwise use realistic estimates
-      const realSteps = pedometerAvailable && todaySteps > 0 ? todaySteps : null;
-      const steps = realSteps || Math.floor(Math.random() * 5000) + 3000;
-      const hr = Math.floor(Math.random() * 20) + 65;
-      const cal = Math.round(steps * 0.04); // ~0.04 cal per step
-      const dist = Math.round((steps * 0.762) / 1000 * 100) / 100; // avg stride ~0.762m
-      const sleepHrs = Math.round((Math.random() * 2 + 6) * 10) / 10; // 6-8h
-      const activeMins = Math.round(steps / 100); // ~100 steps/min
+      // Read real health data from HealthKit / Health Connect, or fall back to simulation
+      const metrics = await readTodayMetrics();
+
+      // Prefer live pedometer steps over HealthKit if they're higher (more accurate for today)
+      const steps = pedometerAvailable && todaySteps > metrics.steps ? todaySteps : metrics.steps;
+      const calories = pedometerAvailable && todaySteps > metrics.steps
+        ? Math.round(todaySteps * 0.04)
+        : metrics.calories;
 
       const dataPoints = [
         { data_type: 'steps', value: steps, unit: 'steps' },
-        { data_type: 'heart_rate', value: hr, unit: 'bpm' },
-        { data_type: 'calories', value: cal, unit: 'kcal' },
-        { data_type: 'distance', value: dist, unit: 'km' },
-        { data_type: 'sleep', value: sleepHrs, unit: 'hours' },
-        { data_type: 'active_minutes', value: activeMins, unit: 'minutes' },
+        { data_type: 'heart_rate', value: metrics.heartRate, unit: 'bpm' },
+        { data_type: 'calories', value: calories, unit: 'kcal' },
+        { data_type: 'distance', value: metrics.distanceKm * 1000, unit: 'meters' },
+        { data_type: 'sleep', value: metrics.sleepHours, unit: 'hours' },
+        { data_type: 'active_minutes', value: metrics.activeMinutes, unit: 'minutes' },
       ];
 
       await api.post('/v1/wearables/sync', { provider: providerId, data: dataPoints });
+
+      const sourceLabel = metrics.source === 'healthkit'
+        ? 'Apple Health'
+        : metrics.source === 'healthconnect'
+        ? 'Health Connect'
+        : 'Estimated';
+
       Alert.alert(
         'Synced Successfully',
-        `${realSteps ? 'Real' : 'Estimated'} health data synced:\n\n` +
-        `👟 ${steps.toLocaleString()} steps\n` +
-        `❤️ ${hr} bpm avg heart rate\n` +
-        `🔥 ${cal} fuel burned\n` +
-        `📏 ${dist} km distance\n` +
-        `😴 ${sleepHrs}h sleep\n` +
-        `⏱ ${activeMins} active minutes`
+        `Source: ${sourceLabel}\n\n` +
+        `${steps.toLocaleString()} steps\n` +
+        `${metrics.heartRate} bpm avg\n` +
+        `${calories} cal burned\n` +
+        `${metrics.distanceKm} km\n` +
+        `${metrics.sleepHours}h sleep\n` +
+        `${metrics.activeMinutes} active minutes`,
       );
       await loadAll();
-    } catch (e) { console.error(e); Alert.alert('Error', 'Sync failed. Please try again.'); }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Sync failed. Please try again.');
+    }
   };
 
   const connectedIds = new Set(connected.map(d => d.provider));

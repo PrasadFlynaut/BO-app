@@ -622,6 +622,61 @@ async def admin_delete_post(request: Request, post_id: str):
     return {"deleted": True, "message": "Post deleted successfully."}
 
 
+# ===================== FEED MODERATION =====================
+
+@sprint8_router.get("/v1/admin/feed/all")
+async def admin_list_all_posts(
+    request: Request,
+    page: int = 1,
+    limit: int = 25,
+    include_deleted: bool = False,
+    search: str = "",
+):
+    """List all user + admin feed posts for moderation."""
+    await require_admin(request)
+    query: dict = {}
+    if not include_deleted:
+        query["$and"] = [{"is_deleted": {"$ne": True}}, {"deleted": {"$ne": True}}]
+    if search:
+        query["$or"] = [
+            {"text": {"$regex": search, "$options": "i"}},
+            {"content": {"$regex": search, "$options": "i"}},
+            {"user_name": {"$regex": search, "$options": "i"}},
+        ]
+    total = await db.feed_posts.count_documents(query)
+    posts = await db.feed_posts.find(query).sort("created_at", -1).skip((page - 1) * limit).limit(limit).to_list(limit)
+    return {
+        "data": [{
+            "id": str(p["_id"]),
+            "user_id": p.get("user_id"),
+            "user_name": p.get("user_name", ""),
+            "text": p.get("text") or p.get("content", ""),
+            "media_urls": p.get("media_urls", []),
+            "is_admin_post": p.get("is_admin_post", False),
+            "is_deleted": p.get("is_deleted", False) or p.get("deleted", False),
+            "deleted_at": p.get("deleted_at"),
+            "like_count": p.get("like_count", 0),
+            "comment_count": p.get("comment_count", 0),
+            "created_at": p.get("created_at"),
+        } for p in posts],
+        "pagination": {"page": page, "limit": limit, "total": total, "pages": max(1, (total + limit - 1) // limit)},
+    }
+
+
+@sprint8_router.delete("/v1/admin/feed/{post_id}")
+async def admin_moderate_delete_post(request: Request, post_id: str):
+    """Hard-delete any feed post for moderation (bypasses ownership check)."""
+    await require_admin(request)
+    existing = await db.feed_posts.find_one({"_id": ObjectId(post_id)})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Post not found")
+    # Hard delete — also clean up likes and comments
+    await db.feed_posts.delete_one({"_id": ObjectId(post_id)})
+    await db.feed_likes.delete_many({"post_id": post_id})
+    await db.feed_comments.delete_many({"post_id": post_id})
+    return {"deleted": True, "message": "Post permanently removed."}
+
+
 # ===================== MOD-024: SUBSCRIPTION PLAN MANAGEMENT =====================
 
 @sprint8_router.get("/v1/admin/subscription-plans")

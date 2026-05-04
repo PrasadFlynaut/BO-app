@@ -150,12 +150,29 @@ async def sync_wearable_data(inp: WearableSyncInput, request: Request):
     """Sync batch data from a wearable device"""
     user = await get_user(request)
 
-    # Verify device is connected
+    # Auto-connect device if not already connected
     device = await db.wearable_connections.find_one({
         "user_id": user["id"], "provider": inp.provider, "is_active": True
     })
     if not device:
-        raise HTTPException(status_code=400, detail="Device not connected")
+        if inp.provider not in SUPPORTED_PROVIDERS:
+            raise HTTPException(status_code=400, detail=f"Unsupported provider: {inp.provider}")
+        provider_info = SUPPORTED_PROVIDERS[inp.provider]
+        connection = {
+            "user_id": user["id"],
+            "provider": inp.provider,
+            "provider_name": provider_info["name"],
+            "device_name": provider_info["name"],
+            "device_model": "",
+            "is_active": True,
+            "last_sync": None,
+            "total_syncs": 0,
+            "connected_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        result = await db.wearable_connections.insert_one(connection)
+        device = connection
+        device["_id"] = result.inserted_id
 
     records = []
     for entry in inp.data:
@@ -179,7 +196,28 @@ async def sync_wearable_data(inp: WearableSyncInput, request: Request):
         {"$set": {"last_sync": now_iso(), "updated_at": now_iso()}, "$inc": {"total_syncs": 1}}
     )
 
-    return {"synced": len(records), "message": f"Synced {len(records)} data points"}
+    # Aggregate synced metrics for response
+    metrics: dict = {}
+    for r in records:
+        dt = r["data_type"]
+        val = r["value"]
+        if dt == "heart_rate":
+            metrics[dt] = metrics.get(dt, val)  # take first HR reading
+        else:
+            metrics[dt] = metrics.get(dt, 0) + val
+
+    return {
+        "synced": len(records),
+        "message": f"Synced {len(records)} data points from {inp.provider}",
+        "data": {
+            "steps": int(metrics.get("steps", 0)),
+            "calories": round(metrics.get("calories", 0), 1),
+            "active_minutes": int(metrics.get("active_minutes", 0)),
+            "distance_km": round(metrics.get("distance", 0) / 1000, 2),
+            "heart_rate": int(metrics.get("heart_rate", 0)),
+            "sleep": round(metrics.get("sleep", 0), 1),
+        },
+    }
 
 
 @wearable_router.post("/v1/wearables/data")
