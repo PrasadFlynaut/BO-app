@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from middleware import (
@@ -47,6 +48,7 @@ JWT_ALGORITHM = "HS256"
 LLM_API_KEY = os.environ.get('EMERGENT_LLM_KEY', os.environ.get('LLM_API_KEY', ''))
 
 app = FastAPI(title="BO Wellness API", version="1.0.0")
+app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
 app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)

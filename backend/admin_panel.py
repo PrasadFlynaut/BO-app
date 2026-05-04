@@ -17,10 +17,13 @@ ADMIN_HTML = """<!DOCTYPE html>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1a202c}
 .sidebar{width:var(--sidebar-w);background:#1a202c;min-height:100vh;position:fixed;top:0;left:0;z-index:50;transition:width .25s cubic-bezier(.4,0,.2,1);overflow:hidden}
-.sidebar-header{padding:20px;border-bottom:1px solid #2d3748;white-space:nowrap;overflow:hidden}
-.sidebar-logo{color:#fff;font-size:18px;font-weight:900;display:flex;align-items:center;gap:10px;overflow:hidden}
-.sidebar-logo span{flex-shrink:0;background:var(--bo-green);width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px}
-.sidebar-logo-text{transition:opacity .2s,max-width .25s;white-space:nowrap;overflow:hidden}
+.sidebar-header{padding:16px 20px;border-bottom:1px solid #2d3748;overflow:hidden;transition:padding .25s}
+.sidebar-logo{color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap}
+.sidebar-logo-img{flex-shrink:0;width:38px;height:38px;object-fit:contain;transition:width .25s,height .25s}
+.sidebar-logo-text{overflow:hidden;transition:opacity .2s,max-width .25s;white-space:nowrap}
+.sidebar.collapsed .sidebar-header{padding:14px 11px}
+.sidebar.collapsed .sidebar-logo{justify-content:center;gap:0}
+.sidebar.collapsed .sidebar-logo-img{width:34px;height:34px}
 .nav-section{padding:12px 0}
 .nav-label{color:#718096;font-size:11px;font-weight:600;letter-spacing:1.5px;padding:8px 20px;text-transform:uppercase;white-space:nowrap;overflow:hidden;transition:opacity .2s}
 .nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:#a0aec0;cursor:pointer;transition:all .15s;font-size:14px;font-weight:500;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
@@ -88,7 +91,7 @@ tr:hover td{background:#f7fafc}
 .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0fff4,#f7fafc)}
 .login-card{background:#fff;border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 25px 50px rgba(0,0,0,.08)}
 .login-logo{text-align:center;margin-bottom:32px}
-.login-logo .icon{width:60px;height:60px;border-radius:16px;background:var(--bo-green);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin-bottom:12px}
+.login-logo .icon{width:72px;height:72px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto}
 .otp-input{display:flex;gap:8px;justify-content:center;margin:24px 0}
 .otp-input input{width:48px;height:56px;text-align:center;font-size:24px;font-weight:700;border:2px solid #e2e8f0;border-radius:12px;outline:none}
 .otp-input input:focus{border-color:var(--bo-green)}
@@ -116,7 +119,7 @@ tr:hover td{background:#f7fafc}
 <!-- LOGIN PAGE -->
 <div id="loginPage" class="login-page">
 <div class="login-card">
-<div class="login-logo"><div class="icon">BO</div><h2 style="font-size:22px;font-weight:800">Admin Portal</h2><p style="color:#718096;font-size:14px;margin-top:4px">NIST 800-63B Compliant Authentication</p></div>
+<div class="login-logo"><img src="/static/bo-logo-color.png" class="icon" alt="BO"><h2 style="font-size:22px;font-weight:800">Admin Portal</h2><p style="color:#718096;font-size:14px;margin-top:4px">NIST 800-63B Compliant Authentication</p></div>
 <div id="loginStep1">
 <div class="form-group"><label class="form-label">Admin Email</label><input id="adminEmail" class="form-input" type="email" placeholder="admin@bo.com" value="admin@bo.com"></div>
 <div class="form-group"><label class="form-label">Password</label><input id="adminPw" class="form-input" type="password" placeholder="Enter password" value="BoAdmin2026!"></div>
@@ -144,7 +147,10 @@ tr:hover td{background:#f7fafc}
 <div id="dashboardPage" style="display:none">
 <div class="sidebar" id="sidebar">
 <div class="sidebar-header">
-<div class="sidebar-logo"><span>BO</span><span class="sidebar-logo-text">Admin Portal</span></div>
+<div class="sidebar-logo">
+<img src="/static/bo-logo-white.png" class="sidebar-logo-img" alt="BO">
+<span class="sidebar-logo-text">Admin Portal</span>
+</div>
 </div>
 <div class="nav-section">
 <div class="nav-label">Overview</div>
