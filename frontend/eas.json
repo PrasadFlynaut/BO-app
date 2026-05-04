@@ -15,6 +15,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://mobile-launch-45.preview.emergentagent.com"
       }
     },
     "production": {
@@ -23,6 +26,9 @@
       },
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://mobile-launch-45.preview.emergentagent.com"
       }
     }
   },
