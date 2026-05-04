@@ -1014,8 +1014,8 @@ async def download_sprint_doc(doc_key: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
-app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint3_router, prefix="/api")
+app.include_router(sprint4_router, prefix="/api")
 app.include_router(sprint2_router, prefix="/api")
 app.include_router(api_router)
 
