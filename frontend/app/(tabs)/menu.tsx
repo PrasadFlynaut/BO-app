@@ -449,8 +449,15 @@ export default function CulinaryScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name={tab.icon as any} size={16} color={viewMode === tab.key ? '#FFF' : Colors.textSecondary} />
-            <Text style={[cs.viewTabText, viewMode === tab.key && cs.viewTabTextActive]}>{tab.label}</Text>
+            <Ionicons name={tab.icon as any} size={15} color={viewMode === tab.key ? '#FFF' : Colors.textSecondary} />
+            <Text
+              style={[cs.viewTabText, viewMode === tab.key && cs.viewTabTextActive]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {tab.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -585,9 +592,9 @@ const cs = StyleSheet.create({
   profileBtn: {},
 
   viewTabRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, backgroundColor: '#FFF' },
-  viewTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: Radius.lg, backgroundColor: '#F5F5F5' },
+  viewTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 6, borderRadius: Radius.lg, backgroundColor: '#F5F5F5', minWidth: 0 },
   viewTabActive: { backgroundColor: Colors.green },
-  viewTabText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
+  viewTabText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary, flexShrink: 1 },
   viewTabTextActive: { color: '#FFF' },
 
   searchBox: { backgroundColor: '#F5F5F5', borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: 10 },

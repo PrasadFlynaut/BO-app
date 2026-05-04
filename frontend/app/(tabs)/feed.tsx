@@ -31,6 +31,25 @@ function getInitials(name: string) {
   return name[0].toUpperCase();
 }
 
+function UserAvatar({ name, imageUrl, size = 36 }: { name: string; imageUrl?: string | null; size?: number }) {
+  const radius = size / 2;
+  if (imageUrl) {
+    return (
+      <Image
+        source={{ uri: imageUrl }}
+        style={{ width: size, height: size, borderRadius: radius }}
+        contentFit="cover"
+        transition={200}
+      />
+    );
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: getAvatarColor(name), alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: '#FFF', fontWeight: '700', fontSize: size * 0.38 }}>{getInitials(name)}</Text>
+    </View>
+  );
+}
+
 // Separate component to avoid hooks-in-callbacks issue
 function PostCard({ item, index, isOwner, showPostMenu, setShowPostMenu, handleDeletePost, handleOpenDetail, handleLike, handleViewLikes, handleShare }: any) {
   const [expanded, setExpanded] = React.useState(false);
@@ -515,11 +534,8 @@ export default function FeedScreen() {
           <Text style={s.headerTitle}>Embrace Connection</Text>
           <Text style={s.headerSubtitle}>Share anything you want.</Text>
         </View>
-        <TouchableOpacity
-          style={[s.profileBtn, { backgroundColor: getAvatarColor(user?.name || 'U') }]}
-          onPress={() => router.push('/(tabs)/profile')}
-        >
-          <Text style={s.profileBtnText}>{getInitials(user?.name || 'U')}</Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={s.profileBtnWrap}>
+          <UserAvatar name={user?.name || 'U'} imageUrl={user?.profile_image_url} size={36} />
         </TouchableOpacity>
       </Animated.View>
 
@@ -614,9 +630,7 @@ export default function FeedScreen() {
 
             <ScrollView style={{ flex: 1 }} contentContainerStyle={s.createBody} keyboardShouldPersistTaps="handled">
               <View style={s.createUserRow}>
-                <View style={[s.avatar, { backgroundColor: getAvatarColor(user?.name || 'U') }]}>
-                  <Text style={s.avatarText}>{getInitials(user?.name || 'U')}</Text>
-                </View>
+                <UserAvatar name={user?.name || 'U'} imageUrl={user?.profile_image_url} size={40} />
                 <Text style={s.createUserName}>{user?.name || 'User'}</Text>
               </View>
 
@@ -859,8 +873,7 @@ const s = StyleSheet.create({
   filterChipActive: { backgroundColor: Colors.green },
   filterChipText: { fontSize: FontSize.small, fontWeight: '600', color: Colors.textSecondary },
   filterChipTextActive: { color: '#FFF' },
-  profileBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  profileBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  profileBtnWrap: { borderRadius: 18, overflow: 'hidden' },
 
   // Post Card
   postCard: { backgroundColor: '#FFF', borderRadius: Radius.lg, padding: Spacing.md },
