@@ -104,6 +104,7 @@
           }
         }
       ],
+      "./plugins/withMinSdkVersion",
       [
         "react-native-health-connect",
         {
